@@ -1,0 +1,6 @@
+requests>=2.18.2,<3
+pandas
+websocket-client==1.4.1
+openpyxl==3.0.10
+-e ../krakenex
+-e ../xtbapi
