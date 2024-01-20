@@ -164,9 +164,13 @@ class Asset:
         buy_avg_price = self.avg_buys
         perc = -my_round(percentage(buy_avg_price, self.price))
 
-        buy_avg_msg = BCOLORS.OKGREEN + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' \
-                      + BCOLORS.ENDC if buy_avg_price < self.price \
-            else BCOLORS.WARNING + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
+        if buy_avg_price < self.price:
+            buy_avg_msg = (
+                BCOLORS.OKGREEN + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
+            )
+        else:
+            buy_avg_msg = BCOLORS.WARNING + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
+            
         amount_msg = BCOLORS.WARNING + str(my_round(self.last_buys_shares * self.last_buys_avg_price)) + BCOLORS.ENDC
         message = f"""Missing buy: {self.name}, price to set: {my_round(next_buy_price)}, RANKING: {my_round(self.ranking)}, 
             curr. price: {my_round(self.price)}, latest trade price: {my_round(last_price)},
@@ -200,10 +204,16 @@ class Asset:
         sell_avg_price = self.avg_sells
         perc = my_round(percentage(self.price, sell_avg_price))
         sell_amount = my_round(self.last_sells_shares * self.last_sells_avg_price)
-        sell_avg_message = BCOLORS.OKGREEN + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' \
-                           + BCOLORS.ENDC if sell_avg_price > self.price \
-            else BCOLORS.WARNING + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
-        message = f"""Missing sell: {self.name}, price to set: {my_round(next_price)}, RANKING: {my_round(self.ranking)}, 
+
+        if sell_avg_price > self.price:
+            sell_avg_message = (
+                BCOLORS.OKGREEN + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
+            )
+        else: 
+            sell_avg_message = BCOLORS.WARNING + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
+        
+        message = (
+            f"""Missing sell: {self.name}, price to set: {my_round(next_price)}, RANKING: {my_round(self.ranking)}, 
             current price: {my_round(self.price)}, latest trade price: {my_round(last_price)},
             latest trade amount: {my_round(latest_trade.amount)}, latest trade vol: {my_round(latest_trade.shares)},
             execution date: {latest_trade.execution_datetime.date()},
@@ -215,6 +225,7 @@ class Asset:
             accum. sell vol: {my_round(self.last_sells_shares)}, 
             avg. sell price {my_round(self.last_sells_avg_price)}, 
             accum sell count|Amount: {self.last_sells_count}|{sell_amount}"""  # noqa
+        )
         return BCOLORS.BOLD + message + BCOLORS.ENDC
 
 

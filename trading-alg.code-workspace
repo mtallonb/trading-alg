@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../krakenex"
+		},
+		{
+			"path": "../xtbapi"
+		}
+	],
+	"settings": {}
+}

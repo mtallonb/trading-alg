@@ -27,7 +27,7 @@ LAST_ORDERS = 200
 BUY_LIMIT = 4  # Number of consecutive buy trades
 GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
 ORDER_THR = 0.25  # Umbral que consideramos error en la compra o venta a eliminar
-MINIMUM_BUY_AMOUNT = 80
+MINIMUM_BUY_AMOUNT = 70
 BUY_LIMIT_AMOUNT = BUY_LIMIT * 2 * MINIMUM_BUY_AMOUNT  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 
 PAGES = 20  # 50 RECORDS per page
@@ -300,8 +300,10 @@ for record in df[['Name', 'ranking']].to_dict('records'):
     # set ranking on the asset
     assets_dict[record['Name']].ranking = record['ranking']
 
-print('\n*****PAIR NAMES BY RANKING: (ibs: is buy set. blr: buy limit reached. '
-      'margin_a: sells_amount - buys_amount)*****')
+print(
+    '\n*****PAIR NAMES BY RANKING: (ibs: is buy set. blr: buy limit reached. '
+    'margin_a: sells_amount - buys_amount)*****'
+)
 print(df.sort_values(by='ranking', ascending=False).to_string(index=False))
 
 count_valid_asset = 0
@@ -343,11 +345,13 @@ if PRINT_ORDERS_SUMMARY:
 
         if asset.orders_sell_lower_price and asset.orders_sell_lower_price >= thr_sell:
             perc = percentage(last_trade_price, asset.orders_sell_lower_price,)
-            print(BCOLORS.WARNING + 'Watch-out sell order greater than THR for pair: {}. Last lowest sell order: {}, '
-                                    'last trade price: {}, perc: {} %'
-                  .format(asset.name, my_round(asset.orders_sell_lower_price),
-                          my_round(last_trade_price), my_round(perc))
-                  + BCOLORS.ENDC)
+            print(
+                BCOLORS.WARNING + 'Watch-out sell order greater than THR for pair: {}. Last lowest sell order: {}, '
+                'last trade price: {}, perc: {} %'.format(
+                    asset.name, my_round(asset.orders_sell_lower_price), my_round(last_trade_price), my_round(perc)
+                )
+                + BCOLORS.ENDC
+            )
             if AUTO_CANCEL_SELL_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete SELL orders from pair: {asset_name}.' + BCOLORS.ENDC)
                 input("Press Enter to continue or Ctrl+D to exit")
@@ -355,11 +359,13 @@ if PRINT_ORDERS_SUMMARY:
 
         if asset.orders_buy_higher_price and asset.orders_buy_higher_price <= thr_buy:
             perc = percentage(last_trade_price, asset.orders_buy_higher_price,)
-            print(BCOLORS.WARNING + 'Watch-out buy order lower than THR for pair: {}. Last highest buy order: {}, '
-                                    'last trade price: {}, perc: {} %'
-                  .format(asset_name, my_round(asset.orders_buy_higher_price),
-                          my_round(last_trade_price), my_round(perc))
-                  + BCOLORS.ENDC)
+            print(
+                BCOLORS.WARNING + 'Watch-out buy order lower than THR for pair: {}. Last highest buy order: {}, '
+                'last trade price: {}, perc: {} %'.format(
+                    asset_name, my_round(asset.orders_buy_higher_price), my_round(last_trade_price), my_round(perc)
+                )
+                + BCOLORS.ENDC
+            )
 
             if AUTO_CANCEL_BUY_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete BUY orders from pair: {asset_name}.' + BCOLORS.ENDC)
@@ -368,16 +374,20 @@ if PRINT_ORDERS_SUMMARY:
                 cancel_orders(kapi, Order.BUY, asset.orders)
 
         if buy_limit_amount_reached:
-            print(BCOLORS.WARNING +
-                  f'Watch-out BUY LIMIT AMOUNT of {BUY_LIMIT_AMOUNT} reached on asset: {asset_name}. '
-                  f'Margin amount: {my_round(margin_amount)}'
-                  + BCOLORS.ENDC)
+            print(
+                BCOLORS.WARNING +
+                f'Watch-out BUY LIMIT AMOUNT of {BUY_LIMIT_AMOUNT} reached on asset: {asset_name}. '
+                f'Margin amount: {my_round(margin_amount)}'
+                + BCOLORS.ENDC
+            )
 
         if buy_limit_reached:
-            print(BCOLORS.WARNING +
-                  f'Watch-out {BUY_LIMIT} consecutive BUYS on asset: {asset_name}. '
-                  f'Total buy amount: {my_round(asset.last_buys_shares * asset.last_buys_avg_price)}'
-                  + BCOLORS.ENDC)
+            print(
+                BCOLORS.WARNING +
+                f'Watch-out {BUY_LIMIT} consecutive BUYS on asset: {asset_name}. '
+                f'Total buy amount: {my_round(asset.last_buys_shares * asset.last_buys_avg_price)}'
+                + BCOLORS.ENDC
+            )
 
         if asset.orders_buy_count >= 2:
             print(BCOLORS.FAIL + 'Buy duplicated for asset: {}'.format(asset_name) + BCOLORS.ENDC)
@@ -403,15 +413,17 @@ if PRINT_ORDERS_SUMMARY:
     cash_needed_missing_buy = count_missing_buys * MINIMUM_BUY_AMOUNT
     cash_needed = count_remaining_buys * MINIMUM_BUY_AMOUNT
     all_cash_needed = count_all_remaining_buys * MINIMUM_BUY_AMOUNT
-    print(f'Total Sell amount: {my_round(sells_amount)}.\n'
-          f'Total Buys amount: {my_round(buys_amount)}.\n'
-          f'Remaining Cash (EUR): {my_round(cash_eur - buys_amount)}.\n'
-          f'Count missing buys: {count_missing_buys}.\n'
-          f'Needed cash missing buys: {cash_needed_missing_buy}.\n'
-          f'Count remaining buys: {count_remaining_buys}.\n'
-          f'Needed cash: {cash_needed}.\n'
-          f'Count ALL remaining buys (worst case): {count_all_remaining_buys}.\n'
-          f'ALL Needed cash: {all_cash_needed}')
+    print(
+        f'Total Sell amount: {my_round(sells_amount)}.\n'
+        f'Total Buys amount: {my_round(buys_amount)}.\n'
+        f'Remaining Cash (EUR): {my_round(cash_eur - buys_amount)}.\n'
+        f'Count missing buys: {count_missing_buys}.\n'
+        f'Needed cash missing buys: {cash_needed_missing_buy}.\n'
+        f'Count remaining buys: {count_remaining_buys}.\n'
+        f'Needed cash: {cash_needed}.\n'
+        f'Count ALL remaining buys (worst case): {count_all_remaining_buys}.\n'
+        f'ALL Needed cash: {all_cash_needed}'
+    )
 
 elapsed_time_since_begining = datetime.utcnow() - processing_time_start
 
