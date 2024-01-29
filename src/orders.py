@@ -56,7 +56,7 @@ PAIR_TO_LAST_TRADES = ['SNXEUR']
 
 # PAIR_TO_FORCE_INFO = ['ETCEUR']
 # PAIR_TO_FORCE_INFO = ['XLMEUR']
-PAIR_TO_FORCE_INFO = ['XBTEUR', 'LTCEUR']
+PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -292,8 +292,8 @@ for _, asset in sorted_pair_names_list_latest:
 
 # ------ RANKING ----------
 # ibs is_buy_set, blr buy limit reached
-df = pd.DataFrame(assets_by_last_trade, columns=['Name', 'Last trd', 'ibs', 'blr', 'curr_price', 'avg_buys',
-                                                 'avg_sells', 's_trades', 'margin_a'])
+ranking_col = ['Name', 'Last trd', 'ibs', 'blr', 'curr_price', 'avg_buys', 'avg_sells', 's_trades', 'margin_a']
+df = pd.DataFrame(assets_by_last_trade, columns=ranking_col)
 df = compute_ranking(df, count_sell_trades)
 print(df.to_string(index=False))
 for record in df[['Name', 'ranking']].to_dict('records'):
