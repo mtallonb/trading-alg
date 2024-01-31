@@ -28,7 +28,7 @@ BUY_LIMIT = 4  # Number of consecutive buy trades
 GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
 ORDER_THR = 0.25  # Umbral que consideramos error en la compra o venta a eliminar
 MINIMUM_BUY_AMOUNT = 70
-BUY_LIMIT_AMOUNT = BUY_LIMIT * 2 * MINIMUM_BUY_AMOUNT  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
+BUY_LIMIT_AMOUNT = BUY_LIMIT * 1.5 * MINIMUM_BUY_AMOUNT  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
@@ -127,11 +127,14 @@ elapsed_time_initialization = datetime.utcnow() - initialization_time_start
 # Fill price and balance
 name_list = assets_dict.keys()
 concatenate_names = ','.join(name_list)
-tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names})
+tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
+# Watch-out is returning all assets
 for name, ticker_info in tickers_info['result'].items():
+    ticker_info = tickers_info['result'].get(name)
     fixed_pair_name = get_fix_pair_name(name, FIX_X_PAIR_NAMES)
-    asset = assets_dict[fixed_pair_name]
-    asset.fill_ticker_info(ticker_info)
+    asset = assets_dict.get(fixed_pair_name)
+    if asset:
+        asset.fill_ticker_info(ticker_info)
 
 print(f'\n *****PAIR NAMES BY BALANCE TOTAL: {len(assets_dict)} *****')
 # Sort dict by balance descending
