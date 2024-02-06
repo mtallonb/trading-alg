@@ -177,7 +177,7 @@ class Asset:
             latest trade amount: {my_round(latest_trade.amount)}, latest trade vol: {my_round(latest_trade.shares)},
             execution date: {latest_trade.execution_datetime.date()},
             ALL buys Avg price: {buy_avg_msg},
-            ALL buys amount: {my_round(self.trades_buy_amount)} - All sells amount: {my_round(self.trades_sell_amount)},
+            ALL buys amount: {my_round(self.trades_buy_amount)} | ALL sells amount: {my_round(self.trades_sell_amount)},
             Margin amount(Buys - Sells): {my_round(self.trades_buy_amount - self.trades_sell_amount)} 
             accum. sell vol: {my_round(self.last_sells_shares)},
             avg. sell price {my_round(self.last_sells_avg_price)}, 

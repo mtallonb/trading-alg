@@ -103,6 +103,7 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
     print('==========\n')
     return total_gain_loss, gain_loss_year, fees
 
+read_start = datetime.utcnow()
 latest_trade_csv = read_trades_csv(filename, buy_trades, sell_trades)
 # latest_trade_csv_completed_tz = pytz.UTC.localize(latest_trade_csv.completed).astimezone(localtz)
 # latest_trade_csv_completed = latest_trade_csv.completed
@@ -200,3 +201,6 @@ for pair in pair_gains:
 
 # Append trades to CSV
 append_trades_to_csv(filename, trades_to_append_to_csv_asc)
+elapsed_time_read = datetime.utcnow() - read_start
+print('\n ***** TIME SUMMARY ***** ')
+print(f'Time: {elapsed_time_read}')
