@@ -14,7 +14,6 @@ import pytz
 from .classes import Trade, PriceOHLC, CSVTrade
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-DEFAULT_TRADE_DATE = date(2000, 1, 1)
 DECIMALS = 3
 
 # pytzutc = pytz.timezone('UTC')

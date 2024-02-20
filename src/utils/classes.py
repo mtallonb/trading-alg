@@ -8,14 +8,64 @@ from typing import List
 
 from pandas import DataFrame
 
+class Order:
+    BUY = 'buy'
+    SELL = 'sell'
+
+    def __init__(self, txid, order_type, shares, price):
+        self.txid = txid
+        self.order_type = order_type
+        self.shares = shares
+        self.price = price
+        self.amount = 0
+        self.creation_datetime = None
+
+    def __str__(self):
+        from utils.basic import my_round
+        return f'{self.order_type} {my_round(self.shares)} @ {my_round(self.price)} ' \
+               f'Amount: {my_round(self.shares*self.price)} -creation time: {self.creation_datetime.date()}'
+
+class Trade:
+    BUY = 'buy'
+    SELL = 'sell'
+
+    def __init__(self, trade_type, shares, price, amount=0.0, execution_datetime=None):
+        self.trade_type = trade_type
+        self.shares = shares
+        self.price = price
+        self.amount = amount
+        self.execution_datetime = execution_datetime
+
+    def __str__(self):
+        from utils.basic import my_round
+        return f'{self.trade_type} {my_round(self.shares)} @ {my_round(self.price)} ' \
+               f'Amount: {my_round(self.shares * self.price)} -closed time: {self.execution_datetime}'
+
+    def to_dict(self):
+        return {
+            'trade_type': self.trade_type,
+            'shares': self.shares,
+            'price': self.price,
+            'amount': self.amount,
+            'execution_datetime': self.execution_datetime,
+        }
+
+    def is_partial(self, trade):
+        # Return true if is a partial trade
+        return (self.trade_type == trade.trade_type and self.price == trade.price and
+                self.execution_datetime.date() == trade.execution_datetime.date())
+
+    def sum_trade(self, trade):
+        self.shares += trade.shares
+        self.amount += trade.amount
 
 @dataclass
 class Asset:
 
     name: string
     original_name: string
-    orders: list = field(default_factory=list)
-    trades: list = field(default_factory=list)
+    orders: list[Order] = field(default_factory=list)
+    trades: list[Trade] = field(default_factory=list)
 
     price: float = 0.0
     shares: float = 0.0
@@ -29,7 +79,7 @@ class Asset:
     orders_sell_amount: float = 0.0
     orders_sell_lower_price: float = 0.0
 
-    latest_trade_date: date = date(2000, 1, 1)
+    latest_trade_date: date = None
 
     trades_buy_shares: float = 0.0
     trades_buy_amount: float = 0.0
@@ -64,6 +114,12 @@ class Asset:
     @property
     def avg_sells(self):
         return self.trades_sell_amount / self.trades_sell_shares if self.trades_sell_shares else 0
+
+    def latest_order(self, type=Order.SELL) -> Order | None:
+        for order in self.orders:
+            if order.order_type == type:
+                return order
+        return None
 
     def fill_last_shares(self):
         trades = self.trades
@@ -229,58 +285,6 @@ class Asset:
         return BCOLORS.BOLD + message + BCOLORS.ENDC
 
 
-class Trade:
-    BUY = 'buy'
-    SELL = 'sell'
-
-    def __init__(self, trade_type, shares, price, amount=0.0, execution_datetime=None):
-        self.trade_type = trade_type
-        self.shares = shares
-        self.price = price
-        self.amount = amount
-        self.execution_datetime = execution_datetime
-
-    def __str__(self):
-        from utils.basic import my_round
-        return f'{self.trade_type} {my_round(self.shares)} @ {my_round(self.price)} ' \
-               f'Amount: {my_round(self.shares * self.price)} -closed time: {self.execution_datetime}'
-
-    def to_dict(self):
-        return {
-            'trade_type': self.trade_type,
-            'shares': self.shares,
-            'price': self.price,
-            'amount': self.amount,
-            'execution_datetime': self.execution_datetime,
-        }
-
-    def is_partial(self, trade):
-        # Return true if is a partial trade
-        return (self.trade_type == trade.trade_type and self.price == trade.price and
-                self.execution_datetime.date() == trade.execution_datetime.date())
-
-    def sum_trade(self, trade):
-        self.shares += trade.shares
-        self.amount += trade.amount
-
-
-class Order:
-    BUY = 'buy'
-    SELL = 'sell'
-
-    def __init__(self, txid, order_type, shares, price):
-        self.txid = txid
-        self.order_type = order_type
-        self.shares = shares
-        self.price = price
-        self.amount = 0
-        self.creation_datetime = None
-
-    def __str__(self):
-        from utils.basic import my_round
-        return f'{self.order_type} {my_round(self.shares)} @ {my_round(self.price)} ' \
-               f'Amount: {my_round(self.shares*self.price)} -creation time: {self.creation_datetime.date()}'
-
 
 class PriceOHLC:
 
@@ -324,8 +328,8 @@ class PairPrices:
     code: str = ''
 
     consecutive_buys: int = 0
-    consecutive_sells = int = 0
-    shares = float = 0.0
+    consecutive_sells: int = 0
+    shares: float = 0.0
 
     prices: List[PriceOHLC] = field(default_factory=list)
     buy_trades: List[Trade] = field(default_factory=list)

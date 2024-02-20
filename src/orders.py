@@ -13,6 +13,7 @@
 # Compensar ganancias con las perdidas de las muertas.
 # Add support to staking asset
 # Añadir media y varianza a cada asset de 30 dias por ejemplo parametrizable
+# Ejecutar las pérdidas si hay mucha ganancia este año
 
 
 import pandas as pd
@@ -248,10 +249,16 @@ if asset_name and trade:
 
 # exit(0)
 
-# Fill latest trade date
-for _, asset in assets_dict.items():
+# Fill latest trade date or delete asset
+keys_to_delete = []
+for key, asset in assets_dict.items():
     if asset.trades:
         asset.latest_trade_date = asset.trades[0].execution_datetime.date()
+    else:
+        keys_to_delete.append(key)
+
+for key in keys_to_delete:
+    del assets_dict[key]
 
 # Last trades
 if PRINT_LAST_TRADES:
@@ -268,7 +275,7 @@ if PRINT_LAST_TRADES:
 elapsed_time_last_trades = datetime.utcnow() - trades_time_start
 
 print('\n*****PAIR NAMES BY LATEST TRADE:*****')
-# Sort dict by balance descending
+# Sort dict by last trade
 sorted_pair_names_list_latest = sorted(assets_dict.items(), key=lambda x: x[1].latest_trade_date, reverse=False)
 
 assets_by_last_trade = []
@@ -280,7 +287,7 @@ for _, asset in sorted_pair_names_list_latest:
 
     asset.fill_last_shares()
 
-    if asset.latest_trade_date != DEFAULT_TRADE_DATE:
+    if asset.latest_trade_date is not None:
         sell_trades_count = asset.trades_sell_count
         count_sell_trades += sell_trades_count
         last_buy_amount = asset.last_buys_shares * asset.last_buys_avg_price
@@ -346,13 +353,20 @@ if PRINT_ORDERS_SUMMARY:
         if asset_name in PAIR_TO_FORCE_INFO:
             print(BCOLORS.WARNING+f'FORCE INFO ON PAIR: {asset_name}'+BCOLORS.ENDC)
 
-        if asset.orders_sell_lower_price and asset.orders_sell_lower_price >= thr_sell:
+        last_sell_order = asset.latest_order()
+        last_trade_execution = asset.trades[0].execution_datetime.replace(tzinfo=None)
+        sell_lower_price = asset.orders_sell_lower_price
+        cancel_condition = (
+            sell_lower_price and sell_lower_price >= thr_sell 
+            or (last_sell_order and last_trade_execution > last_sell_order.creation_datetime)
+        )
+        if cancel_condition:
             perc = percentage(last_trade_price, asset.orders_sell_lower_price,)
             print(
-                BCOLORS.WARNING + 'Watch-out sell order greater than THR for pair: {}. Last lowest sell order: {}, '
-                'last trade price: {}, perc: {} %'.format(
-                    asset.name, my_round(asset.orders_sell_lower_price), my_round(last_trade_price), my_round(perc)
-                )
+                BCOLORS.WARNING +
+                f'Watch-out sell order greater than THR for pair: {asset.name}.'
+                f'Order price: {my_round(asset.orders_sell_lower_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n' 
+                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_sell_order.creation_datetime}.'
                 + BCOLORS.ENDC
             )
             if AUTO_CANCEL_SELL_ORDER:
@@ -360,13 +374,19 @@ if PRINT_ORDERS_SUMMARY:
                 input("Press Enter to continue or Ctrl+D to exit")
                 cancel_orders(kapi, Order.SELL, asset.orders)
 
-        if asset.orders_buy_higher_price and asset.orders_buy_higher_price <= thr_buy:
+        last_buy_order = asset.latest_order(type=Order.BUY)
+        buy_higher_price = asset.orders_buy_higher_price
+        cancel_condition = (
+            buy_higher_price and buy_higher_price <= thr_buy 
+            or (last_buy_order and last_trade_execution > last_buy_order.creation_datetime)
+        )
+        if cancel_condition:
             perc = percentage(last_trade_price, asset.orders_buy_higher_price,)
             print(
-                BCOLORS.WARNING + 'Watch-out buy order lower than THR for pair: {}. Last highest buy order: {}, '
-                'last trade price: {}, perc: {} %'.format(
-                    asset_name, my_round(asset.orders_buy_higher_price), my_round(last_trade_price), my_round(perc)
-                )
+                BCOLORS.WARNING + 
+                f'Watch-out buy order lower than THR for pair: {asset_name}.'
+                f'Order price: {my_round(asset.orders_buy_higher_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n'
+                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_buy_order.creation_datetime}.'
                 + BCOLORS.ENDC
             )
 
