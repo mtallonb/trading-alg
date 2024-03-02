@@ -252,7 +252,7 @@ class Asset:
         suggested_buy_price = 0
 
         if self.balance < minimum_amount:
-            max_priceOHLC_after_trade = get_max_price_since(kapi, self.original_name, latest_trade.execution_datetime)
+            max_priceOHLC_after_trade = get_max_price_since(kapi, self.name, latest_trade.execution_datetime)
 
             if max_priceOHLC_after_trade:
                 suggested_buy_price = max_priceOHLC_after_trade.close * (1 - gain_perc)
