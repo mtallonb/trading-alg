@@ -77,15 +77,14 @@ kapi.load_key('./data/kraken.key')
 
 # prepare request
 # req_data = {'docalcs': 'true'}
-req_data = {'trades': 'false'}
 
 # query servers
 # start = kapi.query_public('Time')
 start = datetime.utcnow()
 
 balance = kapi.query_private('Balance')
-open_orders = kapi.query_private('OpenOrders', data=req_data)
-# stacked_assets = kapi.query_private('Earn/Allocations')#, data={'hide_zero_allocations': True})
+open_orders = kapi.query_private('OpenOrders', data={'trades': 'false'})
+stacked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocations': 'true'})
 # trade_balance = kapi.query_private('TradeBalance')
 # close_orders = kapi.query_private('CloseOrders', req_data)
 # trades_history = kapi.query_private('TradesHistory', req_data)
@@ -131,11 +130,18 @@ concatenate_names = ','.join(name_list)
 tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
 # Watch-out is returning all assets
 for name, ticker_info in tickers_info['result'].items():
-    ticker_info = tickers_info['result'].get(name)
     fixed_pair_name = get_fix_pair_name(name, FIX_X_PAIR_NAMES)
     asset = assets_dict.get(fixed_pair_name)
     if asset:
         asset.fill_ticker_info(ticker_info)
+
+# Fill stacking info
+# Watch-out is returning all assets
+for stacking_info in stacked_assets['result']['items']:
+    name = f"{stacking_info['native_asset']}EUR"
+    asset = assets_dict.get(name)
+    if asset:
+        asset.fill_stacking_info(stacking_info)
 
 print(f'\n *****PAIR NAMES BY BALANCE TOTAL: {len(assets_dict)} *****')
 # Sort dict by balance descending
@@ -207,8 +213,7 @@ print('\n *****TRADES*****')
 asset_name = ''
 trade = None
 for page in range(PAGES):
-    request_data = dict(req_data)
-    trades = get_trades_history(request_data, page, RECORDS_PER_PAGE, kapi)
+    trades = get_trades_history({'trades': 'false'}, page, RECORDS_PER_PAGE, kapi)
     # time.sleep(1)
     if not trades:
         print(BCOLORS.WARNING + 'No trades Found' + BCOLORS.ENDC)

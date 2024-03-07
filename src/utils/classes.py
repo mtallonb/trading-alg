@@ -69,7 +69,6 @@ class Asset:
 
     price: float = 0.0
     shares: float = 0.0
-    balance: float = 0.0
 
     orders_buy_count:  int = 0
     orders_buy_amount: float = 0.0
@@ -98,7 +97,9 @@ class Asset:
     last_sells_avg_price: float = 0.0
 
     ranking: float = 0.0
+    
     is_stacking: bool = False
+    staked_shares: float = 0.0
 
     def to_dict(self):
         return {
@@ -114,6 +115,14 @@ class Asset:
     @property
     def avg_sells(self):
         return self.trades_sell_amount / self.trades_sell_shares if self.trades_sell_shares else 0
+
+    @property
+    def balance(self) -> float:
+        return self.shares * self.price
+
+    @property
+    def stacked_balance(self) -> float:
+        return self.staked_shares * self.price
 
     def latest_order(self, type=Order.SELL) -> Order | None:
         for order in self.orders:
@@ -160,10 +169,17 @@ class Asset:
     def fill_ticker_info(self, ticker_info):
         if ticker_info:
             self.price = float(ticker_info['c'][0])
-            self.balance = self.price * self.shares
         else:
             from utils.basic import BCOLORS
             print(BCOLORS.FAIL + f'Missing price for asset: {self.name}' + BCOLORS.ENDC)
+
+    def fill_stacking_info(self, staking_info):
+        if staking_info:
+            self.is_stacking = True
+            self.staked_shares = float(staking_info['amount_allocated']['total']['native'])
+        else:
+            from utils.basic import BCOLORS
+            print(BCOLORS.FAIL + f'Missing staking info: {self.name}' + BCOLORS.ENDC)
 
     def update_orders_sell_lower_price(self, price):
         if not self.orders_sell_lower_price:
@@ -209,6 +225,10 @@ class Asset:
         margin_amount = self.trades_buy_amount - self.trades_sell_amount
         return (margin_amount > buy_limit_amount), margin_amount
 
+    def print_stacking_info(self):
+        from utils.basic import BCOLORS, my_round
+        return f' ***** staking info: Shares: {my_round(self.staked_shares)} Balance: {my_round(self.stacked_balance)}'
+
 
     def print_buy_message(self, gain_perc):
         from utils.basic import BCOLORS, my_round, percentage
@@ -226,22 +246,29 @@ class Asset:
             )
         else:
             buy_avg_msg = BCOLORS.WARNING + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
+
+        optional_price = BCOLORS.OKGREEN + str(my_round(next_buy_price_half)) + BCOLORS.ENDC
             
         amount_msg = BCOLORS.WARNING + str(my_round(self.last_buys_shares * self.last_buys_avg_price)) + BCOLORS.ENDC
-        message = f"""Missing buy: {self.name}, price to set: {my_round(next_buy_price)}, RANKING: {my_round(self.ranking)}, 
+        message = f"""
+            Missing buy: {self.name}, price to set: {my_round(next_buy_price)}, RANKING: {my_round(self.ranking)},
+            curr. shares: {my_round(self.shares)}, curr. balance: {my_round(self.balance)},
             curr. price: {my_round(self.price)}, latest trade price: {my_round(last_price)},
-            latest trade amount: {my_round(latest_trade.amount)}, latest trade vol: {my_round(latest_trade.shares)},
-            execution date: {latest_trade.execution_datetime.date()},
-            ALL buys Avg price: {buy_avg_msg},
-            ALL buys amount: {my_round(self.trades_buy_amount)} | ALL sells amount: {my_round(self.trades_sell_amount)},
-            Margin amount(Buys - Sells): {my_round(self.trades_buy_amount - self.trades_sell_amount)} 
+            latest trade: Amount: {my_round(latest_trade.amount)}, Vol: {my_round(latest_trade.shares)}, Exec date: {latest_trade.execution_datetime.date()},
+            ALL buys: Avg price: {buy_avg_msg}, Amount: {my_round(self.trades_buy_amount)},
+            ALL sells amount: {my_round(self.trades_sell_amount)},
+            Margin amount(Sells-Buys): {my_round(self.trades_sell_amount - self.trades_buy_amount)},
             accum. sell vol: {my_round(self.last_sells_shares)},
             avg. sell price {my_round(self.last_sells_avg_price)}, 
-            accum. sell amount: {my_round(self.last_sells_shares * self.last_sells_avg_price)}
+            accum. sell amount: {my_round(self.last_sells_shares * self.last_sells_avg_price)},
             accum. buy vol: {my_round(self.last_buys_shares)}, 
             avg. buy price {my_round(self.last_buys_avg_price)}, 
             accum buy count|amount: {self.last_buys_count}|{amount_msg},
-            Optionally price to set (half perc / {gain_perc / 2}): {my_round(next_buy_price_half)}"""  # noqa
+            Optionally price to set (half perc / {gain_perc / 2}): {optional_price},
+        """  # noqa
+        
+        if self.is_stacking:
+            message +=  self.print_stacking_info()
         return (BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
 
     def print_sell_message(self, kapi,  gain_perc, minimum_amount):
@@ -268,8 +295,9 @@ class Asset:
         else: 
             sell_avg_message = BCOLORS.WARNING + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
         
-        message = (
-            f"""Missing sell: {self.name}, price to set: {my_round(next_price)}, RANKING: {my_round(self.ranking)}, 
+        message = f"""
+            Missing sell: {self.name}, price to set: {my_round(next_price)}, RANKING: {my_round(self.ranking)}, 
+            curr. shares: {my_round(self.shares)}, curr. balance: {my_round(self.balance)},
             current price: {my_round(self.price)}, latest trade price: {my_round(last_price)},
             latest trade amount: {my_round(latest_trade.amount)}, latest trade vol: {my_round(latest_trade.shares)},
             execution date: {latest_trade.execution_datetime.date()},
@@ -280,8 +308,10 @@ class Asset:
             Suggested buy price to set based on max after last trade: {my_round(suggested_buy_price)},
             accum. sell vol: {my_round(self.last_sells_shares)}, 
             avg. sell price {my_round(self.last_sells_avg_price)}, 
-            accum sell count|Amount: {self.last_sells_count}|{sell_amount}"""  # noqa
-        )
+            accum sell count|Amount: {self.last_sells_count}|{sell_amount}
+        """  # noqa
+        if self.is_stacking:
+            message +=  self.print_stacking_info()
         return BCOLORS.BOLD + message + BCOLORS.ENDC
 
 
