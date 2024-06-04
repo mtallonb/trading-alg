@@ -27,9 +27,9 @@ LAST_ORDERS = 200
 
 BUY_LIMIT = 4  # Number of consecutive buy trades
 GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
-ORDER_THR = 0.25  # Umbral que consideramos error en la compra o venta a eliminar
+ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 MINIMUM_BUY_AMOUNT = 70
-BUY_LIMIT_AMOUNT = BUY_LIMIT * 1.5 * MINIMUM_BUY_AMOUNT  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
+BUY_LIMIT_AMOUNT = BUY_LIMIT * 1.25 * MINIMUM_BUY_AMOUNT  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
@@ -57,7 +57,8 @@ PAIR_TO_LAST_TRADES = ['SNXEUR']
 
 # PAIR_TO_FORCE_INFO = ['ETCEUR']
 # PAIR_TO_FORCE_INFO = ['XLMEUR']
-PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
+# PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
+PAIR_TO_FORCE_INFO = ['XBTEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
