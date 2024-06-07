@@ -16,12 +16,26 @@
 # Ejecutar las pérdidas si hay mucha ganancia este año
 
 
-import pandas as pd
+from datetime import datetime
 
 import krakenex
+import pandas as pd
 
-from utils.classes import Order, Asset
-from utils.basic import *
+from utils.basic import (
+    BCOLORS,
+    LOCAL_TZ,
+    cancel_orders,
+    chunks,
+    compute_ranking,
+    get_fix_pair_name,
+    get_price_shares_from_order,
+    get_trades_history,
+    is_staked,
+    load_from_csv,
+    my_round,
+    percentage,
+)
+from utils.classes import Asset, Order, Trade
 
 LAST_ORDERS = 200
 
@@ -29,7 +43,9 @@ BUY_LIMIT = 4  # Number of consecutive buy trades
 GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 MINIMUM_BUY_AMOUNT = 70
-BUY_LIMIT_AMOUNT = BUY_LIMIT * 1.25 * MINIMUM_BUY_AMOUNT  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
+BUY_LIMIT_AMOUNT = (
+    BUY_LIMIT * 1.25 * MINIMUM_BUY_AMOUNT
+)  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
@@ -183,7 +199,7 @@ for txid, order_dict in open_orders['result']['open'].items():
 
 if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
     df = pd.DataFrame(orders)
-    df['percentage'] = 100 * (df['price']-df['current_price'])/df['current_price']
+    df['percentage'] = 100 * (df['price'] - df['current_price']) / df['current_price']
     df['percentage_abs'] = abs(df['percentage'])
     df = df.reindex(df.percentage.abs().sort_values().index)
 
@@ -225,18 +241,28 @@ for page in range(PAGES):
         asset = assets_dict.get(asset_name)
         if asset:
             execution_datetime = datetime.fromtimestamp(trade_detail['time'])
-            execution_datetime_tz = localtz.localize(execution_datetime.replace(microsecond=0))
+            execution_datetime_tz = LOCAL_TZ.localize(execution_datetime.replace(microsecond=0))
 
-            trade = Trade(trade_detail['type'], float(trade_detail['vol']), float(trade_detail['price']),
-                          amount=float(trade_detail['cost']), execution_datetime=execution_datetime_tz)
-            if GET_FULL_TRADE_HISTORY and last_trade_from_csv and \
-                    trade.execution_datetime > last_trade_from_csv.execution_datetime:
+            trade = Trade(
+                trade_detail['type'],
+                float(trade_detail['vol']),
+                float(trade_detail['price']),
+                amount=float(trade_detail['cost']),
+                execution_datetime=execution_datetime_tz,
+            )
+            if (
+                GET_FULL_TRADE_HISTORY
+                and last_trade_from_csv
+                and trade.execution_datetime > last_trade_from_csv.execution_datetime
+            ):
                 asset.insert_trade_on_top(trade)
                 print(BCOLORS.WARNING + 'CSV not updated' + BCOLORS.ENDC)
 
             elif trade.execution_datetime <= last_trade_from_csv.execution_datetime:
-                print(f'CSV is updated from here on so we can leave the loop: {asset_name} {trade.execution_datetime}, '
-                      f'last_trade from CSV: {last_trade_from_csv.execution_datetime}')
+                print(
+                    f'CSV is updated from here on so we can leave the loop: {asset_name} {trade.execution_datetime}, '
+                    f'last_trade from CSV: {last_trade_from_csv.execution_datetime}',
+                )
                 break
             else:
                 asset.add_trade(trade)
@@ -244,14 +270,16 @@ for page in range(PAGES):
             print(f'Missing trade pair: {asset_name}')
 
     if GET_FULL_TRADE_HISTORY and trade and trade.execution_datetime <= last_trade_from_csv.execution_datetime:
-        print(f'Leaving main loop. CSV is UPDATED: {trade.execution_datetime}, '
-              f'last_trade: {last_trade_from_csv.execution_datetime}')
+        print(
+            f'Leaving main loop. CSV is UPDATED: {trade.execution_datetime}, '
+            f'last_trade: {last_trade_from_csv.execution_datetime}',
+        )
         break
 
 
 # Oldest trade read
 if asset_name and trade:
-    print(BCOLORS.OKGREEN+f"Oldest trade date read for {asset_name}: {trade}"+BCOLORS.ENDC)
+    print(BCOLORS.OKGREEN + f"Oldest trade date read for {asset_name}: {trade}" + BCOLORS.ENDC)
 
 # exit(0)
 
@@ -287,7 +315,6 @@ sorted_pair_names_list_latest = sorted(assets_dict.items(), key=lambda x: x[1].l
 assets_by_last_trade = []
 count_sell_trades = 0
 for _, asset in sorted_pair_names_list_latest:
-
     if not asset.trades:
         continue
 
@@ -301,9 +328,19 @@ for _, asset in sorted_pair_names_list_latest:
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
         buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
         margin_amount = asset.trades_sell_amount - asset.trades_buy_amount
-        assets_by_last_trade.append([asset.name,  asset.latest_trade_date, asset.orders_buy_count, buy_limit_reached,
-                                     my_round(asset.price), my_round(asset.avg_buys), my_round(asset.avg_sells),
-                                     sell_trades_count, my_round(margin_amount)])
+        assets_by_last_trade.append(
+            [
+                asset.name,
+                asset.latest_trade_date,
+                asset.orders_buy_count,
+                buy_limit_reached,
+                my_round(asset.price),
+                my_round(asset.avg_buys),
+                my_round(asset.avg_sells),
+                sell_trades_count,
+                my_round(margin_amount),
+            ],
+        )
 
 
 # ------ RANKING ----------
@@ -318,7 +355,7 @@ for record in df[['Name', 'ranking']].to_dict('records'):
 
 print(
     '\n*****PAIR NAMES BY RANKING: (ibs: is buy set. blr: buy limit reached. '
-    'margin_a: sells_amount - buys_amount)*****'
+    'margin_a: sells_amount - buys_amount)*****',
 )
 print(df.sort_values(by='ranking', ascending=False).to_string(index=False))
 
@@ -338,18 +375,18 @@ if PRINT_ORDERS_SUMMARY:
             continue
 
         last_trade_price = asset.trades[0].price
-        thr_sell = last_trade_price * (1+ORDER_THR)
-        thr_buy = last_trade_price * (1-ORDER_THR)
+        thr_sell = last_trade_price * (1 + ORDER_THR)
+        thr_buy = last_trade_price * (1 - ORDER_THR)
 
         remaining_buys = max(BUY_LIMIT - asset.last_buys_count, 0)
         last_buy_amount = asset.last_buys_shares * asset.last_buys_avg_price
-        buy_limit_reached = asset.check_buys_limit(BUY_LIMIT, MINIMUM_BUY_AMOUNT*BUY_LIMIT, last_buy_amount)
+        buy_limit_reached = asset.check_buys_limit(BUY_LIMIT, MINIMUM_BUY_AMOUNT * BUY_LIMIT, last_buy_amount)
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
 
         if asset_name not in ASSETS_TO_EXCLUDE_AMOUNT and remaining_buys:
             count_all_remaining_buys += remaining_buys
             if asset.orders_buy_amount:
-                print(f'BUY order already set. Subtracting 1.') if SHOW_COUNT_BUYS else None
+                print('BUY order already set. Subtracting 1.') if SHOW_COUNT_BUYS else None
                 count_all_remaining_buys -= 1
 
             if SHOW_COUNT_BUYS:
@@ -357,23 +394,23 @@ if PRINT_ORDERS_SUMMARY:
                 print(f'Count ALL buys: {count_all_remaining_buys}.\n')
 
         if asset_name in PAIR_TO_FORCE_INFO:
-            print(BCOLORS.WARNING+f'FORCE INFO ON PAIR: {asset_name}'+BCOLORS.ENDC)
+            print(BCOLORS.WARNING + f'FORCE INFO ON PAIR: {asset_name}' + BCOLORS.ENDC)
 
         last_sell_order = asset.latest_order()
         last_trade_execution = asset.trades[0].execution_datetime.replace(tzinfo=None)
         sell_lower_price = asset.orders_sell_lower_price
         cancel_condition = (
-            sell_lower_price and sell_lower_price >= thr_sell 
+            sell_lower_price
+            and sell_lower_price >= thr_sell
             or (last_sell_order and last_trade_execution > last_sell_order.creation_datetime)
         )
         if cancel_condition:
-            perc = percentage(last_trade_price, asset.orders_sell_lower_price,)
+            perc = percentage(last_trade_price, asset.orders_sell_lower_price)
             print(
-                BCOLORS.WARNING +
-                f'Watch-out sell order greater than THR for pair: {asset.name}.'
-                f'Order price: {my_round(asset.orders_sell_lower_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n' 
-                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_sell_order.creation_datetime}.'
-                + BCOLORS.ENDC
+                BCOLORS.WARNING + f'Watch-out sell order greater than THR for pair: {asset.name}.'
+                f'Order price: {my_round(asset.orders_sell_lower_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n'  # noqa: E501
+                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_sell_order.creation_datetime}.'  # noqa: E501
+                 + BCOLORS.ENDC,
             )
             if AUTO_CANCEL_SELL_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete SELL orders from pair: {asset_name}.' + BCOLORS.ENDC)
@@ -383,17 +420,17 @@ if PRINT_ORDERS_SUMMARY:
         last_buy_order = asset.latest_order(type=Order.BUY)
         buy_higher_price = asset.orders_buy_higher_price
         cancel_condition = (
-            buy_higher_price and buy_higher_price <= thr_buy 
+            buy_higher_price
+            and buy_higher_price <= thr_buy
             or (last_buy_order and last_trade_execution > last_buy_order.creation_datetime)
         )
         if cancel_condition:
-            perc = percentage(last_trade_price, asset.orders_buy_higher_price,)
+            perc = percentage(last_trade_price, asset.orders_buy_higher_price)
             print(
-                BCOLORS.WARNING + 
-                f'Watch-out buy order lower than THR for pair: {asset_name}.'
-                f'Order price: {my_round(asset.orders_buy_higher_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n'
-                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_buy_order.creation_datetime}.'
-                + BCOLORS.ENDC
+                BCOLORS.WARNING + f'Watch-out buy order lower than THR for pair: {asset_name}.'
+                f'Order price: {my_round(asset.orders_buy_higher_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n'  # noqa: E501
+                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_buy_order.creation_datetime}.'  # noqa: E501
+                 + BCOLORS.ENDC,
             )
 
             if AUTO_CANCEL_BUY_ORDER:
@@ -404,18 +441,14 @@ if PRINT_ORDERS_SUMMARY:
 
         if buy_limit_amount_reached:
             print(
-                BCOLORS.WARNING +
-                f'Watch-out BUY LIMIT AMOUNT of {BUY_LIMIT_AMOUNT} reached on asset: {asset_name}. '
-                f'Margin amount: {my_round(margin_amount)}'
-                + BCOLORS.ENDC
+                BCOLORS.WARNING + f'Watch-out BUY LIMIT AMOUNT of {BUY_LIMIT_AMOUNT} reached on asset: {asset_name}. '
+                f'Margin amount: {my_round(margin_amount)}' + BCOLORS.ENDC,
             )
 
         if buy_limit_reached:
             print(
-                BCOLORS.WARNING +
-                f'Watch-out {BUY_LIMIT} consecutive BUYS on asset: {asset_name}. '
-                f'Total buy amount: {my_round(asset.last_buys_shares * asset.last_buys_avg_price)}'
-                + BCOLORS.ENDC
+                BCOLORS.WARNING + f'Watch-out {BUY_LIMIT} consecutive BUYS on asset: {asset_name}. '
+                f'Total buy amount: {my_round(asset.last_buys_shares * asset.last_buys_avg_price)}' + BCOLORS.ENDC,
             )
 
         if asset.orders_buy_count >= 2:
@@ -451,7 +484,7 @@ if PRINT_ORDERS_SUMMARY:
         f'Count remaining buys: {count_remaining_buys}.\n'
         f'Needed cash: {cash_needed}.\n'
         f'Count ALL remaining buys (worst case): {count_all_remaining_buys}.\n'
-        f'ALL Needed cash: {all_cash_needed}'
+        f'ALL Needed cash: {all_cash_needed}',
     )
 
 elapsed_time_since_begining = datetime.utcnow() - processing_time_start

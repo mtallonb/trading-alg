@@ -1,0 +1,58 @@
+
+indent-width = 4
+
+# Enable preview features.
+preview = false
+
+# Allow lines to be as long as 120.
+line-length = 120
+
+# A list of file patterns to exclude from formatting and linting
+exclude = [
+    ".git",
+    ".env",
+    "*__pycache__*",
+    "*docs*",
+    "*scripts*",
+    "*static_dependencies*",
+    "tests/conftest.py",
+]
+
+[lint]
+select = [
+    # pycodestyle
+    "E", "W",
+    # Pyflakes
+    "F",
+    # isort
+    "I",
+    # Ruff
+    "RUF",
+    # trailing commas
+    "COM",
+]
+
+# Skip errors:
+# E266 -> Too many leading # before block comment
+# E722 -> Do not use bare except
+# C901 -> {name} is too complex ({complexity} > {max_complexity})
+# RUF012 -> Mutable class attributes should be annotated with typing.ClassVar
+
+ignore = ["E266","E722","C901","RUF012"]
+
+[lint.isort]
+force-wrap-aliases = true
+combine-as-imports = true
+lines-between-types = 1
+# Hanging Grid Grouped open issue on ruff: https://github.com/astral-sh/ruff/issues/2600
+# uncomment when the feature is added
+# multi_line_output = 5
+
+[lint.mccabe]
+# Flag errors (`C901`) whenever the complexity level exceeds 10.
+max-complexity = 10
+
+[format]
+quote-style = "preserve"
+skip-magic-trailing-comma = false
+indent-style = "space"

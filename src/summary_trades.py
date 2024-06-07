@@ -2,11 +2,15 @@
 
 # Fix decimals
 
-import krakenex
+import time
+
+from datetime import datetime
 from decimal import Decimal as D
 
-from utils.basic import *
+import krakenex
 
+from utils.basic import append_trades_to_csv, get_trades_history, my_round, read_trades_csv
+from utils.classes import CSVTrade
 
 year = 2024
 
@@ -43,7 +47,6 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
     fees = 0  # Sell fees since Buy fees are included proportionally on price
     print('===== {} ====='.format(asset_name))
     for sell in sell_trades:
-
         if VERBOSE:
             print(sell)
 
@@ -55,14 +58,17 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
                 break
 
             if VERBOSE:
-                print(f'***** buy price: {my_round(buy.price)} on {buy.completed.date()}, '
-                      f'buy remaining volume before: {my_round(buy.remaining_volume)},'
-                      f' sell remaining_volume before: {my_round(sell.remaining_volume)}.')
+                print(
+                    f'***** buy price: {my_round(buy.price)} on {buy.completed.date()}, '
+                    f'buy remaining volume before: {my_round(buy.remaining_volume)},'
+                    f' sell remaining_volume before: {my_round(sell.remaining_volume)}.',
+                )
 
             # Buy to 0
             if sell.remaining_volume > buy.remaining_volume:
-                sell.accumulated_buy_amount += buy.remaining_volume * buy.price + (
-                            buy.remaining_volume / buy.volume) * buy.fee
+                sell.accumulated_buy_amount += (
+                    buy.remaining_volume * buy.price + (buy.remaining_volume / buy.volume) * buy.fee
+                )
                 sell.remaining_volume -= buy.remaining_volume
                 buy.remaining_volume = 0
                 sell.related_buys.append(buy)
@@ -70,21 +76,23 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
 
             # THEN sell.remaining_volume <= buy.remaining_volume:
             else:
-
                 buy.remaining_volume -= sell.remaining_volume
 
                 if buy.remaining_volume == 0:
                     buy_trades.remove(buy)
                     sell.related_buys.append(buy)
 
-                sell.accumulated_buy_amount += sell.remaining_volume * buy.price + (
-                            sell.remaining_volume / buy.volume) * buy.fee
+                sell.accumulated_buy_amount += (
+                    sell.remaining_volume * buy.price + (sell.remaining_volume / buy.volume) * buy.fee
+                )
 
                 sell.remaining_volume = 0
                 gain_loss = sell.amount - sell.accumulated_buy_amount
                 if VERBOSE:
-                    print(f'sell for year: {sell.completed.year}, completed: {sell.completed.date()}.'
-                          f'gain_loss: {my_round(gain_loss)}, fee: {my_round(sell.fee)}.')
+                    print(
+                        f'sell for year: {sell.completed.year}, completed: {sell.completed.date()}.'
+                        f'gain_loss: {my_round(gain_loss)}, fee: {my_round(sell.fee)}.',
+                    )
                 total_gain_loss += gain_loss
                 if sell.completed.year == year:
                     gain_loss_year += gain_loss
@@ -92,9 +100,11 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
                 break
 
             if VERBOSE:
-                print(f'***** buy price: {my_round(buy.price)}, '
-                      f'buy remaining volume after: {my_round(buy.remaining_volume)}, '
-                      f'sell remaining_volume after: {my_round(sell.remaining_volume)}.')
+                print(
+                    f'***** buy price: {my_round(buy.price)}, '
+                    f'buy remaining volume after: {my_round(buy.remaining_volume)}, '
+                    f'sell remaining_volume after: {my_round(sell.remaining_volume)}.',
+                )
 
     print('===== ASSET SUMMARY =====')
     print(f'total gain loss: {my_round(total_gain_loss)}')
@@ -102,6 +112,7 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
     print(f'fees ({year}): {my_round(fees)}')
     print('==========\n')
     return total_gain_loss, gain_loss_year, fees
+
 
 read_start = datetime.utcnow()
 latest_trade_csv = read_trades_csv(filename, buy_trades, sell_trades)
@@ -120,8 +131,15 @@ for page in range(PAGES):
         closetime = time.strftime(DATE_FORMAT, time.gmtime(trade_detail['time']))
         name = trade_detail['pair']
         # fix_name = REPLACE_NAMES[name] if name in REPLACE_NAMES.keys() else name
-        trade = CSVTrade(name, closetime, trade_detail['type'], trade_detail['price'],
-                         trade_detail['cost'], trade_detail['fee'], trade_detail['vol'])
+        trade = CSVTrade(
+            name,
+            closetime,
+            trade_detail['type'],
+            trade_detail['price'],
+            trade_detail['cost'],
+            trade_detail['fee'],
+            trade_detail['vol'],
+        )
         if trade.completed > latest_trade_csv.completed:
             trades_to_append_to_csv.append(trade)
 
@@ -154,19 +172,30 @@ pair_gains = []
 for asset_name in sell_pairs_in_year:
     buy_trades_asset = [buy for buy in buy_trades if buy.asset_name == asset_name]
     sell_trades_asset = [sell for sell in sell_trades if sell.asset_name == asset_name and sell.completed.year <= year]
-    total_gain_loss_asset, gain_loss_year_asset, fees = compute_gain_loss(buy_trades_asset, sell_trades_asset, year,
-                                                                          asset_name)
+    total_gain_loss_asset, gain_loss_year_asset, fees = compute_gain_loss(
+        buy_trades_asset,
+        sell_trades_asset,
+        year,
+        asset_name,
+    )
 
-    sell_trades_asset_year_amount = [sell.amount for sell in sell_trades
-                                     if sell.asset_name == asset_name and sell.completed.year == year]
+    sell_trades_asset_year_amount = [
+        sell.amount for sell in sell_trades if sell.asset_name == asset_name and sell.completed.year == year
+    ]
     sell_total_year = sum(sell_trades_asset_year_amount)
     unrealised_p_year = sell_total_year * D('0.2')
     total_gain_loss += total_gain_loss_asset
     gain_loss_year += gain_loss_year_asset
     unrealised_p_total_year += unrealised_p_year
     year_fees += fees
-    pair_gains.append({'name': asset_name, 'gl': total_gain_loss_asset, 'gl_year': gain_loss_year_asset,
-                       'unrealised_p_year': unrealised_p_year})
+    pair_gains.append(
+        {
+            'name': asset_name,
+            'gl': total_gain_loss_asset,
+            'gl_year': gain_loss_year_asset,
+            'unrealised_p_year': unrealised_p_year,
+        },
+    )
 
 # Buy /Sells summary
 total_buy_amount = sum([buy.amount for buy in buy_trades])
@@ -189,15 +218,19 @@ pair_gains.sort(reverse=True, key=lambda x: x['gl'])
 
 print('\n== G/L PAIRS (TOTAL ACCUM/CURRENT YEAR (FIFO)/(LIFO)) ==')
 for pair in pair_gains:
-    print(f'{pair["name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
-          f'{my_round(pair["unrealised_p_year"]):{10}}')
-    
+    print(
+        f'{pair["name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
+        f'{my_round(pair["unrealised_p_year"]):{10}}',
+    )
+
 pair_gains.sort(reverse=True, key=lambda x: x['unrealised_p_year'])
 
 print('\n== G/L PAIRS SORT BY LIFO (3rd COLUMN) ==')
 for pair in pair_gains:
-    print(f'{pair["name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
-          f'{my_round(pair["unrealised_p_year"]):{10}}')
+    print(
+        f'{pair["name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
+        f'{my_round(pair["unrealised_p_year"]):{10}}',
+    )
 
 # Append trades to CSV
 append_trades_to_csv(filename, trades_to_append_to_csv_asc)

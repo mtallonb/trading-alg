@@ -2,22 +2,23 @@
 
 import re
 import time
+
 from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal as D
 
 import numpy as np
 import pytz
 
-from .classes import Trade, PriceOHLC, CSVTrade
+from .classes import CSVTrade, PriceOHLC, Trade
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 DECIMALS = 3
 
 # pytzutc = pytz.timezone('UTC')
-localtz = pytz.timezone('Europe/Madrid')
+LOCAL_TZ = pytz.timezone('Europe/Madrid')
 
 
 class BCOLORS:
@@ -42,7 +43,7 @@ def from_timestamp_to_datetime(timestamp):
 
 def chunks(elem_list, n):
     n = max(1, n)
-    return (elem_list[i:i+n] for i in range(0, len(elem_list), n))
+    return (elem_list[i : i + n] for i in range(0, len(elem_list), n))
 
 
 def is_staked(name):
@@ -52,7 +53,7 @@ def is_staked(name):
 # TODO not working on 5e-05
 def count_zeros(value):
     float_str = str(value)
-    return len(re.search('\d+\.(0*)', float_str).group(1))
+    return len(re.search(r'\d+\.(0*)', float_str).group(1))
 
 
 def my_round(value, decimal_places=DECIMALS):
@@ -156,7 +157,7 @@ def get_price_shares_from_order(order_string):
 
 def get_fix_pair_name(pair_name, fix_x_pair_names):
     if pair_name != 'XTZEUR' and pair_name[-4:] == 'ZEUR':
-        pair_name = pair_name[:-4]+'EUR'
+        pair_name = pair_name[:-4] + 'EUR'
 
     if pair_name[:2] == 'XX' or pair_name in fix_x_pair_names:
         return pair_name[1:]
@@ -177,10 +178,15 @@ def load_from_csv(filename, assets_dict, fix_x_pair_names):
             execution_time = datetime.strptime(asset_csv['time'], DATE_FORMAT)
 
             # Execution_time: Note CSV data is in UTC
-            execution_time_local = pytz.UTC.localize(execution_time).astimezone(localtz)
+            execution_time_local = pytz.UTC.localize(execution_time).astimezone(LOCAL_TZ)
 
-            trade = Trade(asset_csv['type'], float(asset_csv['vol']),  float(asset_csv['price']),
-                          amount=float(asset_csv['cost']), execution_datetime=execution_time_local)
+            trade = Trade(
+                asset_csv['type'],
+                float(asset_csv['vol']),
+                float(asset_csv['price']),
+                amount=float(asset_csv['cost']),
+                execution_datetime=execution_time_local,
+            )
             if asset:
                 asset.insert_trade_on_top(trade)
 
@@ -215,7 +221,7 @@ def compute_ranking(df, count_sell_trades):
     df['s_trades'] = df['s_trades'] / count_sell_trades
 
     df['ranking'] = df['pb'] + df['ps'] + df['perc_bs'] + df['s_trades'] + df['margin_pc']
-    
+
     idx = df['avg_sells'] == 0.0
     df.loc[idx, 'ranking'] = np.nan
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -239,8 +245,15 @@ def read_trades_csv(filename, buy_trades, sell_trades):
         next(csv_reader, None)
 
         for asset_csv in csv_reader:
-            trade = CSVTrade(asset_csv['pair'], asset_csv['time'], asset_csv['type'], asset_csv['price'],
-                             asset_csv['cost'], asset_csv['fee'], asset_csv['vol'])
+            trade = CSVTrade(
+                asset_csv['pair'],
+                asset_csv['time'],
+                asset_csv['type'],
+                asset_csv['price'],
+                asset_csv['cost'],
+                asset_csv['fee'],
+                asset_csv['vol'],
+            )
             if trade.type == 'buy':
                 buy_trades.append(trade)
             else:
@@ -254,7 +267,15 @@ def append_trades_to_csv(filename, trades_to_append):
     with open(filename, mode='a+', newline='') as csvfile:
         append_writer = writer(csvfile)
         for trade in trades_to_append:
-            row = [trade.asset_name, trade.completed, trade.type, 'limit', my_round(trade.price),
-                   my_round(trade.amount), my_round(trade.fee), my_round(trade.volume)]
+            row = [
+                trade.asset_name,
+                trade.completed,
+                trade.type,
+                'limit',
+                my_round(trade.price),
+                my_round(trade.amount),
+                my_round(trade.fee),
+                my_round(trade.volume),
+            ]
             append_writer.writerow(row)
         csvfile.close()
