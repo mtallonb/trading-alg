@@ -123,6 +123,10 @@ class Asset:
     @property
     def stacked_balance(self) -> float:
         return self.staked_shares * self.price
+    
+    @property
+    def margin_amount(self) -> float:
+        return self.trades_sell_amount + self.balance + self.stacked_balance - self.trades_buy_amount
 
     def latest_order(self, type=Order.SELL) -> Order | None:
         for order in self.orders:
@@ -222,7 +226,7 @@ class Asset:
         return False
 
     def check_buys_amount_limit(self, buy_limit_amount):
-        margin_amount = self.trades_buy_amount - self.trades_sell_amount
+        margin_amount = self.trades_buy_amount - self.trades_sell_amount - self.balance - self.stacked_balance
         return (margin_amount > buy_limit_amount), margin_amount
 
     def print_stacking_info(self):
@@ -257,7 +261,7 @@ class Asset:
             latest trade: Amount: {my_round(latest_trade.amount)}, Vol: {my_round(latest_trade.shares)}, Exec date: {latest_trade.execution_datetime.date()},
             ALL buys: Avg price: {buy_avg_msg}, Amount: {my_round(self.trades_buy_amount)},
             ALL sells amount: {my_round(self.trades_sell_amount)},
-            Margin amount(Sells-Buys): {my_round(self.trades_sell_amount - self.trades_buy_amount)},
+            Margin amount(Sells-Buys): {my_round(self.margin_amount)},
             accum. sell vol: {my_round(self.last_sells_shares)},
             avg. sell price {my_round(self.last_sells_avg_price)}, 
             accum. sell amount: {my_round(self.last_sells_shares * self.last_sells_avg_price)},

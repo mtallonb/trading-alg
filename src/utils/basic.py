@@ -214,11 +214,11 @@ def print_query_result(endpoint, result):
 
 def compute_ranking(df, count_sell_trades):
     sum_margin_a = df['margin_a'].abs().sum()
-    df['margin_pc'] = df['margin_a'] / sum_margin_a
+    df['margin_pc'] = (df['margin_a'] / sum_margin_a)
     df['pb'] = (df['curr_price'] - df['avg_buys']) / df['curr_price']
     df['ps'] = (df['curr_price'] - df['avg_sells']) / df['curr_price']
     df['perc_bs'] = (df['avg_sells'] - df['avg_buys']) / df['avg_sells']
-    df['s_trades'] = df['s_trades'] / count_sell_trades
+    df['s_trades'] = (df['s_trades'] / count_sell_trades) * 10
 
     df['ranking'] = df['pb'] + df['ps'] + df['perc_bs'] + df['s_trades'] + df['margin_pc']
 

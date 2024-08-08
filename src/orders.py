@@ -44,7 +44,7 @@ GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 MINIMUM_BUY_AMOUNT = 70
 BUY_LIMIT_AMOUNT = (
-    BUY_LIMIT * 1.25 * MINIMUM_BUY_AMOUNT
+    BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 
 PAGES = 20  # 50 RECORDS per page
@@ -327,7 +327,7 @@ for _, asset in sorted_pair_names_list_latest:
         buy_limit_reached = asset.check_buys_limit(BUY_LIMIT, MINIMUM_BUY_AMOUNT * BUY_LIMIT, last_buy_amount)
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
         buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
-        margin_amount = asset.trades_sell_amount - asset.trades_buy_amount
+        margin_amount = asset.margin_amount
         assets_by_last_trade.append(
             [
                 asset.name,
