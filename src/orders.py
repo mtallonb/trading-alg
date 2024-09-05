@@ -11,7 +11,6 @@
 
 # Dinero invertido en los asset muertos
 # Compensar ganancias con las perdidas de las muertas.
-# Add support to staking asset
 # Añadir media y varianza a cada asset de 30 dias por ejemplo parametrizable
 # Ejecutar las pérdidas si hay mucha ganancia este año
 

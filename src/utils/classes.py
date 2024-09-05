@@ -1,12 +1,13 @@
 import string
+
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal as D
 from random import randint
-
 from typing import List
 
 from pandas import DataFrame
+
 
 class Order:
     BUY = 'buy'
@@ -22,8 +23,12 @@ class Order:
 
     def __str__(self):
         from utils.basic import my_round
-        return f'{self.order_type} {my_round(self.shares)} @ {my_round(self.price)} ' \
-               f'Amount: {my_round(self.shares*self.price)} -creation time: {self.creation_datetime.date()}'
+
+        return (
+            f'{self.order_type} {my_round(self.shares)} @ {my_round(self.price)} '
+            f'Amount: {my_round(self.shares*self.price)} -creation time: {self.creation_datetime.date()}'
+        )
+
 
 class Trade:
     BUY = 'buy'
@@ -38,8 +43,11 @@ class Trade:
 
     def __str__(self):
         from utils.basic import my_round
-        return f'{self.trade_type} {my_round(self.shares)} @ {my_round(self.price)} ' \
-               f'Amount: {my_round(self.shares * self.price)} -closed time: {self.execution_datetime}'
+
+        return (
+            f'{self.trade_type} {my_round(self.shares)} @ {my_round(self.price)} '
+            f'Amount: {my_round(self.shares * self.price)} -closed time: {self.execution_datetime}'
+        )
 
     def to_dict(self):
         return {
@@ -52,16 +60,19 @@ class Trade:
 
     def is_partial(self, trade):
         # Return true if is a partial trade
-        return (self.trade_type == trade.trade_type and self.price == trade.price and
-                self.execution_datetime.date() == trade.execution_datetime.date())
+        return (
+            self.trade_type == trade.trade_type
+            and self.price == trade.price
+            and self.execution_datetime.date() == trade.execution_datetime.date()
+        )
 
     def sum_trade(self, trade):
         self.shares += trade.shares
         self.amount += trade.amount
 
+
 @dataclass
 class Asset:
-
     name: string
     original_name: string
     orders: list[Order] = field(default_factory=list)
@@ -70,7 +81,7 @@ class Asset:
     price: float = 0.0
     shares: float = 0.0
 
-    orders_buy_count:  int = 0
+    orders_buy_count: int = 0
     orders_buy_amount: float = 0.0
     orders_buy_higher_price: float = 0.0
 
@@ -97,7 +108,7 @@ class Asset:
     last_sells_avg_price: float = 0.0
 
     ranking: float = 0.0
-    
+
     is_stacking: bool = False
     staked_shares: float = 0.0
 
@@ -123,7 +134,7 @@ class Asset:
     @property
     def stacked_balance(self) -> float:
         return self.staked_shares * self.price
-    
+
     @property
     def margin_amount(self) -> float:
         return self.trades_sell_amount + self.balance + self.stacked_balance - self.trades_buy_amount
@@ -175,6 +186,7 @@ class Asset:
             self.price = float(ticker_info['c'][0])
         else:
             from utils.basic import BCOLORS
+
             print(BCOLORS.FAIL + f'Missing price for asset: {self.name}' + BCOLORS.ENDC)
 
     def fill_stacking_info(self, staking_info):
@@ -183,6 +195,7 @@ class Asset:
             self.staked_shares = float(staking_info['amount_allocated']['total']['native'])
         else:
             from utils.basic import BCOLORS
+
             print(BCOLORS.FAIL + f'Missing staking info: {self.name}' + BCOLORS.ENDC)
 
     def update_orders_sell_lower_price(self, price):
@@ -216,10 +229,13 @@ class Asset:
 
     def check_buys_limit(self, buy_limit, buy_limit_amount, buy_amount):
         trades_list = self.trades
-        if len(trades_list) >= buy_limit and trades_list[buy_limit - 1].trade_type == Trade.BUY and \
-                buy_amount > buy_limit_amount:
+        if (
+            len(trades_list) >= buy_limit
+            and trades_list[buy_limit - 1].trade_type == Trade.BUY
+            and buy_amount > buy_limit_amount
+        ):
             # Iterate to check remaining are also buys
-            for trade in trades_list[:buy_limit - 1]:
+            for trade in trades_list[: buy_limit - 1]:
                 if trade.trade_type != Trade.BUY:
                     return False
             return True
@@ -230,9 +246,9 @@ class Asset:
         return (margin_amount > buy_limit_amount), margin_amount
 
     def print_stacking_info(self):
-        from utils.basic import BCOLORS, my_round
-        return f' ***** staking info: Shares: {my_round(self.staked_shares)} Balance: {my_round(self.stacked_balance)}'
+        from utils.basic import my_round
 
+        return f' ***** staking info: Shares: {my_round(self.staked_shares)} Balance: {my_round(self.stacked_balance)}'
 
     def print_buy_message(self, gain_perc):
         from utils.basic import BCOLORS, my_round, percentage
@@ -245,14 +261,12 @@ class Asset:
         perc = -my_round(percentage(buy_avg_price, self.price))
 
         if buy_avg_price < self.price:
-            buy_avg_msg = (
-                BCOLORS.OKGREEN + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
-            )
+            buy_avg_msg = BCOLORS.OKGREEN + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
         else:
             buy_avg_msg = BCOLORS.WARNING + str(my_round(buy_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
 
         optional_price = BCOLORS.OKGREEN + str(my_round(next_buy_price_half)) + BCOLORS.ENDC
-            
+
         amount_msg = BCOLORS.WARNING + str(my_round(self.last_buys_shares * self.last_buys_avg_price)) + BCOLORS.ENDC
         message = f"""
             Missing buy: {self.name}, price to set: {my_round(next_buy_price)}, RANKING: {my_round(self.ranking)},
@@ -270,13 +284,14 @@ class Asset:
             accum buy count|amount: {self.last_buys_count}|{amount_msg},
             Optionally price to set (half perc / {gain_perc / 2}): {optional_price},
         """  # noqa
-        
+
         if self.is_stacking:
-            message +=  self.print_stacking_info()
+            message += self.print_stacking_info()
         return (BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
 
-    def print_sell_message(self, kapi,  gain_perc, minimum_amount):
-        from utils.basic import BCOLORS, my_round, percentage, get_max_price_since
+    def print_sell_message(self, kapi, gain_perc, minimum_amount):
+        from utils.basic import BCOLORS, get_max_price_since, my_round, percentage
+
         latest_trade = self.trades[0]
         last_price = latest_trade.price
         next_price = last_price * (1 + gain_perc)
@@ -296,9 +311,11 @@ class Asset:
             sell_avg_message = (
                 BCOLORS.OKGREEN + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
             )
-        else: 
-            sell_avg_message = BCOLORS.WARNING + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
-        
+        else:
+            sell_avg_message = (
+                BCOLORS.WARNING + str(my_round(sell_avg_price)) + ' Perc: ' + str(perc) + ' %' + BCOLORS.ENDC
+            )
+
         message = f"""
             Missing sell: {self.name}, price to set: {my_round(next_price)}, RANKING: {my_round(self.ranking)}, 
             curr. shares: {my_round(self.shares)}, curr. balance: {my_round(self.balance)},
@@ -315,13 +332,11 @@ class Asset:
             accum sell count|Amount: {self.last_sells_count}|{sell_amount}
         """  # noqa
         if self.is_stacking:
-            message +=  self.print_stacking_info()
+            message += self.print_stacking_info()
         return BCOLORS.BOLD + message + BCOLORS.ENDC
 
 
-
 class PriceOHLC:
-
     def __init__(self, open, high, low, close, day):
         self.open = open
         self.high = high
@@ -333,7 +348,7 @@ class PriceOHLC:
         return f'Close: {self.close} on: {self.day}'
 
     def avg_price(self):
-        return (self.high + self.low)/2 or self.close
+        return (self.high + self.low) / 2 or self.close
 
     def is_order_executed_today(self, order_type, price):
         if order_type == Trade.SELL:
@@ -341,24 +356,25 @@ class PriceOHLC:
         else:
             return self.close <= price
 
+
 @dataclass
 class Stats:
     realisedPL: float = 0.0
     unrealisedPL: float = 0.0
-    realisedPL_perc: float = 0.0 # Base 0-1
-    unrealisedPL_perc: float = 0.0 # Base 0-1
+    realisedPL_perc: float = 0.0  # Base 0-1
+    unrealisedPL_perc: float = 0.0  # Base 0-1
 
     def to_dict(self):
         return {
             'realisedPL': self.realisedPL,
             'unrealisedPL': self.unrealisedPL,
             'realisedPL_perc': self.realisedPL_perc,
-            'unrealisedPL_perc': self.unrealisedPL_perc
+            'unrealisedPL_perc': self.unrealisedPL_perc,
         }
+
 
 @dataclass
 class PairPrices:
-
     code: str = ''
 
     consecutive_buys: int = 0
@@ -372,8 +388,8 @@ class PairPrices:
 
     realisedPL: float = 0.0
     unrealisedPL: float = 0.0
-    realisedPL_perc: float = 0.0 # Base 0-1
-    unrealisedPL_perc: float = 0.0 # Base 0-1
+    realisedPL_perc: float = 0.0  # Base 0-1
+    unrealisedPL_perc: float = 0.0  # Base 0-1
 
     @property
     def last_price(self):
@@ -406,8 +422,7 @@ class PairPrices:
 
 
 class Experiment:
-    def __init__(self, pairs: List[PairPrices], amount_bs, sell_perc, consecutive_trade_limit,
-                 expected_gl):
+    def __init__(self, pairs: List[PairPrices], amount_bs, sell_perc, consecutive_trade_limit, expected_gl):
         self.pairs = pairs
         self.amount_bs = amount_bs
         self.sell_perc = sell_perc
@@ -429,7 +444,7 @@ class Experiment:
     def execute(self):
         stats_list = []
         for pair in self.pairs:
-            entry_point = randint(1, len(pair.prices)-30)
+            entry_point = randint(1, len(pair.prices) - 30)
             priceOHLC = pair.prices[entry_point]
             # create buy trade @ avg price of the day
             avg_price = priceOHLC.avg_price()
@@ -454,7 +469,7 @@ class Experiment:
 
             if price.is_order_executed_today(Order.BUY, next_buy_price):
                 # Create new Trade
-                shares = self.amount_bs/next_buy_price
+                shares = self.amount_bs / next_buy_price
                 trade = Trade(Trade.BUY, shares, next_buy_price, self.amount_bs, price.day)
                 if self.can_buy(pair):
                     print(trade)
@@ -462,7 +477,7 @@ class Experiment:
 
             if price.is_order_executed_today(Order.SELL, next_sell_price):
                 # Create new Trade
-                shares = self.amount_bs/next_sell_price
+                shares = self.amount_bs / next_sell_price
                 trade = Trade(Trade.SELL, shares, next_sell_price, self.amount_bs, price.day)
                 if self.can_sell(pair, trade):
                     print(trade)
@@ -470,7 +485,6 @@ class Experiment:
 
     # PL means profit/loses
     def compute_PL(self, pp: PairPrices) -> Stats:
-
         buys_df = DataFrame([o.__dict__ for o in pp.buy_trades])
 
         if not pp.sell_trades:
@@ -493,6 +507,7 @@ class CSVTrade:
 
     def __init__(self, asset_name, completed, type, price, cost, fee, vol):
         from utils.basic import DATE_FORMAT
+
         self.asset_name = asset_name
         self.completed = datetime.strptime(completed, DATE_FORMAT)
         self.type = type
@@ -504,13 +519,11 @@ class CSVTrade:
 
     def __str__(self):
         from utils.basic import my_round
-        return (f'\n TRADE INFO: Pair: {self.asset_name}, Volume: {my_round(self.volume)}, '
-                f'Price: {my_round(self.price)}, Amount {my_round(self.amount)}')
+
+        return (
+            f'\n TRADE INFO: Pair: {self.asset_name}, Volume: {my_round(self.volume)}, '
+            f'Price: {my_round(self.price)}, Amount {my_round(self.amount)}'
+        )
 
     def to_dict(self):
         return
-
-
-
-
-

@@ -99,6 +99,8 @@ def cancel_order(kapi, order):
 
 def get_deposit_wd_info(kapi, num_pages, records_per_page, verbose=False):
     ledger_deposit = []
+    deposit_list = []
+    wd_list = []
 
     for page in range(num_pages):
         ledger_deposit_page = kapi.query_private('Ledgers', {'type': 'deposit', 'ofs': records_per_page * page})
@@ -109,25 +111,37 @@ def get_deposit_wd_info(kapi, num_pages, records_per_page, verbose=False):
 
     ledger_wd = kapi.query_private('Ledgers', {'type': 'withdrawal'})
 
-    def print_ioflow(rec):
+    def get_data(rec):
+        data = {}
+        data['asset'] = rec['asset']
+        data['amount'] = float(rec['amount'])
+        # data['date_time'] = time.strftime(DATE_FORMAT, time.localtime(rec['time']))
+        data['date_time'] = datetime.fromtimestamp(rec['time'])
+        return data
+    
+    def print_ioflow(asset, amount, date_time):
         if verbose:
-            msg = f"Amount: {float(rec['amount'])}, time: { time.strftime(DATE_FORMAT, time.localtime(rec['time']))}"
+            msg = f"Asset: {asset}, Amount: {amount}, time: {date_time}"
             print(msg)
 
     print('\n DEPOSITS:')
     total_deposit_amount = D(0)
     for rec in ledger_deposit:
-        total_deposit_amount += D(rec['amount'])
-        print_ioflow(rec)
+        data = get_data(rec)
+        deposit_list.append(data)
+        total_deposit_amount += D(data['amount'])
+        print_ioflow(data['asset'], data['amount'], data['date_time'])
     print('Total DEPOSIT amount: {}'.format(total_deposit_amount))
 
     print('\n WITHDRAWALS:')
     total_wd_amount = D(0)
     for _, rec in ledger_wd['result']['ledger'].items():
+        data = get_data(rec)
+        wd_list.append(data)
         total_wd_amount += D(rec['amount'])
-        print_ioflow(rec)
+        print_ioflow(data['asset'], data['amount'], data['date_time'])
     print('Total WD amount: {}'.format(total_wd_amount))
-    return total_deposit_amount, total_wd_amount
+    return total_deposit_amount, total_wd_amount, deposit_list, wd_list
 
 
 def get_max_price_since(kapi, pair_name, since_datetime):
