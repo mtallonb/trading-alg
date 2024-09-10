@@ -2,8 +2,6 @@
 
 import re
 import time
-
-from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
 from datetime import datetime
@@ -11,6 +9,7 @@ from decimal import Decimal as D
 
 import numpy as np
 import pytz
+from _csv import writer
 
 from .classes import CSVTrade, PriceOHLC, Trade
 
@@ -116,9 +115,9 @@ def get_deposit_wd_info(kapi, num_pages, records_per_page, verbose=False):
         data['asset'] = rec['asset']
         data['amount'] = float(rec['amount'])
         # data['date_time'] = time.strftime(DATE_FORMAT, time.localtime(rec['time']))
-        data['date_time'] = datetime.fromtimestamp(rec['time'])
+        data['datetime'] = datetime.fromtimestamp(rec['time'])
         return data
-    
+
     def print_ioflow(asset, amount, date_time):
         if verbose:
             msg = f"Asset: {asset}, Amount: {amount}, time: {date_time}"
@@ -130,7 +129,7 @@ def get_deposit_wd_info(kapi, num_pages, records_per_page, verbose=False):
         data = get_data(rec)
         deposit_list.append(data)
         total_deposit_amount += D(data['amount'])
-        print_ioflow(data['asset'], data['amount'], data['date_time'])
+        print_ioflow(data['asset'], data['amount'], data['datetime'])
     print('Total DEPOSIT amount: {}'.format(total_deposit_amount))
 
     print('\n WITHDRAWALS:')
@@ -139,7 +138,7 @@ def get_deposit_wd_info(kapi, num_pages, records_per_page, verbose=False):
         data = get_data(rec)
         wd_list.append(data)
         total_wd_amount += D(rec['amount'])
-        print_ioflow(data['asset'], data['amount'], data['date_time'])
+        print_ioflow(data['asset'], data['amount'], data['datetime'])
     print('Total WD amount: {}'.format(total_wd_amount))
     return total_deposit_amount, total_wd_amount, deposit_list, wd_list
 
@@ -228,7 +227,7 @@ def print_query_result(endpoint, result):
 
 def compute_ranking(df, count_sell_trades):
     sum_margin_a = df['margin_a'].abs().sum()
-    df['margin_pc'] = (df['margin_a'] / sum_margin_a)
+    df['margin_pc'] = df['margin_a'] / sum_margin_a
     df['pb'] = (df['curr_price'] - df['avg_buys']) / df['curr_price']
     df['ps'] = (df['curr_price'] - df['avg_sells']) / df['curr_price']
     df['perc_bs'] = (df['avg_sells'] - df['avg_buys']) / df['avg_sells']

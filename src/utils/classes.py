@@ -526,4 +526,11 @@ class CSVTrade:
         )
 
     def to_dict(self):
-        return
+        return {
+            'asset': self.asset_name,
+            'amount': self.amount,
+            'date_time': self.completed,
+            'fee': self.fee,
+            'volume': self.volume,
+            'type': self.type,
+        }
