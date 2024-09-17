@@ -2,6 +2,8 @@
 
 import re
 import time
+
+from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
 from datetime import datetime
@@ -9,7 +11,6 @@ from decimal import Decimal as D
 
 import numpy as np
 import pytz
-from _csv import writer
 
 from .classes import CSVTrade, PriceOHLC, Trade
 
@@ -18,6 +19,9 @@ DECIMALS = 3
 
 # pytzutc = pytz.timezone('UTC')
 LOCAL_TZ = pytz.timezone('Europe/Madrid')
+
+# fix pair names
+FIX_X_PAIR_NAMES = ['XETHEUR', 'XLTCEUR', 'XETCEUR']
 
 
 class BCOLORS:

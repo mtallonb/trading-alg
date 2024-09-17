@@ -2,5 +2,7 @@ requests>=2.18.2,<3
 pandas
 websocket-client==1.4.1
 openpyxl==3.0.10
+# cryptowatch-sdk #Only for prices
+# protobuf==3.20.0 #TO make it compatible with cw
 -e ../krakenex
 # -e ../xtbapi

@@ -1,19 +1,20 @@
 # TODO
 # Add fees
 
+import cryptowatch as cw
+import krakenex
 import pandas as pd
+
 from pandas import DataFrame
 
-import krakenex
-from utils.classes import PairPrices, Experiment
 from utils.basic import *
-
-import cryptowatch as cw
+from utils.classes import Experiment, PairPrices
 
 # configure api
 kapi = krakenex.API()
 
 # GET ALL PRICES FROM https://github.com/uoshvis/python-cryptowatch
+# https://pypi.org/project/cryptowatch-sdk/
 
 # prepare request
 # req_data = {'docalcs': 'true'}
@@ -60,11 +61,11 @@ date_to = date.today()
 timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
 
 
+
 for pair_name in PAIRS:
     pp = PairPrices(pair_name)
     pairs.append(pp)
-    prices = cw.markets.get(f"kraken:{pair_name}", ohlc=True, ohlc_before=int(timestamp_to),
-                            periods=["1d"])
+    prices = cw.markets.get(f"kraken:{pair_name}", ohlc=True, ohlc_before=int(timestamp_to), periods=["1d"])
 
     prices_df = pd.DataFrame(prices.of_1d)
     # We take only dates and Close prices

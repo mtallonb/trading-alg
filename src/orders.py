@@ -22,6 +22,7 @@ import pandas as pd
 
 from utils.basic import (
     BCOLORS,
+    FIX_X_PAIR_NAMES,
     LOCAL_TZ,
     cancel_orders,
     chunks,
@@ -48,9 +49,6 @@ BUY_LIMIT_AMOUNT = (
 
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
-
-# fix pair names
-FIX_X_PAIR_NAMES = ['XETHEUR', 'XLTCEUR', 'XETCEUR']
 
 # Exclude
 EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR']
