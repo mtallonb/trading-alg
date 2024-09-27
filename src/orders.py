@@ -14,6 +14,9 @@
 # Añadir media y varianza a cada asset de 30 dias por ejemplo parametrizable
 # Ejecutar las pérdidas si hay mucha ganancia este año
 
+# Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
+# Es decir un ranking de todos
+
 
 from datetime import datetime
 
@@ -71,7 +74,8 @@ PAIR_TO_LAST_TRADES = ['SNXEUR']
 # PAIR_TO_FORCE_INFO = ['ETCEUR']
 # PAIR_TO_FORCE_INFO = ['XLMEUR']
 # PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
-PAIR_TO_FORCE_INFO = ['XBTEUR', 'ADAEUR']
+# PAIR_TO_FORCE_INFO = ['XBTEUR', 'ADAEUR']
+PAIR_TO_FORCE_INFO = []
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True

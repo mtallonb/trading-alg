@@ -10,6 +10,7 @@ from datetime import datetime
 from decimal import Decimal as D
 
 import numpy as np
+import pandas as pd
 import pytz
 
 from .classes import CSVTrade, PriceOHLC, Trade
@@ -99,12 +100,8 @@ def cancel_order(kapi, order):
     print_query_result('CancelOrder', close_order_result)
     return
 
-
-def get_deposit_wd_info(kapi, num_pages, records_per_page, verbose=False):
+def get_flows_df(kapi, num_pages, records_per_page):
     ledger_deposit = []
-    deposit_list = []
-    wd_list = []
-
     for page in range(num_pages):
         ledger_deposit_page = kapi.query_private('Ledgers', {'type': 'deposit', 'ofs': records_per_page * page})
         if not ledger_deposit_page.get('result') or not ledger_deposit_page['result']['ledger']:
@@ -112,40 +109,12 @@ def get_deposit_wd_info(kapi, num_pages, records_per_page, verbose=False):
         for _, rec in ledger_deposit_page['result']['ledger'].items():
             ledger_deposit.append(rec)
 
+    df_deposit = pd.DataFrame(ledger_deposit)
+
     ledger_wd = kapi.query_private('Ledgers', {'type': 'withdrawal'})
+    df_wd = pd.DataFrame(ledger_wd['result']['ledger'].values())
 
-    def get_data(rec):
-        data = {}
-        data['asset'] = rec['asset']
-        data['amount'] = float(rec['amount'])
-        # data['date_time'] = time.strftime(DATE_FORMAT, time.localtime(rec['time']))
-        data['datetime'] = datetime.fromtimestamp(rec['time'])
-        return data
-
-    def print_ioflow(asset, amount, date_time):
-        if verbose:
-            msg = f"Asset: {asset}, Amount: {amount}, time: {date_time}"
-            print(msg)
-
-    print('\n DEPOSITS:')
-    total_deposit_amount = D(0)
-    for rec in ledger_deposit:
-        data = get_data(rec)
-        deposit_list.append(data)
-        total_deposit_amount += D(data['amount'])
-        print_ioflow(data['asset'], data['amount'], data['datetime'])
-    print('Total DEPOSIT amount: {}'.format(total_deposit_amount))
-
-    print('\n WITHDRAWALS:')
-    total_wd_amount = D(0)
-    for _, rec in ledger_wd['result']['ledger'].items():
-        data = get_data(rec)
-        wd_list.append(data)
-        total_wd_amount += D(rec['amount'])
-        print_ioflow(data['asset'], data['amount'], data['datetime'])
-    print('Total WD amount: {}'.format(total_wd_amount))
-    return total_deposit_amount, total_wd_amount, deposit_list, wd_list
-
+    return df_deposit, df_wd
 
 def get_max_price_since(kapi, pair_name, since_datetime):
     prices = []
