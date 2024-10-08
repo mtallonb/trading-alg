@@ -40,13 +40,13 @@ PAGES = 5  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
 header_prices = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
+header_prices_kraken = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
 header_positions = ['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
 
 # prepare request
 # req_data = {'trades': 'false'}
 
-
-# --------------------
+# -----------------------------------------
 def get_asset_positions(
     asset_name: str,
     df_trades: pd.DataFrame,
@@ -57,12 +57,12 @@ def get_asset_positions(
     df_cash_pos.ASSET = 'ZEUR'
     df_cash_pos.PRICE = 1.0
     df_cash_pos.loc[df_trades.TYPE == 'B', 'AMOUNT'] *= -1
-    df_cash_pos['TOTAL_AMOUNT'] = df_cash_pos['AMOUNT'].cumsum()
-    df_cash_pos['AMOUNT'] = df_cash_pos.TOTAL_AMOUNT
+    # df_cash_pos['TOTAL_AMOUNT'] = df_cash_pos['AMOUNT'].cumsum()
+    # df_cash_pos['AMOUNT'] = df_cash_pos.TOTAL_AMOUNT
     df_cash_pos['SHARES'] = df_cash_pos.AMOUNT
     df_cash_pos['FEE'] = 0.0
-    df_cash_pos.drop(['VOL', 'DATETIME', 'TYPE', 'TOTAL_AMOUNT'], axis=1, inplace=True)
-    df_cash_pos.drop_duplicates(subset=['DATE'], keep='last', inplace=True)
+    df_cash_pos.drop(['VOL', 'DATETIME', 'TYPE'], axis=1, inplace=True)
+    # df_cash_pos.drop_duplicates(subset=['DATE'], keep='last', inplace=True)
 
     dates = pd.date_range(start=df_trades["DATE"].iloc[0], end=date_to, freq='d')
     df_pos_temp = pd.DataFrame(columns=['DATE', 'ASSET', 'SHARES', 'PRICE'])
@@ -71,6 +71,7 @@ def get_asset_positions(
     df_pos_temp.SHARES = 0.0
 
     df_pos_temp.PRICE = df_pos_temp.DATE.map(df_prices.set_index('DATE')['PRICE'])
+    df_pos_temp.PRICE = pd.to_numeric(df_pos_temp.PRICE)
 
     # df_trades_asset[df_trades_asset.TYPE == 'S']['VOL'] *= -1
     df_trades.loc[df_trades.TYPE == 'S', 'VOL'] *= -1
@@ -109,7 +110,7 @@ df_wd = clean_flows_df(df_flow=df_wd)
 
 df_list = [df_deposit, df_wd]
 
-# ----------GET TRADES------------------
+# ----------GET TRADES-------------------------------------------------------------------
 df_trades = pd.read_csv(filename)
 
 df_trades.drop(columns=['ordertype'], inplace=True)
@@ -124,7 +125,8 @@ df_trades['DATE'] = df_trades['DATETIME'].dt.floor('d')
 
 # -------GET PRICES--------------------------------------------------------------------------------------------------
 # date_from = date(2017, 10, 1)
-date_to = date(2022, 12, 31)
+date_to = date(2017, 12, 31)
+# date_to = datetime.today().date()
 # timestamp_from = datetime(date_from.year, date_from.month, date_from.day).timestamp()
 timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
 
@@ -132,13 +134,27 @@ timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
 # ticker_prices = cw.markets.get(f"kraken:{pair_name}", ohlc=True, ohlc_before=int(timestamp_to), periods=["1d"])
 # df_prices = pd.DataFrame.from_dict(ticker_prices['result']['XETHZEUR'])
 
+
+def get_new_prices(asset_name: str, timestamp_from: datetime.timestamp) -> pd.DataFrame:
+    # If timestamp_from is higher than 2 years display a warning
+    prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
+    df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
+    df_prices.columns = header_prices_kraken
+    df_prices = df_prices[['TIMESTAMP', 'C']]
+    return df_prices
+
 # Remove trades from 'XXLMXXBT', 'BSVEUR'
-# asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR'])].ASSET.dropna().unique()
-asset_names = ['XXBTZEUR']
+asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR'])].ASSET.dropna().unique()
+# asset_names = ['XXBTZEUR']
 
 for asset_name in asset_names:
     fix_asset_name = get_fix_pair_name(asset_name, FIX_X_PAIR_NAMES)
     df_prices = pd.read_csv(f'./data/OHLC_prices/{fix_asset_name}_1440.csv', names=header_prices)[['TIMESTAMP', 'C']]
+    latest_timestamp = df_prices.TIMESTAMP.iloc[-1]
+    if latest_timestamp < timestamp_to:
+        new_prices = get_new_prices(asset_name=asset_name, timestamp_from=latest_timestamp)
+        df_prices = pd.concat([df_prices, new_prices])
+
     df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
     df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.floor('d')
     df_trades_asset = df_trades[df_trades.ASSET == asset_name]
@@ -151,10 +167,37 @@ for asset_name in asset_names:
     df_list.append(df_asset_pos)
 
 df_positions = pd.concat(df_list)
+df_positions.sort_values(by=['DATE'], inplace=True)
 df_positions = df_positions[df_positions.DATE.dt.date < date_to]
 
-df_positions['TOTAL_AMOUNT'] = df_positions['AMOUNT'].cumsum()
-df_positions.loc[df_positions.ASSET == 'ZEUR', 'AMOUNT'] = df_positions.loc[df_positions.ASSET == 'ZEUR', 'AMOUNT'].cumsum()  # noqa # fmt: skip
+df_positions['TOTAL_SHARES'] = df_positions['SHARES'].cumsum()
+df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'] = df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'].cumsum()  # noqa # fmt: skip
+df_positions.drop(columns=['TOTAL_SHARES'], inplace=True)
+df_no_duplicates = df_positions.loc[df_positions.ASSET == 'ZEUR', :].drop_duplicates(subset=['DATE'], keep='last')
+
+df_positions.reset_index(inplace=True)
+i = df_positions[df_positions.ASSET == 'ZEUR'].index
+df_positions.drop(i, inplace=True)
+df_positions = pd.concat([df_positions, df_no_duplicates])
+df_positions['AMOUNT'] = df_positions.SHARES * df_positions.PRICE
+
+dates = pd.date_range(start=df_positions["DATE"].iloc[0], end=date_to, freq='d')
+df_cash_daily = pd.DataFrame(columns=['DATE'])
+df_cash_daily.DATE = dates
+df_cash_daily = pd.merge(df_cash_daily, df_positions.loc[df_positions.ASSET == 'ZEUR', :], on='DATE', how='left')
+df_cash_daily.ASSET = 'ZEUR'
+df_cash_daily.FEE = 0
+df_cash_daily.PRICE = 1.0
+df_cash_daily.SHARES.ffill(inplace=True)
+df_cash_daily.AMOUNT.ffill(inplace=True)
+
+
+df_positions.reset_index(inplace=True)
+i = df_positions[df_positions.ASSET == 'ZEUR'].index
+df_positions.drop(i, inplace=True)
+df_positions = pd.concat([df_positions, df_cash_daily])
+df_positions.sort_values(by=['DATE'], inplace=True)
+
 
 # # print(f"Last day: {from_timestamp_to_str(df_prices["DATETIME"].iloc[-1])}")
 # initial_date = df_prices["DATE"].iloc[0]
@@ -182,11 +225,9 @@ print('\n DEPOSIT - WD: {}'.format(my_round(total_deposit - total_wd)))
 cash = total_deposit - total_wd - total_buy_amount + total_sell_amount - total_fees
 print('\n CASH: {}'.format(my_round(cash)))
 
-df_positions.sort_values(by=['DATE'], inplace=True)
-
 # AVG BALANCE
 print(df_positions.groupby('DATE').AMOUNT.sum().to_string())
-print(df_positions[df_positions.DATE.dt.date == date(2021, 5, 19)].to_string())
+# print(df_positions[df_positions.DATE.dt.date == date(2021, 5, 19)].to_string())
 
 
 # df_positions[df_positions.DATE.dt.date == date_to - timedelta(days=1)]

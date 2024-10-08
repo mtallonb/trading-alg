@@ -44,20 +44,20 @@ LAST_ORDERS = 200
 
 BUY_LIMIT = 4  # Number of consecutive buy trades
 GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
-ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 MINIMUM_BUY_AMOUNT = 70
 BUY_LIMIT_AMOUNT = (
     BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
+ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
 # Exclude
-EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR']
+EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR']
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 
-ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR']
+ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR']
 
 # PAIR_TO_LAST_TRADES = ['SCEUR', 'SNXEUR', 'SHIBEUR', 'SOLEUR', 'ETCEUR']
 # PAIR_TO_LAST_TRADES = ['XDGEUR', 'EOSEUR']
@@ -71,11 +71,12 @@ PAIR_TO_LAST_TRADES = ['SNXEUR']
 # PAIR_TO_LAST_TRADES = ['LUNAEUR', 'SOLEUR', ]
 # PAIR_TO_LAST_TRADES = []
 
+PAIR_TO_FORCE_INFO = ['XMREUR']
 # PAIR_TO_FORCE_INFO = ['ETCEUR']
 # PAIR_TO_FORCE_INFO = ['XLMEUR']
 # PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
 # PAIR_TO_FORCE_INFO = ['XBTEUR', 'ADAEUR']
-PAIR_TO_FORCE_INFO = []
+# PAIR_TO_FORCE_INFO = []
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
