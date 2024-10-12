@@ -24,13 +24,6 @@ sell_trades = []
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
-# REPLACE_NAMES = {'ETHEUR': 'XETHZEUR',
-#                  'LTCEUR': 'XLTCEUR',
-#                  'ETCEUR': 'XETCZEUR',
-#                  'XMREUR': 'XXMRZEUR',
-#                  'XRPEUR': 'XXRPZEUR',
-#                  }
-
 # configure api
 kapi = krakenex.API()
 kapi.load_key('./data/kraken.key')
@@ -156,11 +149,6 @@ sell_trades_asc = sorted(sell_trades, key=lambda x: x.completed)
 trades_to_append_to_csv_asc = sorted(trades_to_append_to_csv, key=lambda x: x.completed)
 
 sell_pairs_in_year = set([sell.asset_name for sell in sell_trades if sell.completed.year == year])
-# sell_pairs_in_year = ['EOSEUR']
-# sell_pairs_in_year = ['ATOMEUR']
-# sell_pairs_in_year = ['ADAEUR']
-# sell_pairs_in_year = ['XLTCZEUR']
-# sell_pairs_in_year = ['GRTEUR']
 
 total_gain_loss = 0
 gain_loss_year = 0

@@ -26,6 +26,10 @@ sell_trades = []
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
+date_to = date(2023, 12, 31)
+# date_to = datetime.today().date()
+timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
+
 # REPLACE_NAMES = {'ETHEUR': 'XETHZEUR',
 #                  'LTCEUR': 'XLTCEUR',
 #                  'ETCEUR': 'XETCZEUR',
@@ -45,6 +49,7 @@ header_positions = ['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
 
 # prepare request
 # req_data = {'trades': 'false'}
+
 
 # -----------------------------------------
 def get_asset_positions(
@@ -90,21 +95,42 @@ def get_asset_positions(
     return pd.concat([df_pos_temp, df_cash_pos])
 
 
+def get_new_prices(asset_name: str, timestamp_from: datetime.timestamp) -> pd.DataFrame:
+    # If timestamp_from is higher than 2 years display a warning
+    prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
+    df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
+    df_prices.columns = header_prices_kraken
+    df_prices = df_prices[['TIMESTAMP', 'C']]
+
+    return df_prices
+
+
 def clean_flows_df(df_flow: pd.DataFrame) -> pd.DataFrame:
     df_flow.drop(['aclass', 'refid', 'type', 'subtype'], axis=1, inplace=True)
     df_flow.rename({'time': 'date', 'balance': 'shares'}, axis=1, inplace=True)
     df_flow.columns = [x.upper() for x in df_flow.columns]
+    df_flow = df_flow[df_flow.ASSET == 'ZEUR']
     df_flow.DATE = pd.to_datetime(df_flow.DATE, unit='s').dt.floor('d')
     df_flow.loc[df_flow.ASSET == 'ZEUR', 'SHARES'] = df_flow.AMOUNT
     df_flow.AMOUNT = pd.to_numeric(df_flow.AMOUNT)
     df_flow.SHARES = pd.to_numeric(df_flow.SHARES)
     df_flow['PRICE'] = df_flow.AMOUNT / df_flow.SHARES
     # df_flow.PRICE.fillna(1, inplace=True)
+
     return df_flow
+
+
+def drop_cash_rows(df: pd.DataFrame) -> pd.DataFrame:
+    df.reset_index(inplace=True)
+    i = df[df.ASSET == 'ZEUR'].index
+    df.drop(i, inplace=True)
+
+    return df
 
 
 # ----GET DEPOSITS and WD-------------------------------------------------------------------------------------------
 df_deposit, df_wd = get_flows_df(kapi, PAGES, RECORDS_PER_PAGE)
+
 df_deposit = clean_flows_df(df_flow=df_deposit)
 df_wd = clean_flows_df(df_flow=df_wd)
 
@@ -123,25 +149,10 @@ df_trades['TYPE'].replace('sell', 'S', inplace=True)
 df_trades.DATETIME = pd.to_datetime(df_trades.DATETIME)
 df_trades['DATE'] = df_trades['DATETIME'].dt.floor('d')
 
-# -------GET PRICES--------------------------------------------------------------------------------------------------
-# date_from = date(2017, 10, 1)
-date_to = date(2017, 12, 31)
-# date_to = datetime.today().date()
-# timestamp_from = datetime(date_from.year, date_from.month, date_from.day).timestamp()
-timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
-
+# -------GET PRICES-------------------------------------------------------------------------------------------------
 # ticker_prices = kapi.query_public('OHLC', {'pair': 'XETHZEUR', 'interval': 1440, 'since': timestamp_from})
 # ticker_prices = cw.markets.get(f"kraken:{pair_name}", ohlc=True, ohlc_before=int(timestamp_to), periods=["1d"])
 # df_prices = pd.DataFrame.from_dict(ticker_prices['result']['XETHZEUR'])
-
-
-def get_new_prices(asset_name: str, timestamp_from: datetime.timestamp) -> pd.DataFrame:
-    # If timestamp_from is higher than 2 years display a warning
-    prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
-    df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
-    df_prices.columns = header_prices_kraken
-    df_prices = df_prices[['TIMESTAMP', 'C']]
-    return df_prices
 
 # Remove trades from 'XXLMXXBT', 'BSVEUR'
 asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR'])].ASSET.dropna().unique()
@@ -168,16 +179,17 @@ for asset_name in asset_names:
 
 df_positions = pd.concat(df_list)
 df_positions.sort_values(by=['DATE'], inplace=True)
-df_positions = df_positions[df_positions.DATE.dt.date < date_to]
+df_positions = df_positions[df_positions.DATE.dt.date <= date_to]
 
 df_positions['TOTAL_SHARES'] = df_positions['SHARES'].cumsum()
 df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'] = df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'].cumsum()  # noqa # fmt: skip
 df_positions.drop(columns=['TOTAL_SHARES'], inplace=True)
 df_no_duplicates = df_positions.loc[df_positions.ASSET == 'ZEUR', :].drop_duplicates(subset=['DATE'], keep='last')
 
-df_positions.reset_index(inplace=True)
-i = df_positions[df_positions.ASSET == 'ZEUR'].index
-df_positions.drop(i, inplace=True)
+# df_positions.reset_index(inplace=True)
+# i = df_positions[df_positions.ASSET == 'ZEUR'].index
+# df_positions.drop(i, inplace=True)
+df_positions = drop_cash_rows(df_positions)
 df_positions = pd.concat([df_positions, df_no_duplicates])
 df_positions['AMOUNT'] = df_positions.SHARES * df_positions.PRICE
 
@@ -186,18 +198,19 @@ df_cash_daily = pd.DataFrame(columns=['DATE'])
 df_cash_daily.DATE = dates
 df_cash_daily = pd.merge(df_cash_daily, df_positions.loc[df_positions.ASSET == 'ZEUR', :], on='DATE', how='left')
 df_cash_daily.ASSET = 'ZEUR'
-df_cash_daily.FEE = 0
+df_cash_daily.FEE = 0.0
 df_cash_daily.PRICE = 1.0
 df_cash_daily.SHARES.ffill(inplace=True)
 df_cash_daily.AMOUNT.ffill(inplace=True)
 
 
-df_positions.reset_index(inplace=True)
-i = df_positions[df_positions.ASSET == 'ZEUR'].index
-df_positions.drop(i, inplace=True)
+# df_positions.reset_index(inplace=True)
+# i = df_positions[df_positions.ASSET == 'ZEUR'].index
+# df_positions.drop(i, inplace=True)
+df_positions = drop_cash_rows(df_positions)
 df_positions = pd.concat([df_positions, df_cash_daily])
-df_positions.sort_values(by=['DATE'], inplace=True)
 
+df_positions.sort_values(by=['DATE'], inplace=True)
 
 # # print(f"Last day: {from_timestamp_to_str(df_prices["DATETIME"].iloc[-1])}")
 # initial_date = df_prices["DATE"].iloc[0]
@@ -226,9 +239,41 @@ cash = total_deposit - total_wd - total_buy_amount + total_sell_amount - total_f
 print('\n CASH: {}'.format(my_round(cash)))
 
 # AVG BALANCE
-print(df_positions.groupby('DATE').AMOUNT.sum().to_string())
-# print(df_positions[df_positions.DATE.dt.date == date(2021, 5, 19)].to_string())
+df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index()
+print(df_avg_balances_per_day.to_string())
 
+
+# GAIN per year
+def year_gain_perc(
+    df_deposit: pd.DataFrame,
+    df_wd: pd.DataFrame,
+    df_balances_avg: pd.DataFrame,
+    year: int,
+    unrealised: float,
+    verbose: bool = True,
+) -> float:
+    deposit_amount_year = df_deposit[df_deposit.DATE.dt.year == year].AMOUNT.sum()
+    wd_amount_year = -df_wd[df_wd.DATE.dt.year == year].AMOUNT.sum()
+    daily_balances_year = df_balances_avg[df_balances_avg.DATE.dt.year == year]
+    balance_0 = daily_balances_year.AMOUNT.iloc[0]
+    balance_365 = daily_balances_year.AMOUNT.iloc[-1]
+    flows = wd_amount_year - deposit_amount_year
+    mean_balance = daily_balances_year.AMOUNT.mean()
+    gain_numerator = balance_365 - balance_0 + flows
+    gain = 100 * gain_numerator / mean_balance
+    if verbose:
+        print(f'***YEAR: {year} *** balance_0: {balance_0}, balance_365: {balance_365}, mean_balance: {mean_balance} \n'
+              f'flows: {flows}. gain_numerator: {gain_numerator}. gain: {gain}.')
+        print(f'Unrealised gain (perc): {100*unrealised/mean_balance} \n')
+    return gain
+
+
+years = [2019, 2020, 2021, 2022, 2023]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0]
+for idx, year in enumerate(years):
+    gain = year_gain_perc(df_deposit=df_deposit, df_wd=df_wd, df_balances_avg=df_avg_balances_per_day, year=year, unrealised=gains_by_year[idx])
+
+# print(df_positions[df_positions.DATE.dt.date == date(2021, 5, 19)].to_string())
 
 # df_positions[df_positions.DATE.dt.date == date_to - timedelta(days=1)]
 # df_positions[df_positions.DATE.dt.date == date_to]

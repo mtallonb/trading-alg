@@ -16,6 +16,7 @@
 
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Es decir un ranking de todos
+# Guardar los deposits y wd en ficheros e ir actualizando
 
 
 from datetime import datetime
@@ -54,7 +55,7 @@ PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
 # Exclude
-EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR']
+EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR']
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 
 ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR']
@@ -71,12 +72,11 @@ PAIR_TO_LAST_TRADES = ['SNXEUR']
 # PAIR_TO_LAST_TRADES = ['LUNAEUR', 'SOLEUR', ]
 # PAIR_TO_LAST_TRADES = []
 
-PAIR_TO_FORCE_INFO = ['XMREUR']
 # PAIR_TO_FORCE_INFO = ['ETCEUR']
 # PAIR_TO_FORCE_INFO = ['XLMEUR']
 # PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
 # PAIR_TO_FORCE_INFO = ['XBTEUR', 'ADAEUR']
-# PAIR_TO_FORCE_INFO = []
+PAIR_TO_FORCE_INFO = []
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -89,10 +89,11 @@ AUTO_CANCEL_SELL_ORDER = True
 
 GET_FULL_TRADE_HISTORY = True
 TRADE_FILE = './data/trades_2024.csv'
+KEY_FILE = './data/kraken.key'
 
 # configure api
 kapi = krakenex.API()
-kapi.load_key('./data/kraken.key')
+kapi.load_key(KEY_FILE)
 
 # prepare request
 # req_data = {'docalcs': 'true'}
@@ -179,6 +180,7 @@ for txid, order_dict in open_orders['result']['open'].items():
     if not asset:
         print(f'Missing order pair. Adding pair: {pair_name}')
         asset = Asset(name=pair_name, original_name=pair_name)
+        asset.fill_ticker_info(ticker_info)
 
     price, shares = get_price_shares_from_order(order_detail['order'])
     amount = price * shares
@@ -346,7 +348,7 @@ for _, asset in sorted_pair_names_list_latest:
 
 
 # ------ RANKING ----------
-# ibs is_buy_set, blr buy limit reached
+# ibs -> is_buy_set, blr -> buy limit reached
 ranking_col = ['Name', 'Last trd', 'ibs', 'blr', 'curr_price', 'avg_buys', 'avg_sells', 's_trades', 'margin_a']
 df = pd.DataFrame(assets_by_last_trade, columns=ranking_col)
 df = compute_ranking(df, count_sell_trades)
@@ -360,6 +362,7 @@ print(
     'margin_a: sells_amount - buys_amount)*****',
 )
 print(df.sort_values(by='ranking', ascending=False).to_string(index=False))
+# ----------------------------
 
 count_valid_asset = 0
 count_remaining_buys = 0
