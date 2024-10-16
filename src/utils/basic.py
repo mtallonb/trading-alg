@@ -7,7 +7,6 @@ from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
 from datetime import datetime
-from decimal import Decimal as D
 
 import numpy as np
 import pandas as pd
@@ -22,7 +21,8 @@ DECIMALS = 3
 LOCAL_TZ = pytz.timezone('Europe/Madrid')
 
 # fix pair names
-FIX_X_PAIR_NAMES = ['XETHEUR', 'XLTCEUR', 'XETCEUR']
+FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']
+STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR')
 
 
 class BCOLORS:
@@ -51,7 +51,7 @@ def chunks(elem_list, n):
 
 
 def is_staked(name):
-    return name.endswith('.SEUR') or name.endswith('.MEUR')
+    return name.endswith(STAKING_SUFFIXES)
 
 
 # TODO not working on 5e-05
@@ -100,10 +100,12 @@ def cancel_order(kapi, order):
     print_query_result('CancelOrder', close_order_result)
     return
 
-def get_flows_df(kapi, num_pages, records_per_page):
+
+def get_flows_from_kraken_df(kapi, num_pages, records_per_page, timestamp_from=None):
     ledger_deposit = []
     for page in range(num_pages):
-        ledger_deposit_page = kapi.query_private('Ledgers', {'type': 'deposit', 'ofs': records_per_page * page})
+        request_data = {'type': 'deposit', 'ofs': records_per_page * page, 'start': timestamp_from}
+        ledger_deposit_page = kapi.query_private('Ledgers', request_data)
         if not ledger_deposit_page.get('result') or not ledger_deposit_page['result']['ledger']:
             break
         for _, rec in ledger_deposit_page['result']['ledger'].items():
@@ -115,6 +117,7 @@ def get_flows_df(kapi, num_pages, records_per_page):
     df_wd = pd.DataFrame(ledger_wd['result']['ledger'].values())
 
     return df_deposit, df_wd
+
 
 def get_max_price_since(kapi, pair_name, since_datetime):
     prices = []
@@ -141,13 +144,17 @@ def get_price_shares_from_order(order_string):
     return float(price), float(shares)
 
 
-def get_fix_pair_name(pair_name, fix_x_pair_names):
-    if pair_name != 'XTZEUR' and pair_name[-4:] == 'ZEUR':
-        pair_name = pair_name[:-4] + 'EUR'
+def get_fix_pair_name(pair_name, fix_x_pair_names, currency='EUR'):
+    if pair_name != 'XTZEUR' and pair_name.endswith('Z' + currency):
+        pair_name = pair_name[:-4] + currency
 
     if pair_name[:2] == 'XX' or pair_name in fix_x_pair_names:
-        return pair_name[1:]
-    return pair_name
+        pair_name = pair_name[1:]
+
+    if is_staked(pair_name) or pair_name.endswith(currency):
+        return pair_name
+
+    return pair_name + currency
 
 
 def load_from_csv(filename, assets_dict, fix_x_pair_names):

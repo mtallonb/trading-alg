@@ -5,7 +5,7 @@ from datetime import date, datetime
 import krakenex
 import pandas as pd
 
-from utils.basic import FIX_X_PAIR_NAMES, get_fix_pair_name, get_flows_df, my_round
+from utils.basic import FIX_X_PAIR_NAMES, get_fix_pair_name, get_flows_from_kraken_df, my_round
 
 # Invested on each asset and current balance -> result No muy util
 # balance a principio de año y actual quitando los flujos de IO
@@ -129,7 +129,10 @@ def drop_cash_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ----GET DEPOSITS and WD-------------------------------------------------------------------------------------------
-df_deposit, df_wd = get_flows_df(kapi, PAGES, RECORDS_PER_PAGE)
+df_deposit, df_wd = get_flows_from_kraken_df(kapi, PAGES, RECORDS_PER_PAGE)
+
+df_deposit.to_csv('./data/deposits.csv', index=False)
+df_wd.to_csv('./data/withdrawals.csv', index=False)
 
 df_deposit = clean_flows_df(df_flow=df_deposit)
 df_wd = clean_flows_df(df_flow=df_wd)
@@ -262,8 +265,10 @@ def year_gain_perc(
     gain_numerator = balance_365 - balance_0 + flows
     gain = 100 * gain_numerator / mean_balance
     if verbose:
-        print(f'***YEAR: {year} *** balance_0: {balance_0}, balance_365: {balance_365}, mean_balance: {mean_balance} \n'
-              f'flows: {flows}. gain_numerator: {gain_numerator}. gain: {gain}.')
+        print(
+            f'***YEAR: {year} *** balance_0: {balance_0}, balance_365: {balance_365}, mean_balance: {mean_balance} \n'
+            f'flows: {flows}. gain_numerator: {gain_numerator}. gain: {gain}.',
+        )
         print(f'Unrealised gain (perc): {100*unrealised/mean_balance} \n')
     return gain
 
@@ -271,7 +276,13 @@ def year_gain_perc(
 years = [2019, 2020, 2021, 2022, 2023]
 gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0]
 for idx, year in enumerate(years):
-    gain = year_gain_perc(df_deposit=df_deposit, df_wd=df_wd, df_balances_avg=df_avg_balances_per_day, year=year, unrealised=gains_by_year[idx])
+    gain = year_gain_perc(
+        df_deposit=df_deposit,
+        df_wd=df_wd,
+        df_balances_avg=df_avg_balances_per_day,
+        year=year,
+        unrealised=gains_by_year[idx],
+    )
 
 # print(df_positions[df_positions.DATE.dt.date == date(2021, 5, 19)].to_string())
 
