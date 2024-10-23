@@ -48,3 +48,4 @@ nosetests.xml
 
 .idea/
 .DS_Store
+data/xtb_assets.csv

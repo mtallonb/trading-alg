@@ -180,7 +180,7 @@ for stacking_info in stacked_assets['result']['items']:
     if asset:
         asset.fill_stacking_info(stacking_info)
 
-print(f'\n *****PAIR NAMES BY BALANCE TOTAL: {len(assets_dict)} *****')
+print(f'\n *****PAIR NAMES SORTED BY BALANCE TOTAL: {len(assets_dict)} *****')
 # Sort dict by balance descending
 sorted_pair_names_list_balance = sorted(assets_dict.items(), key=lambda x: x[1].balance, reverse=True)
 name_list = [ele[0] for ele in sorted_pair_names_list_balance]
@@ -365,20 +365,24 @@ for _, asset in sorted_pair_names_list_latest:
 
 # ------ RANKING ----------
 # ibs -> is_buy_set, blr -> buy limit reached
-ranking_col = ['Name', 'Last trd', 'ibs', 'blr', 'curr_price', 'avg_buys', 'avg_sells', 's_trades', 'margin_a']
+ranking_col = ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'S_TRADES', 'MARGIN_A']
 df = pd.DataFrame(assets_by_last_trade, columns=ranking_col)
 df = compute_ranking(df, count_sell_trades)
 print(df.to_string(index=False))
-for record in df[['Name', 'ranking']].to_dict('records'):
+for record in df[['NAME', 'RANKING']].to_dict('records'):
     # set ranking on the asset
-    assets_dict[record['Name']].ranking = record['ranking']
+    assets_dict[record['NAME']].ranking = record['RANKING']
 
 print(
-    '\n*****PAIR NAMES BY RANKING: (ibs: is buy set. blr: buy limit reached. '
+    '\n*****PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
     'margin_a: sells_amount - buys_amount)*****',
 )
-print(df.sort_values(by='ranking', ascending=False).to_string(index=False))
+print(df.sort_values(by='RANKING', ascending=False).to_string(index=False))
 # ----------------------------
+live_asset_names = list(df[df.IBS == 1].NAME)
+death_asset_names = list(df[df.IBS == 0].NAME)
+print(f'\n*** LIVE ASSET NAMES ({len(live_asset_names)}): {live_asset_names}')
+print(f'\n*** DEATH ASSET NAMES ({len(death_asset_names)}): {death_asset_names}')
 
 count_valid_asset = 0
 count_remaining_buys = 0

@@ -22,7 +22,7 @@ LOCAL_TZ = pytz.timezone('Europe/Madrid')
 
 # fix pair names
 FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']
-STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR')
+STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR')
 
 
 class BCOLORS:
@@ -87,6 +87,27 @@ def get_trades_history(request_data, page, RECORDS_PER_PAGE, kapi):
     trades = [order for _, order in trades_history['result']['trades'].items()]
     return trades
 
+def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
+    ### flow_type can be: deposit or withdrawal ###
+
+    ledger_flow = []
+    request_data = {'type': flow_type}
+    if timestamp_from:
+        request_data['start'] = timestamp_from
+
+    for page in range(pages):
+        request_data['ofs'] = record_p_page * page
+        ledger_deposit_page = kapi.query_private('Ledgers', request_data)
+        if not ledger_deposit_page.get('result') or not ledger_deposit_page['result']['ledger']:
+            break
+
+        for _, rec in ledger_deposit_page['result']['ledger'].items():
+            ledger_flow.append(rec)
+    flow = pd.DataFrame(ledger_flow)
+    flow.columns = [x.upper() for x in flow.columns]
+    flow.TIME = pd.to_datetime(flow.TIME, unit='s')
+    return flow
+
 
 def cancel_orders(kapi, order_type, orders):
     for order in orders:
@@ -99,24 +120,6 @@ def cancel_order(kapi, order):
     close_order_result = kapi.query_private('CancelOrder', req_data)
     print_query_result('CancelOrder', close_order_result)
     return
-
-
-def get_flows_from_kraken_df(kapi, num_pages, records_per_page, timestamp_from=None):
-    ledger_deposit = []
-    for page in range(num_pages):
-        request_data = {'type': 'deposit', 'ofs': records_per_page * page, 'start': timestamp_from}
-        ledger_deposit_page = kapi.query_private('Ledgers', request_data)
-        if not ledger_deposit_page.get('result') or not ledger_deposit_page['result']['ledger']:
-            break
-        for _, rec in ledger_deposit_page['result']['ledger'].items():
-            ledger_deposit.append(rec)
-
-    df_deposit = pd.DataFrame(ledger_deposit)
-
-    ledger_wd = kapi.query_private('Ledgers', {'type': 'withdrawal'})
-    df_wd = pd.DataFrame(ledger_wd['result']['ledger'].values())
-
-    return df_deposit, df_wd
 
 
 def get_max_price_since(kapi, pair_name, since_datetime):
@@ -206,23 +209,23 @@ def print_query_result(endpoint, result):
 
 
 def compute_ranking(df, count_sell_trades):
-    sum_margin_a = df['margin_a'].abs().sum()
-    df['margin_pc'] = df['margin_a'] / sum_margin_a
-    df['pb'] = (df['curr_price'] - df['avg_buys']) / df['curr_price']
-    df['ps'] = (df['curr_price'] - df['avg_sells']) / df['curr_price']
-    df['perc_bs'] = (df['avg_sells'] - df['avg_buys']) / df['avg_sells']
-    df['s_trades'] = (df['s_trades'] / count_sell_trades) * 10
+    sum_margin_a = df.MARGIN_A.abs().sum()
+    df['MARGIN_PC'] = df.MARGIN_A / sum_margin_a
+    df['PB'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
+    df['PS'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
+    df['PERC_BS'] = (df.AVG_S - df.AVG_B) / df.AVG_S
+    df['S_TRADES'] = (df.S_TRADES / count_sell_trades) * 10
 
-    df['ranking'] = df['pb'] + df['ps'] + df['perc_bs'] + df['s_trades'] + df['margin_pc']
+    df['RANKING'] = df['PB'] + df['PS'] + df['PERC_BS'] + df['S_TRADES'] + df['MARGIN_PC']
 
-    idx = df['avg_sells'] == 0.0
-    df.loc[idx, 'ranking'] = np.nan
+    idx = df['AVG_S'] == 0.0
+    df.loc[idx, 'RANKING'] = np.nan
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.dropna(subset=["ranking"], how="all", inplace=True)
-    idx = df['ranking'] < -10
-    df.loc[idx, 'ranking'] = -10
-    df['ranking'] = df['ranking'] - df['ranking'].min()
-    df['ranking'] = (df['ranking'] / df['ranking'].max()) * 10
+    df.dropna(subset=["RANKING"], how="all", inplace=True)
+    idx = df['RANKING'] < -10
+    df.loc[idx, 'RANKING'] = -10
+    df['RANKING'] = df['RANKING'] - df['RANKING'].min()
+    df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
 
     # df = df.drop(columns=['pb', 'ps'])
     return df

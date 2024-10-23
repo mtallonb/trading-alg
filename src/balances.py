@@ -5,7 +5,7 @@ from datetime import date, datetime
 import krakenex
 import pandas as pd
 
-from utils.basic import FIX_X_PAIR_NAMES, get_fix_pair_name, get_flows_from_kraken_df, my_round
+from utils.basic import FIX_X_PAIR_NAMES, get_fix_pair_name, get_flow_from_kraken, my_round
 
 # Invested on each asset and current balance -> result No muy util
 # balance a principio de año y actual quitando los flujos de IO
@@ -18,13 +18,16 @@ pd.options.mode.chained_assignment = None  # default='warn'
 pd.options.display.float_format = "{:,.4f}".format
 
 VERBOSE = True
+DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+PAGES = 4  # 50 RECORDS per page
+RECORDS_PER_PAGE = 50  # Watchout is not working for higher values than 50
 
 filename = './data/trades_2024.csv'
+deposit_filename = './data/deposits.csv'
+wd_filename = './data/withdrawals.csv'
 file = None
 buy_trades = []
 sell_trades = []
-
-DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 date_to = date(2023, 12, 31)
 # date_to = datetime.today().date()
@@ -40,8 +43,6 @@ timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
 # configure api
 kapi = krakenex.API()
 kapi.load_key('./data/kraken.key')
-PAGES = 5  # 50 RECORDS per page
-RECORDS_PER_PAGE = 50
 
 header_prices = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 header_prices_kraken = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
@@ -90,8 +91,6 @@ def get_asset_positions(
     df_pos_temp.FEE.fillna(0, inplace=True)
     df_pos_temp.drop_duplicates(subset=['DATE'], keep='last', inplace=True)
 
-    # print(df_pos_temp.drop_duplicates(subset=['DATE'], keep='last').to_string())
-
     return pd.concat([df_pos_temp, df_cash_pos])
 
 
@@ -106,11 +105,10 @@ def get_new_prices(asset_name: str, timestamp_from: datetime.timestamp) -> pd.Da
 
 
 def clean_flows_df(df_flow: pd.DataFrame) -> pd.DataFrame:
-    df_flow.drop(['aclass', 'refid', 'type', 'subtype'], axis=1, inplace=True)
-    df_flow.rename({'time': 'date', 'balance': 'shares'}, axis=1, inplace=True)
-    df_flow.columns = [x.upper() for x in df_flow.columns]
+    df_flow.drop(['ACLASS', 'REFID', 'TYPE', 'SUBTYPE'], axis=1, inplace=True)
+    df_flow.rename({'TIME': 'DATE', 'BALANCE': 'SHARES'}, axis=1, inplace=True)
     df_flow = df_flow[df_flow.ASSET == 'ZEUR']
-    df_flow.DATE = pd.to_datetime(df_flow.DATE, unit='s').dt.floor('d')
+    df_flow.DATE = pd.to_datetime(df_flow.DATE).dt.floor('d')
     df_flow.loc[df_flow.ASSET == 'ZEUR', 'SHARES'] = df_flow.AMOUNT
     df_flow.AMOUNT = pd.to_numeric(df_flow.AMOUNT)
     df_flow.SHARES = pd.to_numeric(df_flow.SHARES)
@@ -129,15 +127,45 @@ def drop_cash_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ----GET DEPOSITS and WD-------------------------------------------------------------------------------------------
-df_deposit, df_wd = get_flows_from_kraken_df(kapi, PAGES, RECORDS_PER_PAGE)
+df_deposits = pd.read_csv(deposit_filename)
+latest_deposit_datetime = df_deposits.TIME.iloc[0]
+deposit_datetime = datetime.fromisoformat(latest_deposit_datetime)
+# deposit_datetime += timedelta(days=1)
 
-df_deposit.to_csv('./data/deposits.csv', index=False)
-df_wd.to_csv('./data/withdrawals.csv', index=False)
+df_new_deposits = get_flow_from_kraken(
+    kapi=kapi,
+    flow_type='deposit',
+    pages=PAGES,
+    record_p_page=RECORDS_PER_PAGE,
+    timestamp_from=deposit_datetime.timestamp(),
+)
 
-df_deposit = clean_flows_df(df_flow=df_deposit)
+df_new_deposits = df_new_deposits[df_new_deposits.TIME > latest_deposit_datetime]
+if not df_new_deposits.empty:
+    df_deposits = pd.concat([df_deposits, df_new_deposits])
+    df_deposits.to_csv(deposit_filename, index=False)
+
+df_wd = pd.read_csv(wd_filename)
+latest_wd_datetime = df_wd.TIME.iloc[0]
+wd_datetime = datetime.fromisoformat(latest_wd_datetime)
+
+df_new_wd = get_flow_from_kraken(
+    kapi=kapi,
+    flow_type='withdrawal',
+    pages=PAGES,
+    record_p_page=RECORDS_PER_PAGE,
+    timestamp_from=wd_datetime.timestamp(),
+)
+
+df_new_wd = df_new_wd[df_new_wd.TIME > latest_wd_datetime]
+if not df_new_wd.empty:
+    df_wd = pd.concat([df_wd, df_new_wd])
+    df_wd.to_csv(wd_filename, index=False)
+
+df_deposits = clean_flows_df(df_flow=df_deposits)
 df_wd = clean_flows_df(df_flow=df_wd)
 
-df_list = [df_deposit, df_wd]
+df_list = [df_deposits, df_wd]
 
 # ----------GET TRADES-------------------------------------------------------------------
 df_trades = pd.read_csv(filename)
@@ -232,7 +260,7 @@ print('\n SELLS: {}'.format(my_round(total_sell_amount)))
 print('\n SELLS - BUYS: {}'.format(my_round(total_sell_amount - total_buy_amount)))
 print('\n FEES: {}'.format(my_round(total_fees)))
 
-total_deposit = df_deposit.AMOUNT.sum()
+total_deposit = df_deposits.AMOUNT.sum()
 total_wd = -df_wd.AMOUNT.sum()
 print('\n DEPOSIT: {}'.format(my_round(total_deposit)))
 print('\n WD: {}'.format(my_round(total_wd)))
@@ -248,14 +276,14 @@ print(df_avg_balances_per_day.to_string())
 
 # GAIN per year
 def year_gain_perc(
-    df_deposit: pd.DataFrame,
+    df_deposits: pd.DataFrame,
     df_wd: pd.DataFrame,
     df_balances_avg: pd.DataFrame,
     year: int,
     unrealised: float,
     verbose: bool = True,
 ) -> float:
-    deposit_amount_year = df_deposit[df_deposit.DATE.dt.year == year].AMOUNT.sum()
+    deposit_amount_year = df_deposits[df_deposits.DATE.dt.year == year].AMOUNT.sum()
     wd_amount_year = -df_wd[df_wd.DATE.dt.year == year].AMOUNT.sum()
     daily_balances_year = df_balances_avg[df_balances_avg.DATE.dt.year == year]
     balance_0 = daily_balances_year.AMOUNT.iloc[0]
@@ -277,7 +305,7 @@ years = [2019, 2020, 2021, 2022, 2023]
 gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
-        df_deposit=df_deposit,
+        df_deposits=df_deposits,
         df_wd=df_wd,
         df_balances_avg=df_avg_balances_per_day,
         year=year,
