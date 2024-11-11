@@ -163,7 +163,7 @@ class APIClient(JsonSocket):
         super(APIClient, self).__init__(address, port, encrypt)
         if not self.connect():
             raise Exception(
-                "Cannot connect to " + address + ":" + str(port) + " after " + str(API_MAX_CONN_TRIES) + " retries"
+                "Cannot connect to " + address + ":" + str(port) + " after " + str(API_MAX_CONN_TRIES) + " retries",
             )
 
     def execute(self, dictionary):
@@ -180,7 +180,7 @@ class APIClient(JsonSocket):
     def logout(self):
         data_dict = baseCommand('logout')
         return self.execute(data_dict)
-        
+
     def disconnect(self):
         self.logout()
         self.close()
@@ -188,7 +188,10 @@ class APIClient(JsonSocket):
     def getAssets(self):
         data_dict = baseCommand('getAllSymbols')
         return self.execute(data_dict)
-        
+
+    def getBalance(self):
+        data_dict = baseCommand('getBalance')
+        return self.execute(data_dict)
 
 
 class APIStreamClient(JsonSocket):
@@ -223,7 +226,7 @@ class APIStreamClient(JsonSocket):
                 + str(port)
                 + " after "
                 + str(API_MAX_CONN_TRIES)
-                + " retries"
+                + " retries",
             )
 
         self._running = True
@@ -302,8 +305,31 @@ class APIStreamClient(JsonSocket):
 
 
 # Command templates
-def baseCommand(commandName, arguments=None)-> dict:
+def baseCommand(commandName, arguments=None) -> dict:
     if not arguments:
         arguments = dict()
     return dict([('command', commandName), ('arguments', arguments)])
 
+# example function for processing ticks from Streaming socket
+def procTickExample(msg): 
+    print("TICK: ", msg)
+
+# example function for processing trades from Streaming socket
+def procTradeExample(msg): 
+    print("TRADE: ", msg)
+
+# example function for processing trades from Streaming socket
+def procBalanceExample(msg): 
+    print("BALANCE: ", msg)
+
+# example function for processing trades from Streaming socket
+def procTradeStatusExample(msg): 
+    print("TRADE STATUS: ", msg)
+
+# example function for processing trades from Streaming socket
+def procProfitExample(msg): 
+    print("PROFIT: ", msg)
+
+# example function for processing news from Streaming socket
+def procNewsExample(msg): 
+    print("NEWS: ", msg)

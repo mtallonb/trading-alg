@@ -2,14 +2,20 @@
 
 import logging
 
-import pandas as pd
-
 # from utils.xtb_api.api import XTB
-from utils.xtb_api.xAPIConnector import APIClient
+from utils.xtb_api.xAPIConnector import (
+    APIClient,
+    APIStreamClient,
+    procBalanceExample,
+    procProfitExample,
+    procTickExample,
+    procTradeExample,
+    procTradeStatusExample,
+)
 
 xtb_key_path = "./data/xtb.key"
 logger = logging.getLogger("jsonSocket")
-xtb_assets_filename='./data/xtb_assets.csv'
+xtb_assets_filename = './data/xtb_assets.csv'
 
 # xtb_api = XTB("./data/xtb.key")
 # print(f'Server time: {xtb_api.get_ServerTime()}')
@@ -37,8 +43,23 @@ if not loginResponse['status']:
 # df_assets = pd.DataFrame.from_dict(assets['returnData'])
 # df_assets.to_csv(xtb_assets_filename, index=False)
 
+# create & connect to Streaming socket with given ssID
+# and functions for processing ticks, trades, profit and tradeStatus
+sclient = APIStreamClient(
+    ssId=loginResponse['streamSessionId'],
+    tickFun=procTickExample,
+    balanceFun=procBalanceExample,
+    tradeFun=procTradeExample,
+    profitFun=procProfitExample,
+    tradeStatusFun=procTradeStatusExample,
+)
 
- # gracefully close RR socket
+sclient.subscribeBalance()
+
+# gracefully close streaming socket
+sclient.disconnect()
+
+# gracefully close RR socket
 client.disconnect()
 
 

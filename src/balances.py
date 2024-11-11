@@ -29,7 +29,7 @@ file = None
 buy_trades = []
 sell_trades = []
 
-date_to = date(2023, 12, 31)
+date_to = date(2024, 11, 7)
 # date_to = datetime.today().date()
 timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
 
@@ -294,15 +294,15 @@ def year_gain_perc(
     gain = 100 * gain_numerator / mean_balance
     if verbose:
         print(
-            f'***YEAR: {year} *** balance_0: {balance_0}, balance_365: {balance_365}, mean_balance: {mean_balance} \n'
-            f'flows: {flows}. gain_numerator: {gain_numerator}. gain: {gain}.',
+            f'\n***YEAR: {year} *** balance_0: {my_round(balance_0)}, balance_365: {my_round(balance_365)}, mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
+            f'flows: {my_round(flows)}. gain_numerator: {my_round(gain_numerator)}. gain: {my_round(gain)}.',
         )
-        print(f'Unrealised gain (perc): {100*unrealised/mean_balance} \n')
+        print(f'Unrealised gain (perc): {my_round(100*unrealised/mean_balance)} \n')
     return gain
 
 
-years = [2019, 2020, 2021, 2022, 2023]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0]
+years = [2019, 2020, 2021, 2022, 2023, 2024]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 3400.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,
