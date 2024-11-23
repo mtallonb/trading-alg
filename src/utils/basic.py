@@ -122,16 +122,19 @@ def cancel_order(kapi, order):
     return
 
 
-def get_max_price_since(kapi, pair_name, since_datetime):
+def get_max_price_since(kapi, pair_name: str, original_name: str, since_datetime: datetime) -> PriceOHLC | None:
     prices = []
     max_price_OHLC = None
     timestamp = since_datetime.timestamp()
     tickers_prices = kapi.query_public('OHLC', {'pair': pair_name, 'interval': 1440, 'since': timestamp})
     if not tickers_prices.get('result'):
         print(f'ERROR: Asset {pair_name} not found')
-        return 0
-
-    for price in tickers_prices['result'][pair_name]:
+        return None
+    prices_res = tickers_prices['result'].get(original_name) or tickers_prices['result'].get(pair_name)
+    if not prices_res:
+        print(f'ERROR: Prices are empty {pair_name}')
+        return None
+    for price in prices_res:
         day = from_timestamp_to_datetime(price[0]).date()
         priceOHLC = PriceOHLC(float(price[1]), float(price[2]), float(price[3]), float(price[4]), day)
         prices.append(priceOHLC)

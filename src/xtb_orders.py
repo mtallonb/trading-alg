@@ -2,6 +2,8 @@
 
 import logging
 
+from time import sleep
+
 # from utils.xtb_api.api import XTB
 from utils.xtb_api.xAPIConnector import (
     APIClient,
@@ -15,7 +17,7 @@ from utils.xtb_api.xAPIConnector import (
 
 xtb_key_path = "./data/xtb.key"
 logger = logging.getLogger("jsonSocket")
-xtb_assets_filename = './data/xtb_assets.csv'
+# xtb_assets_filename = './data/xtb_assets.csv'
 
 # xtb_api = XTB("./data/xtb.key")
 # print(f'Server time: {xtb_api.get_ServerTime()}')
@@ -56,8 +58,10 @@ sclient = APIStreamClient(
 
 sclient.subscribeBalance()
 
+sleep(3)
+
 # gracefully close streaming socket
-sclient.disconnect()
+# sclient.disconnect()
 
 # gracefully close RR socket
 client.disconnect()
