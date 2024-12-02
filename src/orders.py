@@ -4,19 +4,17 @@
 # Métricas para conocer valor de compra y cuantos asset podemos tener en cartera
 # Umbral de perdidas y ganancia max percentile 10 esperar a que suba tras bajar para comprar
 # Notificaciones telegram con telebot
-
-# BUG si hay más de 50 trades sin actualizar en los trades
-# TWRR en trades y más métricas
-# Mostrar si esta bloqueado el que esta a punto de vender
-
 # Dinero invertido en los asset muertos
 # Compensar ganancias con las perdidas de las muertas.
-# Añadir media y varianza a cada asset de 30 dias por ejemplo parametrizable
+# Añadir media (medias móviles) y varianza a cada asset de 30 dias por ejemplo parametrizable
 # Ejecutar las pérdidas si hay mucha ganancia este año
 
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Es decir un ranking de todos
-# Guardar los deposits y wd en ficheros e ir actualizando
+
+# BUG si hay más de 50 trades sin actualizar en los trades
+# TWRR en trades y más métricas
+# Mostrar si esta bloqueado el que esta a punto de vender
 
 
 from datetime import datetime
@@ -125,7 +123,7 @@ processing_time_start = datetime.utcnow()
 # Float output format
 pd.options.display.float_format = '{:.3f}'.format
 
-assets_dict = {}
+assets_dict: dict[str, Asset] = {}
 ledger_deposit = []
 sells_amount = 0
 buys_amount = 0
@@ -424,10 +422,8 @@ if PRINT_ORDERS_SUMMARY:
         last_sell_order = asset.latest_order()
         last_trade_execution = asset.trades[0].execution_datetime.replace(tzinfo=None)
         sell_lower_price = asset.orders_sell_lower_price
-        cancel_condition = (
-            sell_lower_price
-            and sell_lower_price >= thr_sell
-            or (last_sell_order and last_trade_execution > last_sell_order.creation_datetime)
+        cancel_condition = (sell_lower_price and sell_lower_price >= thr_sell) or (
+            last_sell_order and last_trade_execution > last_sell_order.creation_datetime
         )
         if cancel_condition:
             perc = percentage(last_trade_price, asset.orders_sell_lower_price)
@@ -444,10 +440,8 @@ if PRINT_ORDERS_SUMMARY:
 
         last_buy_order = asset.latest_order(type=Order.BUY)
         buy_higher_price = asset.orders_buy_higher_price
-        cancel_condition = (
-            buy_higher_price
-            and buy_higher_price <= thr_buy
-            or (last_buy_order and last_trade_execution > last_buy_order.creation_datetime)
+        cancel_condition = (buy_higher_price and buy_higher_price <= thr_buy) or (
+            last_buy_order and last_trade_execution > last_buy_order.creation_datetime
         )
         if cancel_condition:
             perc = percentage(last_trade_price, asset.orders_buy_higher_price)

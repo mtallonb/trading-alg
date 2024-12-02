@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from datetime import date, datetime
+from datetime import datetime
 
 import krakenex
 import pandas as pd
@@ -21,6 +21,8 @@ VERBOSE = True
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 PAGES = 4  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50  # Watchout is not working for higher values than 50
+FLOW_TYPE_DEPOSIT = 'deposit'
+FLOW_TYPE_WD = 'withdrawal'
 
 filename = './data/trades_2024.csv'
 deposit_filename = './data/deposits.csv'
@@ -29,8 +31,8 @@ file = None
 buy_trades = []
 sell_trades = []
 
-date_to = date(2024, 11, 7)
-# date_to = datetime.today().date()
+# date_to = date(2024, 11, 7)
+date_to = datetime.today().date()
 timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
 
 # REPLACE_NAMES = {'ETHEUR': 'XETHZEUR',
@@ -125,48 +127,37 @@ def drop_cash_rows(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+def update_get_flow_file(flow_type: str):
+    flow_filename = deposit_filename if flow_type == FLOW_TYPE_DEPOSIT else wd_filename
+    df_flows = pd.read_csv(flow_filename)
+    latest_flow_datetime = df_flows.TIME.iloc[-1]
+    flow_datetime = datetime.fromisoformat(latest_flow_datetime)
+    # deposit_datetime += timedelta(days=1)
+
+    df_new_flows = get_flow_from_kraken(
+        kapi=kapi,
+        flow_type=flow_type,
+        pages=PAGES,
+        record_p_page=RECORDS_PER_PAGE,
+        timestamp_from=flow_datetime.timestamp(),
+    )
+
+    df_new_flows = df_new_flows[df_new_flows.TIME > latest_flow_datetime]
+    if not df_new_flows.empty:
+        df_flows = pd.concat([df_flows, df_new_flows])
+        df_flows['TIME'] = pd.to_datetime(df_flows.TIME)
+        df_flows.sort_values(by=['TIME'], ascending=True, inplace=True, ignore_index=True)
+        df_flows.to_csv(flow_filename, index=False)
+
+    return df_flows
 
 # ----GET DEPOSITS and WD-------------------------------------------------------------------------------------------
-df_deposits = pd.read_csv(deposit_filename)
-latest_deposit_datetime = df_deposits.TIME.iloc[0]
-deposit_datetime = datetime.fromisoformat(latest_deposit_datetime)
-# deposit_datetime += timedelta(days=1)
-
-df_new_deposits = get_flow_from_kraken(
-    kapi=kapi,
-    flow_type='deposit',
-    pages=PAGES,
-    record_p_page=RECORDS_PER_PAGE,
-    timestamp_from=deposit_datetime.timestamp(),
-)
-
-df_new_deposits = df_new_deposits[df_new_deposits.TIME > latest_deposit_datetime]
-if not df_new_deposits.empty:
-    df_deposits = pd.concat([df_deposits, df_new_deposits])
-    df_deposits.to_csv(deposit_filename, index=False)
-
-df_wd = pd.read_csv(wd_filename)
-latest_wd_datetime = df_wd.TIME.iloc[0]
-wd_datetime = datetime.fromisoformat(latest_wd_datetime)
-
-df_new_wd = get_flow_from_kraken(
-    kapi=kapi,
-    flow_type='withdrawal',
-    pages=PAGES,
-    record_p_page=RECORDS_PER_PAGE,
-    timestamp_from=wd_datetime.timestamp(),
-)
-
-df_new_wd = df_new_wd[df_new_wd.TIME > latest_wd_datetime]
-if not df_new_wd.empty:
-    df_wd = pd.concat([df_wd, df_new_wd])
-    df_wd.to_csv(wd_filename, index=False)
-
+df_deposits = update_get_flow_file(flow_type=FLOW_TYPE_DEPOSIT)
+df_wd = update_get_flow_file(flow_type=FLOW_TYPE_WD)
 df_deposits = clean_flows_df(df_flow=df_deposits)
 df_wd = clean_flows_df(df_flow=df_wd)
 
 df_list = [df_deposits, df_wd]
-
 # ----------GET TRADES-------------------------------------------------------------------
 df_trades = pd.read_csv(filename)
 
@@ -271,7 +262,7 @@ print('\n CASH: {}'.format(my_round(cash)))
 
 # AVG BALANCE
 df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index()
-print(df_avg_balances_per_day.to_string())
+# print(df_avg_balances_per_day.to_string())
 
 
 # GAIN per year
@@ -281,7 +272,7 @@ def year_gain_perc(
     df_balances_avg: pd.DataFrame,
     year: int,
     unrealised: float,
-    verbose: bool = True,
+    verbose: bool = VERBOSE,
 ) -> float:
     deposit_amount_year = df_deposits[df_deposits.DATE.dt.year == year].AMOUNT.sum()
     wd_amount_year = -df_wd[df_wd.DATE.dt.year == year].AMOUNT.sum()
@@ -294,15 +285,15 @@ def year_gain_perc(
     gain = 100 * gain_numerator / mean_balance
     if verbose:
         print(
-            f'\n***YEAR: {year} *** balance_0: {my_round(balance_0)}, balance_365: {my_round(balance_365)}, mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
-            f'flows: {my_round(flows)}. gain_numerator: {my_round(gain_numerator)}. gain: {my_round(gain)}.',
+            f'\n***YEAR: {year}| balance_0: {my_round(balance_0)}| balance_365: {my_round(balance_365)}| mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
+            f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)}.',
         )
         print(f'Unrealised gain (perc): {my_round(100*unrealised/mean_balance)} \n')
     return gain
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 3400.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 5000.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

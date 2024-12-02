@@ -88,7 +88,6 @@ def get_trades_history(request_data, page, RECORDS_PER_PAGE, kapi):
     return trades
 
 def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
-    ### flow_type can be: deposit or withdrawal ###
 
     ledger_flow = []
     request_data = {'type': flow_type}
@@ -97,11 +96,11 @@ def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, tim
 
     for page in range(pages):
         request_data['ofs'] = record_p_page * page
-        ledger_deposit_page = kapi.query_private('Ledgers', request_data)
-        if not ledger_deposit_page.get('result') or not ledger_deposit_page['result']['ledger']:
+        ledger_flow_page = kapi.query_private('Ledgers', request_data)
+        if not ledger_flow_page.get('result') or not ledger_flow_page['result']['ledger']:
             break
 
-        for _, rec in ledger_deposit_page['result']['ledger'].items():
+        for _, rec in ledger_flow_page['result']['ledger'].items():
             ledger_flow.append(rec)
     flow = pd.DataFrame(ledger_flow)
     flow.columns = [x.upper() for x in flow.columns]
