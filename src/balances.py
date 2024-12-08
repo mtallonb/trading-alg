@@ -293,7 +293,7 @@ def year_gain_perc(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 5000.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 5600.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,
