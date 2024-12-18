@@ -43,7 +43,7 @@ LAST_ORDERS = 200
 
 BUY_LIMIT = 4  # Number of consecutive buy trades
 GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
-MINIMUM_BUY_AMOUNT = 70
+MINIMUM_BUY_AMOUNT = 75
 BUY_LIMIT_AMOUNT = (
     BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
@@ -53,10 +53,10 @@ PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
 # Exclude
-EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR']
+EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR','EIGENEUR']
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 
-ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR']
+ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR']
 
 # PAIR_TO_LAST_TRADES = ['SCEUR', 'SNXEUR', 'SHIBEUR', 'SOLEUR', 'ETCEUR']
 # PAIR_TO_LAST_TRADES = ['XDGEUR', 'EOSEUR']
@@ -480,7 +480,14 @@ if PRINT_ORDERS_SUMMARY:
             if not buy_limit_reached or PRINT_BUYS_WARN_CONSECUTIVE or asset_name in PAIR_TO_FORCE_INFO:
                 print(asset.print_buy_message(GAIN_PERCENTAGE))
 
-            if not asset.orders_buy_amount and not buy_limit_reached and asset_name not in ASSETS_TO_EXCLUDE_AMOUNT:
+            if not any(
+                [
+                    asset.orders_buy_amount,
+                    buy_limit_reached,
+                    buy_limit_amount_reached,
+                    asset_name in ASSETS_TO_EXCLUDE_AMOUNT,
+                ],
+            ):
                 count_remaining_buys += remaining_buys
                 count_missing_buys += 1
 

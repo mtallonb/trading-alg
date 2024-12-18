@@ -4,7 +4,7 @@ import logging
 
 from time import sleep
 
-from src.utils.classes import Asset
+from utils.classes import Asset
 
 # from utils.xtb_api.api import XTB
 from utils.xtb_api.xAPIConnector import (
