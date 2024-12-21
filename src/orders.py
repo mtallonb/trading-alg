@@ -43,7 +43,7 @@ LAST_ORDERS = 200
 
 BUY_LIMIT = 4  # Number of consecutive buy trades
 GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
-MINIMUM_BUY_AMOUNT = 75
+MINIMUM_BUY_AMOUNT = 70
 BUY_LIMIT_AMOUNT = (
     BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
@@ -53,7 +53,7 @@ PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
 # Exclude
-EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR','EIGENEUR']
+EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR']
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 
 ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR']
@@ -113,6 +113,7 @@ currency = 'EUR'
 
 # EUR balance
 cash_eur = float(balance['result']['ZEUR'])
+staked_eur = 0.0
 
 elapsed_time_open_orders = None
 elapsed_time_last_trades = None
@@ -173,6 +174,9 @@ for name, ticker_info in tickers_info['result'].items():
 # Fill stacking info
 # Watch-out is returning all assets
 for stacking_info in stacked_assets['result']['items']:
+    if stacking_info['native_asset'] == 'EUR':
+        staked_eur = stacking_info['amount_allocated']['total']['native']
+        continue
     name = f"{stacking_info['native_asset']}EUR"
     asset = assets_dict.get(name)
     if asset:
@@ -510,7 +514,8 @@ if PRINT_ORDERS_SUMMARY:
         f'Count remaining buys: {count_remaining_buys}.\n'
         f'Needed cash: {cash_needed}.\n'
         f'Count ALL remaining buys (worst case): {count_all_remaining_buys}.\n'
-        f'ALL Needed cash: {all_cash_needed}',
+        f'ALL Needed cash: {all_cash_needed}.\n'
+        f'Staked cash: {my_round(staked_eur)}',
     )
 
 elapsed_time_since_begining = datetime.utcnow() - processing_time_start
