@@ -175,7 +175,7 @@ for name, ticker_info in tickers_info['result'].items():
 # Watch-out is returning all assets
 for stacking_info in stacked_assets['result']['items']:
     if stacking_info['native_asset'] == 'EUR':
-        staked_eur = stacking_info['amount_allocated']['total']['native']
+        staked_eur = float(stacking_info['amount_allocated']['total']['native'])
         continue
     name = f"{stacking_info['native_asset']}EUR"
     asset = assets_dict.get(name)

@@ -256,7 +256,7 @@ class Asset:
     def print_stacking_info(self):
         from utils.basic import my_round
 
-        return f' ***** staking info: Shares: {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {self.stacked_balance+self.balance}'
+        return f' ***** staking info: Shares: {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {self.stacked_balance+self.balance}'  # noqa: E501
 
     def get_buy_avg_msg(self) -> str:
         from utils.basic import BCOLORS, my_round, percentage
