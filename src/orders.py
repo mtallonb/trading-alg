@@ -86,7 +86,7 @@ AUTO_CANCEL_BUY_ORDER = True
 AUTO_CANCEL_SELL_ORDER = True
 
 GET_FULL_TRADE_HISTORY = True
-TRADE_FILE = './data/trades_2024.csv'
+TRADE_FILE = './data/trades_2025.csv'
 KEY_FILE = './data/kraken.key'
 
 # configure api

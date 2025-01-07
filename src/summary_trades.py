@@ -12,12 +12,12 @@ import krakenex
 from utils.basic import append_trades_to_csv, get_trades_history, my_round, read_trades_csv
 from utils.classes import CSVTrade
 
-year = 2024
+year = 2025
 
 VERBOSE = True
 CSV_READ = False
 
-filename = './data/trades_2024.csv'
+filename = f'./data/trades_{year}.csv'
 file = None
 buy_trades = []
 sell_trades = []
@@ -197,7 +197,7 @@ print(f'sells - buys: {my_round(total_sell_amount - total_buy_amount)}')
 # print(f'Computed cash: {my_round(D(7091) + total_sell_amount - total_buy_amount) - total_fees}')
 
 print('\n ===== SUMMARY =====')
-print(f'total gain loss: {my_round(total_gain_loss)}')
+print(f'total gain loss (traded assets): {my_round(total_gain_loss)}')
 print(f'gain loss ({year}): {my_round(gain_loss_year)}')
 print(f'unrealised gain ({year}): {my_round(unrealised_p_total_year)}')
 print(f'fees ({year})/  total fees : {my_round(year_fees)} / {my_round(total_fees)}')
