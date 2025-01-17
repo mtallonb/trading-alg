@@ -24,7 +24,8 @@ RECORDS_PER_PAGE = 50  # Watchout is not working for higher values than 50
 FLOW_TYPE_DEPOSIT = 'deposit'
 FLOW_TYPE_WD = 'withdrawal'
 
-filename = './data/trades_2024.csv'
+year = 2025
+filename = f'./data/trades_{year}.csv'
 deposit_filename = './data/deposits.csv'
 wd_filename = './data/withdrawals.csv'
 file = None
@@ -171,6 +172,7 @@ df_trades['TYPE'].replace('sell', 'S', inplace=True)
 df_trades.DATETIME = pd.to_datetime(df_trades.DATETIME)
 df_trades['DATE'] = df_trades['DATETIME'].dt.floor('d')
 
+
 # -------GET PRICES-------------------------------------------------------------------------------------------------
 # ticker_prices = kapi.query_public('OHLC', {'pair': 'XETHZEUR', 'interval': 1440, 'since': timestamp_from})
 # ticker_prices = cw.markets.get(f"kraken:{pair_name}", ohlc=True, ohlc_before=int(timestamp_to), periods=["1d"])
@@ -180,13 +182,26 @@ df_trades['DATE'] = df_trades['DATETIME'].dt.floor('d')
 asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR'])].ASSET.dropna().unique()
 # asset_names = ['XXBTZEUR']
 
+def read_from_local_file(asset_name: str) -> pd.DataFrame | None:
+    from pathlib import Path
+    path = f'./data/prices/{asset_name}_CLOSE_DAILY.csv'
+    file_path = Path(path)
+
+    # Check if the file exists
+    if file_path.exists():
+        return pd.read_csv(path)
+    else:
+        print(f"Prices for: {asset_name} taken from OHLC prices")
+        return pd.read_csv(f'./data/OHLC_prices/{asset_name}_1440.csv', names=header_prices)[['TIMESTAMP', 'C']]
+
 for asset_name in asset_names:
     fix_asset_name = get_fix_pair_name(asset_name, FIX_X_PAIR_NAMES)
-    df_prices = pd.read_csv(f'./data/OHLC_prices/{fix_asset_name}_1440.csv', names=header_prices)[['TIMESTAMP', 'C']]
+    df_prices = read_from_local_file(asset_name=fix_asset_name)
     latest_timestamp = df_prices.TIMESTAMP.iloc[-1]
     if latest_timestamp < timestamp_to:
         new_prices = get_new_prices(asset_name=asset_name, timestamp_from=latest_timestamp)
         df_prices = pd.concat([df_prices, new_prices])
+        df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
 
     df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
     df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.floor('d')

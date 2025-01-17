@@ -15,6 +15,7 @@
 # BUG si hay más de 50 trades sin actualizar en los trades
 # TWRR en trades y más métricas
 # Mostrar si esta bloqueado el que esta a punto de vender
+# XBT staking not appearing
 
 
 from datetime import datetime
