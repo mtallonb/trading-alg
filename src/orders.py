@@ -16,6 +16,7 @@
 # TWRR en trades y más métricas
 # Mostrar si esta bloqueado el que esta a punto de vender
 # XBT staking not appearing
+# Precios de fichero local
 
 
 from datetime import datetime
@@ -59,6 +60,8 @@ EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAV
 
 ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR']
 
+MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
+
 # PAIR_TO_LAST_TRADES = ['SCEUR', 'SNXEUR', 'SHIBEUR', 'SOLEUR', 'ETCEUR']
 # PAIR_TO_LAST_TRADES = ['XDGEUR', 'EOSEUR']
 # PAIR_TO_LAST_TRADES = ['MATICEUR']
@@ -74,8 +77,7 @@ PAIR_TO_LAST_TRADES = []
 # PAIR_TO_FORCE_INFO = ['ETCEUR']
 # PAIR_TO_FORCE_INFO = ['XLMEUR']
 # PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
-# PAIR_TO_FORCE_INFO = ['XBTEUR', 'ADAEUR']
-PAIR_TO_FORCE_INFO = []
+PAIR_TO_FORCE_INFO = ['XBTEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -102,7 +104,7 @@ start = datetime.utcnow()
 
 balance = kapi.query_private('Balance')
 open_orders = kapi.query_private('OpenOrders', data={'trades': 'false'})
-stacked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocations': 'true'})
+staked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocations': 'true'})
 # trade_balance = kapi.query_private('TradeBalance')
 # close_orders = kapi.query_private('CloseOrders', req_data)
 # trades_history = kapi.query_private('TradesHistory', req_data)
@@ -172,16 +174,17 @@ for name, ticker_info in tickers_info['result'].items():
     if asset:
         asset.fill_ticker_info(ticker_info)
 
-# Fill stacking info
+# Fill staking info
 # Watch-out is returning all assets
-for stacking_info in stacked_assets['result']['items']:
-    if stacking_info['native_asset'] == 'EUR':
-        staked_eur = float(stacking_info['amount_allocated']['total']['native'])
+for staking_info in staked_assets['result']['items']:
+    staking_name = staking_info['native_asset']
+    if staking_name == 'EUR':
+        staked_eur = float(staking_info['amount_allocated']['total']['native'])
         continue
-    name = f"{stacking_info['native_asset']}EUR"
+    name = MAPPING_STAKING_NAME.get(staking_name, f"{staking_name}EUR")
     asset = assets_dict.get(name)
     if asset:
-        asset.fill_stacking_info(stacking_info)
+        asset.fill_staking_info(staking_info)
 
 print(f'\n *****PAIR NAMES SORTED BY BALANCE TOTAL: {len(assets_dict)} *****')
 # Sort dict by balance descending

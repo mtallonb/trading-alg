@@ -65,7 +65,7 @@ def my_round(value, decimal_places=DECIMALS):
         return round(value, decimal_places)
     else:
         # decimal_places = count_zeros(value)
-        return round(value, decimal_places + 5)
+        return round(value, decimal_places + 3)
 
 
 def percentage(a, b):

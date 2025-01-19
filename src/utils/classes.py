@@ -26,7 +26,7 @@ class Order:
 
         return (
             f'{self.order_type} {my_round(self.shares)} @ {my_round(self.price)} '
-            f'Amount: {my_round(self.shares*self.price)} -creation time: {self.creation_datetime.date()}'
+            f'Amount: {my_round(self.shares * self.price)} -creation time: {self.creation_datetime.date()}'
         )
 
 
@@ -109,7 +109,7 @@ class Asset:
 
     ranking: float = 0.0
 
-    is_stacking: bool = False
+    is_staking: bool = False
     staked_shares: float = 0.0
 
     def to_dict(self):
@@ -197,9 +197,9 @@ class Asset:
 
             print(f'{BCOLORS.FAIL}Missing price for asset: {self.name}{BCOLORS.ENDC}')
 
-    def fill_stacking_info(self, staking_info):
+    def fill_staking_info(self, staking_info):
         if staking_info:
-            self.is_stacking = True
+            self.is_staking = True
             self.staked_shares = float(staking_info['amount_allocated']['total']['native'])
         else:
             from utils.basic import BCOLORS
@@ -253,10 +253,10 @@ class Asset:
         margin_amount = self.trades_buy_amount - self.trades_sell_amount - self.balance - self.stacked_balance
         return (margin_amount > buy_limit_amount), margin_amount
 
-    def print_stacking_info(self):
+    def print_staking_info(self):
         from utils.basic import my_round
 
-        return f' ***** staking info: Shares: {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {self.stacked_balance+self.balance}'  # noqa: E501
+        return f' ***** staking info: Shares: {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {self.stacked_balance + self.balance}'  # noqa: E501
 
     def get_buy_avg_msg(self) -> str:
         from utils.basic import BCOLORS, my_round, percentage
@@ -296,8 +296,8 @@ class Asset:
             Optionally price to set (half perc / {gain_perc / 2}): {optional_price_msg},
         """  # noqa
 
-        if self.is_stacking:
-            message += self.print_stacking_info()
+        if self.is_staking:
+            message += self.print_staking_info()
         return (BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
 
     def get_sell_avg_msg(self) -> str:
@@ -346,8 +346,8 @@ class Asset:
             AVG sell price {my_round(self.last_sells_avg_price)}, 
             accum sell count|Amount: {self.last_sells_count}|{sell_amount}
         """  # noqa
-        if self.is_stacking:
-            message += self.print_stacking_info()
+        if self.is_staking:
+            message += self.print_staking_info()
         return BCOLORS.BOLD + message + BCOLORS.ENDC
 
 
