@@ -15,11 +15,9 @@
 # BUG si hay más de 50 trades sin actualizar en los trades
 # TWRR en trades y más métricas
 # Mostrar si esta bloqueado el que esta a punto de vender
-# XBT staking not appearing
-# Precios de fichero local
 
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import krakenex
 import pandas as pd
@@ -38,6 +36,7 @@ from utils.basic import (
     load_from_csv,
     my_round,
     percentage,
+    read_prices_from_local_file,
 )
 from utils.classes import Asset, Order, Trade
 
@@ -77,7 +76,7 @@ PAIR_TO_LAST_TRADES = []
 # PAIR_TO_FORCE_INFO = ['ETCEUR']
 # PAIR_TO_FORCE_INFO = ['XLMEUR']
 # PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
-PAIR_TO_FORCE_INFO = ['XBTEUR']
+PAIR_TO_FORCE_INFO = []
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -89,6 +88,7 @@ AUTO_CANCEL_BUY_ORDER = True
 AUTO_CANCEL_SELL_ORDER = True
 
 GET_FULL_TRADE_HISTORY = True
+LOAD_ALL_CLOSE_PRICES = True
 TRADE_FILE = './data/trades_2025.csv'
 KEY_FILE = './data/kraken.key'
 
@@ -123,7 +123,7 @@ elapsed_time_last_trades = None
 elapsed_time_orders_summary = None
 processing_time_start = datetime.utcnow()
 
-# Pandas
+# Pandas conf
 # Float output format
 pd.options.display.float_format = '{:.3f}'.format
 
@@ -131,6 +131,8 @@ assets_dict: dict[str, Asset] = {}
 ledger_deposit = []
 sells_amount = 0
 buys_amount = 0
+
+yesterday = (datetime.today() - timedelta(days=1)).date()
 # ------------------------------------------------
 initialization_time_start = datetime.utcnow()
 
@@ -139,7 +141,7 @@ asset_original_names = list(balance['result'].keys())
 asset_original_names.extend(set([order['descr']['pair'] for order in open_orders['result']['open'].values()]))
 asset_original_names = set(asset_original_names)
 
-# Create pair dicts
+# ----------INITIALIZE PAIRS DICT-------------------------------------------------------------------
 for name in asset_original_names:
     key_name = name[1:] if name[0] == name[1] == 'X' else name
     original_name = name + 'Z' if name[0] == 'X' else name
@@ -149,7 +151,7 @@ for name in asset_original_names:
         asset = Asset(name=key_name, original_name=original_name)
         assets_dict[key_name] = asset
 
-# Fill balance
+# ----------FILL BALANCE-------------------------------------------------------------------
 for key, value in balance['result'].items():
     key_name = key[1:] if key[0] == key[1] == 'X' else key
     key_name = get_fix_pair_name(key_name, FIX_X_PAIR_NAMES)
@@ -159,13 +161,12 @@ for key, value in balance['result'].items():
     if key_name not in EXCLUDE_PAIR_NAMES and not is_staked(key_name):
         assets_dict[key_name].shares = float(value)
 
-elapsed_time_initialization = datetime.utcnow() - initialization_time_start
 
-# Fill price
+# ----------FILL PRICES-------------------------------------------------------------------
 name_list = assets_dict.keys()
 concatenate_names = ','.join(name_list)
 
-# Watch-out is returning all assets
+# Watch-out is returning all assets with the latest price
 tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
 
 for name, ticker_info in tickers_info['result'].items():
@@ -173,8 +174,19 @@ for name, ticker_info in tickers_info['result'].items():
     asset = assets_dict.get(fixed_pair_name)
     if asset:
         asset.fill_ticker_info(ticker_info)
+    if LOAD_ALL_CLOSE_PRICES:
+        df_prices = read_prices_from_local_file(asset_name=fixed_pair_name)
+        if not df_prices.empty:
+            df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
+            df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.floor('d')
+            asset.close_prices = df_prices
+            latest_price_date = df_prices.DATE.iloc[-1].date()
+            if latest_price_date < yesterday:
+                print(f'Local PRICES of asset {fixed_pair_name} not updated since: {latest_price_date}')
+        else:
+            print(f'None prices found for asset: {fixed_pair_name}')
 
-# Fill staking info
+# ----------FILL STACKING INFO-------------------------------------------------------------------
 # Watch-out is returning all assets
 for staking_info in staked_assets['result']['items']:
     staking_name = staking_info['native_asset']
@@ -186,14 +198,17 @@ for staking_info in staked_assets['result']['items']:
     if asset:
         asset.fill_staking_info(staking_info)
 
+elapsed_time_initialization = datetime.utcnow() - initialization_time_start
+
+# ----------SORTING BY BALANCE-------------------------------------------------------------------
 print(f'\n *****PAIR NAMES SORTED BY BALANCE TOTAL: {len(assets_dict)} *****')
 # Sort dict by balance descending
 sorted_pair_names_list_balance = sorted(assets_dict.items(), key=lambda x: x[1].balance, reverse=True)
 name_list = [ele[0] for ele in sorted_pair_names_list_balance]
 [print(ele) for ele in chunks(name_list, 5)]
 
+# ----------FILL ORDERS-------------------------------------------------------------------
 open_orders_time_start = datetime.utcnow()
-
 orders = []
 print('\n *****OPEN ORDERS READ*****')
 for txid, order_dict in open_orders['result']['open'].items():
@@ -242,6 +257,7 @@ if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
 
 elapsed_time_open_orders = datetime.utcnow() - open_orders_time_start
 
+# ----------FILL TRADES-------------------------------------------------------------------
 csv_trades_time_start = datetime.utcnow()
 last_trade_from_csv = None
 
@@ -307,9 +323,7 @@ for page in range(PAGES):
 if asset_name and trade:
     print(BCOLORS.OKGREEN + f"Oldest trade date read for {asset_name}: {trade}" + BCOLORS.ENDC)
 
-# exit(0)
-
-# Fill latest trade date or delete asset
+# ----------FILL LATEST TRADE OR DELETE ASSET-------------------------------------------------------------------
 keys_to_delete = []
 for key, asset in assets_dict.items():
     if asset.trades:
@@ -320,7 +334,7 @@ for key, asset in assets_dict.items():
 for key in keys_to_delete:
     del assets_dict[key]
 
-# Last trades
+# ----------FILL LAST TRADES-------------------------------------------------------------------
 if PRINT_LAST_TRADES:
     for asset_name in PAIR_TO_LAST_TRADES:
         asset = assets_dict.get(asset_name)
@@ -344,9 +358,9 @@ for _, asset in sorted_pair_names_list_latest:
     if not asset.trades:
         continue
 
-    asset.fill_last_shares()
+    asset.compute_last_buy_sell_avg()
 
-    if asset.latest_trade_date is not None:
+    if asset.latest_trade_date:
         sell_trades_count = asset.trades_sell_count
         count_sell_trades += sell_trades_count
         last_buy_amount = asset.last_buys_shares * asset.last_buys_avg_price
@@ -354,6 +368,7 @@ for _, asset in sorted_pair_names_list_latest:
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
         buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
         margin_amount = asset.margin_amount
+        # This list will be loaded to a DataFrame see ranking_cols
         assets_by_last_trade.append(
             [
                 asset.name,
@@ -369,10 +384,10 @@ for _, asset in sorted_pair_names_list_latest:
         )
 
 
-# ------ RANKING ----------
-# ibs -> is_buy_set, blr -> buy limit reached
-ranking_col = ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'S_TRADES', 'MARGIN_A']
-df = pd.DataFrame(assets_by_last_trade, columns=ranking_col)
+# ------ RANKING ----------------------------------------------------------------------------------
+# ibs -> is buy set, blr -> buy limit reached
+ranking_cols = ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'S_TRADES', 'MARGIN_A']
+df = pd.DataFrame(assets_by_last_trade, columns=ranking_cols)
 df = compute_ranking(df, count_sell_trades)
 print(df.to_string(index=False))
 for record in df[['NAME', 'RANKING']].to_dict('records'):
@@ -384,7 +399,7 @@ print(
     'margin_a: sells_amount - buys_amount)*****',
 )
 print(df.sort_values(by='RANKING', ascending=False).to_string(index=False))
-# ----------------------------
+# -------------------------------------------------------------------------------------------------
 live_asset_names = list(df[df.IBS == 1].NAME)
 death_asset_names = list(df[df.IBS == 0].NAME)
 print(f'\n*** LIVE ASSET NAMES ({len(live_asset_names)}): {live_asset_names}')
@@ -396,6 +411,7 @@ count_missing_buys = 0
 count_all_remaining_buys = 0
 count_valid_asset -= len(ASSETS_TO_EXCLUDE_AMOUNT)
 
+# ------ SUMMARY ----------------------------------------------------------------------------------
 if PRINT_ORDERS_SUMMARY:
     orders_summary_time_start = datetime.utcnow()
     print('\n *****ORDERS TO CREATE*****')
@@ -500,7 +516,7 @@ if PRINT_ORDERS_SUMMARY:
                 count_missing_buys += 1
 
         if not asset.orders_sell_amount or asset_name in PAIR_TO_FORCE_INFO:
-            print(asset.print_sell_message(kapi, GAIN_PERCENTAGE, MINIMUM_BUY_AMOUNT))
+            print(asset.print_sell_message(GAIN_PERCENTAGE, MINIMUM_BUY_AMOUNT))
 
         print('\n')
 

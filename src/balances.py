@@ -1,11 +1,18 @@
 #!/usr/bin/python3
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import krakenex
 import pandas as pd
 
-from utils.basic import FIX_X_PAIR_NAMES, get_fix_pair_name, get_flow_from_kraken, my_round
+from utils.basic import (
+    FIX_X_PAIR_NAMES,
+    get_fix_pair_name,
+    get_flow_from_kraken,
+    get_new_prices,
+    my_round,
+    read_prices_from_local_file,
+)
 
 # Invested on each asset and current balance -> result No muy util
 # balance a principio de año y actual quitando los flujos de IO
@@ -32,9 +39,9 @@ file = None
 buy_trades = []
 sell_trades = []
 
-# date_to = date(2024, 11, 7)
-date_to = datetime.today().date()
-timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
+yesterday = datetime.today() - timedelta(days=1)
+date_to = yesterday.date()
+timestamp_to = datetime(yesterday.year, yesterday.month, yesterday.day).timestamp() #We need a datetime to get timestamp
 
 # REPLACE_NAMES = {'ETHEUR': 'XETHZEUR',
 #                  'LTCEUR': 'XLTCEUR',
@@ -46,10 +53,6 @@ timestamp_to = datetime(date_to.year, date_to.month, date_to.day).timestamp()
 # configure api
 kapi = krakenex.API()
 kapi.load_key('./data/kraken.key')
-
-header_prices = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
-header_prices_kraken = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
-header_positions = ['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
 
 # prepare request
 # req_data = {'trades': 'false'}
@@ -97,15 +100,6 @@ def get_asset_positions(
     return pd.concat([df_pos_temp, df_cash_pos])
 
 
-def get_new_prices(asset_name: str, timestamp_from: datetime.timestamp) -> pd.DataFrame:
-    # If timestamp_from is higher than 2 years display a warning
-    prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
-    df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
-    df_prices.columns = header_prices_kraken
-    df_prices = df_prices[['TIMESTAMP', 'C']]
-
-    return df_prices
-
 
 def clean_flows_df(df_flow: pd.DataFrame) -> pd.DataFrame:
     df_flow.drop(['ACLASS', 'REFID', 'TYPE', 'SUBTYPE'], axis=1, inplace=True)
@@ -127,6 +121,7 @@ def drop_cash_rows(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(i, inplace=True)
 
     return df
+
 
 def update_get_flow_file(flow_type: str):
     flow_filename = deposit_filename if flow_type == FLOW_TYPE_DEPOSIT else wd_filename
@@ -151,6 +146,7 @@ def update_get_flow_file(flow_type: str):
         df_flows.to_csv(flow_filename, index=False)
 
     return df_flows
+
 
 # ----GET DEPOSITS and WD-------------------------------------------------------------------------------------------
 df_deposits = update_get_flow_file(flow_type=FLOW_TYPE_DEPOSIT)
@@ -181,25 +177,19 @@ df_trades['DATE'] = df_trades['DATETIME'].dt.floor('d')
 # Remove trades from 'XXLMXXBT', 'BSVEUR'
 asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR'])].ASSET.dropna().unique()
 # asset_names = ['XXBTZEUR']
-
-def read_from_local_file(asset_name: str) -> pd.DataFrame | None:
-    from pathlib import Path
-    path = f'./data/prices/{asset_name}_CLOSE_DAILY.csv'
-    file_path = Path(path)
-
-    # Check if the file exists
-    if file_path.exists():
-        return pd.read_csv(path)
-    else:
-        print(f"Prices for: {asset_name} taken from OHLC prices")
-        return pd.read_csv(f'./data/OHLC_prices/{asset_name}_1440.csv', names=header_prices)[['TIMESTAMP', 'C']]
+# asset_names = ['TRUMPEUR']
 
 for asset_name in asset_names:
+    latest_timestamp = None
     fix_asset_name = get_fix_pair_name(asset_name, FIX_X_PAIR_NAMES)
-    df_prices = read_from_local_file(asset_name=fix_asset_name)
-    latest_timestamp = df_prices.TIMESTAMP.iloc[-1]
+    df_prices = read_prices_from_local_file(asset_name=fix_asset_name)
+    if df_prices.empty:
+        latest_timestamp = (yesterday - timedelta(days=600)).timestamp()
+    else:
+        latest_timestamp = df_prices.TIMESTAMP.iloc[-1]
+
     if latest_timestamp < timestamp_to:
-        new_prices = get_new_prices(asset_name=asset_name, timestamp_from=latest_timestamp)
+        new_prices = get_new_prices(kapi=kapi, asset_name=asset_name, timestamp_from=latest_timestamp)
         df_prices = pd.concat([df_prices, new_prices])
         df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
 
@@ -303,12 +293,12 @@ def year_gain_perc(
             f'\n***YEAR: {year}| balance_0: {my_round(balance_0)}| balance_365: {my_round(balance_365)}| mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
             f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)}.',
         )
-        print(f'Unrealised gain (perc): {my_round(100*unrealised/mean_balance)} \n')
+        print(f'Unrealised gain (perc): {my_round(100 * unrealised / mean_balance)} \n')
     return gain
 
 
-years = [2019, 2020, 2021, 2022, 2023, 2024]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0]
+years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 550.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

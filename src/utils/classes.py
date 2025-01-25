@@ -78,6 +78,8 @@ class Asset:
     orders: list[Order] = field(default_factory=list)
     trades: list[Trade] = field(default_factory=list)
 
+    close_prices: DataFrame = None
+
     price: float = 0.0
     shares: float = 0.0
 
@@ -153,7 +155,12 @@ class Asset:
                 return order
         return None
 
-    def fill_last_shares(self):
+    def latest_max_price_since(self, day: date) -> float | None:
+        if not self.close_prices.empty:
+            return self.close_prices[self.close_prices.DATE.dt.date >= day].PRICE.max()
+        return None
+
+    def compute_last_buy_sell_avg(self):
         trades = self.trades
         if not trades:
             return
@@ -310,24 +317,24 @@ class Asset:
         else:
             return f'{BCOLORS.WARNING}{my_round(self.avg_sells)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
 
-    def print_sell_message(self, kapi, gain_perc, minimum_amount):
-        from utils.basic import BCOLORS, get_max_price_since, my_round
+    def print_sell_message(self, gain_perc, minimum_amount):
+        from utils.basic import BCOLORS, my_round
 
         latest_trade = self.trades[0]
         last_price = latest_trade.price
         next_price = last_price * (1 + gain_perc)
-        suggested_buy_price = 0
+        suggested_buy_price = None
 
-        if self.balance < minimum_amount:
-            max_priceOHLC_after_trade = get_max_price_since(
-                kapi,
-                self.name,
-                self.original_name,
-                latest_trade.execution_datetime,
-            )
+        if self.balance < 1.5 * minimum_amount:
+            if not self.close_prices.empty:
+                max_close_price_after_trade = self.latest_max_price_since(day=latest_trade.execution_datetime.date())
+                # max_close_price_after_trade = get_max_price_from_csv_since(
+                #     pair_name=self.name,
+                #     since_datetime=latest_trade.execution_datetime,
+                # )
 
-            if max_priceOHLC_after_trade:
-                suggested_buy_price = max_priceOHLC_after_trade.close * (1 - gain_perc)
+            if max_close_price_after_trade:
+                suggested_buy_price = max_close_price_after_trade * (1 - gain_perc)
 
         sell_amount = my_round(self.last_sells_shares * self.last_sells_avg_price)
 

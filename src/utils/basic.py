@@ -24,6 +24,10 @@ LOCAL_TZ = pytz.timezone('Europe/Madrid')
 FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']
 STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR')
 
+HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
+HEADER_PRICES_KRAKEN = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
+HEADER_POSITIONS = ['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
+
 
 class BCOLORS:
     HEADER = '\033[95m'
@@ -60,9 +64,13 @@ def count_zeros(value):
     return len(re.search(r'\d+\.(0*)', float_str).group(1))
 
 
-def my_round(value, decimal_places=DECIMALS):
+def my_round(value: float, decimal_places=DECIMALS):
+    if value is None:
+        return None
+
     if abs(value) >= 1:
         return round(value, decimal_places)
+
     else:
         # decimal_places = count_zeros(value)
         return round(value, decimal_places + 3)
@@ -87,8 +95,8 @@ def get_trades_history(request_data, page, RECORDS_PER_PAGE, kapi):
     trades = [order for _, order in trades_history['result']['trades'].items()]
     return trades
 
-def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
 
+def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
     ledger_flow = []
     request_data = {'type': flow_type}
     if timestamp_from:
@@ -106,6 +114,24 @@ def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, tim
     flow.columns = [x.upper() for x in flow.columns]
     flow.TIME = pd.to_datetime(flow.TIME, unit='s')
     return flow
+
+
+def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
+    from pathlib import Path
+
+    path = f'./data/prices/{asset_name}_CLOSE_DAILY.csv'
+    file_path = Path(path)
+
+    # Check if the file exists
+    if file_path.exists():
+        df_prices =  pd.read_csv(path)
+        df_prices = df_prices.drop_duplicates(subset=['TIMESTAMP'])
+        return df_prices
+    else:
+        print(f"Prices for: {asset_name} taken from OHLC prices")
+        df_prices = pd.read_csv(f'./data/OHLC_prices/{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C']]
+        df_prices.to_csv(f'./data/prices/{asset_name}_CLOSE_DAILY.csv', index=False)
+        return df_prices
 
 
 def cancel_orders(kapi, order_type, orders):
@@ -140,6 +166,13 @@ def get_max_price_since(kapi, pair_name: str, original_name: str, since_datetime
         if not max_price_OHLC or max_price_OHLC.close < priceOHLC.close:
             max_price_OHLC = priceOHLC
     return max_price_OHLC
+
+
+def get_max_price_from_csv_since(pair_name: str, since_datetime: datetime) -> float | None:
+    df_prices = read_prices_from_local_file(pair_name)
+    df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
+    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.floor('d')
+    return df_prices[df_prices.DATE.dt.date >= since_datetime.date()].PRICE.max()
 
 
 def get_price_shares_from_order(order_string):
@@ -277,3 +310,13 @@ def append_trades_to_csv(filename, trades_to_append):
             ]
             append_writer.writerow(row)
         csvfile.close()
+
+
+def get_new_prices(kapi, asset_name: str, timestamp_from: datetime.timestamp) -> pd.DataFrame:
+    # If timestamp_from is higher than 2 years display a warning
+    prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
+    df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
+    df_prices.columns = HEADER_PRICES_KRAKEN
+    df_prices = df_prices[['TIMESTAMP', 'C']]
+
+    return df_prices
