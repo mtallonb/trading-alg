@@ -42,18 +42,18 @@ from utils.classes import Asset, Order, Trade
 
 LAST_ORDERS = 200
 
+# -----ALG PARAMS------------------------------------------------------------------------------------------------------
 BUY_LIMIT = 4  # Number of consecutive buy trades
-GAIN_PERCENTAGE = 0.2  # Gain percentage to sell/buy 20%
+BUY_PERCENTAGE = SELL_PERCENTAGE = 0.2  # Risk percentage to sell/buy 20%
 MINIMUM_BUY_AMOUNT = 70
 BUY_LIMIT_AMOUNT = (
     BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
-
+# ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
-# Exclude
 EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR']
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 
@@ -61,21 +61,12 @@ ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 
 
 MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 
-# PAIR_TO_LAST_TRADES = ['SCEUR', 'SNXEUR', 'SHIBEUR', 'SOLEUR', 'ETCEUR']
-# PAIR_TO_LAST_TRADES = ['XDGEUR', 'EOSEUR']
-# PAIR_TO_LAST_TRADES = ['MATICEUR']
-# PAIR_TO_LAST_TRADES = ['XBTEUR']
-# PAIR_TO_LAST_TRADES = ['LINKEUR']
-# PAIR_TO_LAST_TRADES = ['ETCEUR']
-# PAIR_TO_LAST_TRADES = ['ATOMEUR']
-# PAIR_TO_LAST_TRADES = ['LTCEUR']
-# PAIR_TO_LAST_TRADES = ['SNXEUR']
-# PAIR_TO_LAST_TRADES = ['LUNAEUR', 'SOLEUR', ]
+# PAIR NAMES: [
+# 'SCEUR', 'ATOMEUR', 'ETCEUR', 'ETHEUR', 'BCHEUR', 'TIAEUR', 'TRXEUR', 'XRPEUR', 'LINKEUR', 'XBTEUR',
+# 'FLREUR', 'SNXEUR', 'EOSEUR', 'SOLEUR', 'XDGEUR', 'MINAEUR', 'LTCEUR', 'APTEUR', 'XLMEUR', 'UNIEUR', 'BATEUR',
+# 'FLOWEUR', 'AAVEEUR', 'XTZEUR', 'ADAEUR', 'AVAXEUR', 'ALGOEUR', 'MATICEUR']
 PAIR_TO_LAST_TRADES = []
 
-# PAIR_TO_FORCE_INFO = ['ETCEUR']
-# PAIR_TO_FORCE_INFO = ['XLMEUR']
-# PAIR_TO_FORCE_INFO = ['XBTEUR', 'MINAEUR']
 PAIR_TO_FORCE_INFO = []
 
 PRINT_LAST_TRADES = False
@@ -178,9 +169,10 @@ for name, ticker_info in tickers_info['result'].items():
         df_prices = read_prices_from_local_file(asset_name=fixed_pair_name)
         if not df_prices.empty:
             df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
-            df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.floor('d')
+            df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.date
+            df_prices = df_prices.drop(columns=['TIMESTAMP'])
             asset.close_prices = df_prices
-            latest_price_date = df_prices.DATE.iloc[-1].date()
+            latest_price_date = df_prices.DATE.iloc[-1]
             if latest_price_date < yesterday:
                 print(f'Local PRICES of asset {fixed_pair_name} not updated since: {latest_price_date}')
         else:
@@ -334,7 +326,7 @@ for key, asset in assets_dict.items():
 for key in keys_to_delete:
     del assets_dict[key]
 
-# ----------FILL LAST TRADES-------------------------------------------------------------------
+# ----------PRINT LAST TRADES-------------------------------------------------------------------
 if PRINT_LAST_TRADES:
     for asset_name in PAIR_TO_LAST_TRADES:
         asset = assets_dict.get(asset_name)
@@ -348,6 +340,7 @@ if PRINT_LAST_TRADES:
 
 elapsed_time_last_trades = datetime.utcnow() - trades_time_start
 
+# ----------FILL LAST TRADES-------------------------------------------------------------------
 print('\n*****PAIR NAMES BY LATEST TRADE:*****')
 # Sort dict by last trade
 sorted_pair_names_list_latest = sorted(assets_dict.items(), key=lambda x: x[1].latest_trade_date, reverse=False)
@@ -362,12 +355,12 @@ for _, asset in sorted_pair_names_list_latest:
 
     if asset.latest_trade_date:
         sell_trades_count = asset.trades_sell_count
-        count_sell_trades += sell_trades_count
         last_buy_amount = asset.last_buys_shares * asset.last_buys_avg_price
         buy_limit_reached = asset.check_buys_limit(BUY_LIMIT, MINIMUM_BUY_AMOUNT * BUY_LIMIT, last_buy_amount)
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
         buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
         margin_amount = asset.margin_amount
+        expected_sells_200 = asset.expected_sells_in_range(days=200, buy_perc=BUY_PERCENTAGE, sell_perc=SELL_PERCENTAGE)
         # This list will be loaded to a DataFrame see ranking_cols
         assets_by_last_trade.append(
             [
@@ -378,17 +371,18 @@ for _, asset in sorted_pair_names_list_latest:
                 my_round(asset.price),
                 my_round(asset.avg_buys),
                 my_round(asset.avg_sells),
-                sell_trades_count,
                 my_round(margin_amount),
+                sell_trades_count,
+                expected_sells_200,
             ],
         )
 
 
 # ------ RANKING ----------------------------------------------------------------------------------
 # ibs -> is buy set, blr -> buy limit reached
-ranking_cols = ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'S_TRADES', 'MARGIN_A']
+ranking_cols = ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES', 'ES_TRADES']
 df = pd.DataFrame(assets_by_last_trade, columns=ranking_cols)
-df = compute_ranking(df, count_sell_trades)
+df = compute_ranking(df)
 print(df.to_string(index=False))
 for record in df[['NAME', 'RANKING']].to_dict('records'):
     # set ranking on the asset
@@ -396,7 +390,8 @@ for record in df[['NAME', 'RANKING']].to_dict('records'):
 
 print(
     '\n*****PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
-    'margin_a: sells_amount - buys_amount)*****',
+    'margin_a: sells_amount - buys_amount. '
+    'S_TRADES and ES_TRADES: Sell trades and Expected Sell trades on 200 sessions)*****',
 )
 print(df.sort_values(by='RANKING', ascending=False).to_string(index=False))
 # -------------------------------------------------------------------------------------------------
@@ -478,7 +473,6 @@ if PRINT_ORDERS_SUMMARY:
 
             if AUTO_CANCEL_BUY_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete BUY orders from pair: {asset_name}.' + BCOLORS.ENDC)
-                # time.sleep(5)
                 input("Press Enter to continue or Ctrl+D to exit")
                 cancel_orders(kapi, Order.BUY, asset.orders)
 
@@ -502,7 +496,7 @@ if PRINT_ORDERS_SUMMARY:
 
         if not asset.orders_buy_amount or asset_name in PAIR_TO_FORCE_INFO:
             if not buy_limit_reached or PRINT_BUYS_WARN_CONSECUTIVE or asset_name in PAIR_TO_FORCE_INFO:
-                print(asset.print_buy_message(GAIN_PERCENTAGE))
+                print(asset.print_buy_message(BUY_PERCENTAGE))
 
             if not any(
                 [
@@ -516,7 +510,7 @@ if PRINT_ORDERS_SUMMARY:
                 count_missing_buys += 1
 
         if not asset.orders_sell_amount or asset_name in PAIR_TO_FORCE_INFO:
-            print(asset.print_sell_message(GAIN_PERCENTAGE, MINIMUM_BUY_AMOUNT))
+            print(asset.print_sell_message(SELL_PERCENTAGE, MINIMUM_BUY_AMOUNT))
 
         print('\n')
 

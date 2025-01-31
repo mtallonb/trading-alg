@@ -1,7 +1,7 @@
 import string
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal as D
 from random import randint
 from typing import List
@@ -78,6 +78,7 @@ class Asset:
     orders: list[Order] = field(default_factory=list)
     trades: list[Trade] = field(default_factory=list)
 
+    # Dataframe with columns DATE and PRICE
     close_prices: DataFrame = None
 
     price: float = 0.0
@@ -141,6 +142,48 @@ class Asset:
     def margin_amount(self) -> float:
         return self.trades_sell_amount + self.balance + self.stacked_balance - self.trades_buy_amount
 
+    def avg_sessions(self, days: int) -> float:
+        latest_price = self.close_prices.DATE.iloc[-1]
+        session_start = latest_price - timedelta(days=days)
+        return self.close_prices[self.close_prices.DATE >= session_start].PRICE.mean()
+
+    def expected_sells_in_range(self, days: int, buy_perc: float, sell_perc: float) -> float:
+        latest_price = self.close_prices.DATE.iloc[-1]
+        session_start = latest_price - timedelta(days=days)
+        ref_df = self.close_prices[self.close_prices.DATE >= session_start]
+        ref_price = ref_df.PRICE.iloc[0]
+        ref_date = session_start
+        sell_count = 0
+        b_date = None
+        s_date = None
+        while 1:
+            exp_sells = ref_df[ref_df.PRICE >= ref_price * (1 + sell_perc)]
+            exp_buys = ref_df[ref_df.PRICE <= ref_price * (1 - buy_perc)]
+
+            if not exp_sells.empty:
+                s_date = exp_sells.DATE.iloc[0]
+                s_price = exp_sells.PRICE.iloc[0]
+            if not exp_buys.empty:
+                b_date = exp_buys.DATE.iloc[0]
+                b_price = exp_buys.PRICE.iloc[0]
+
+            if s_date is None and b_date is None:
+                break
+
+            if b_date:
+                ref_price = b_price
+                ref_date = b_date
+
+            if b_date is None or (b_date and s_date and s_date < b_date):
+                ref_price = s_price
+                ref_date = s_date
+                sell_count += 1
+
+            ref_df = ref_df[ref_df.DATE >= ref_date]
+            b_date = None
+            s_date = None
+        return sell_count
+
     def get_ranking_message(self) -> str:
         from utils.basic import BCOLORS, my_round
 
@@ -157,7 +200,7 @@ class Asset:
 
     def latest_max_price_since(self, day: date) -> float | None:
         if not self.close_prices.empty:
-            return self.close_prices[self.close_prices.DATE.dt.date >= day].PRICE.max()
+            return self.close_prices[self.close_prices.DATE >= day].PRICE.max()
         return None
 
     def compute_last_buy_sell_avg(self):
@@ -301,6 +344,7 @@ class Asset:
             AVG buy price {my_round(self.last_buys_avg_price)}, 
             accum buy count|amount: {self.last_buys_count}|{amount_msg},
             Optionally price to set (half perc / {gain_perc / 2}): {optional_price_msg},
+            Sessions AVG (10)(50)(200): {my_round(self.avg_sessions(days=10))}|{my_round(self.avg_sessions(days=50))}|{my_round(self.avg_sessions(days=200))}
         """  # noqa
 
         if self.is_staking:

@@ -41,7 +41,11 @@ sell_trades = []
 
 yesterday = datetime.today() - timedelta(days=1)
 date_to = yesterday.date()
-timestamp_to = datetime(yesterday.year, yesterday.month, yesterday.day).timestamp() #We need a datetime to get timestamp
+timestamp_to = datetime(
+    yesterday.year,
+    yesterday.month,
+    yesterday.day,
+).timestamp()  # We need a datetime to get timestamp
 
 # REPLACE_NAMES = {'ETHEUR': 'XETHZEUR',
 #                  'LTCEUR': 'XLTCEUR',
@@ -79,6 +83,7 @@ def get_asset_positions(
     dates = pd.date_range(start=df_trades["DATE"].iloc[0], end=date_to, freq='d')
     df_pos_temp = pd.DataFrame(columns=['DATE', 'ASSET', 'SHARES', 'PRICE'])
     df_pos_temp.DATE = dates
+    df_pos_temp.DATE = df_pos_temp.DATE.dt.date
     df_pos_temp.ASSET = asset_name
     df_pos_temp.SHARES = 0.0
 
@@ -88,8 +93,9 @@ def get_asset_positions(
     # df_trades_asset[df_trades_asset.TYPE == 'S']['VOL'] *= -1
     df_trades.loc[df_trades.TYPE == 'S', 'VOL'] *= -1
     df_trades['TOTAL_SHARES'] = df_trades['VOL'].cumsum()
+    df_trades = df_trades.drop(columns=['PRICE', 'ASSET'])
 
-    df_pos_temp = pd.merge(df_pos_temp, df_trades.drop(['PRICE', 'ASSET'], axis=1), on='DATE', how='left')
+    df_pos_temp = pd.merge(df_pos_temp, df_trades, on='DATE', how='left')
     df_pos_temp.SHARES = df_pos_temp.TOTAL_SHARES
     df_pos_temp.drop(['VOL', 'DATETIME', 'TYPE', 'TOTAL_SHARES'], axis=1, inplace=True)
     df_pos_temp.SHARES.ffill(inplace=True)
@@ -100,12 +106,11 @@ def get_asset_positions(
     return pd.concat([df_pos_temp, df_cash_pos])
 
 
-
 def clean_flows_df(df_flow: pd.DataFrame) -> pd.DataFrame:
     df_flow.drop(['ACLASS', 'REFID', 'TYPE', 'SUBTYPE'], axis=1, inplace=True)
     df_flow.rename({'TIME': 'DATE', 'BALANCE': 'SHARES'}, axis=1, inplace=True)
     df_flow = df_flow[df_flow.ASSET == 'ZEUR']
-    df_flow.DATE = pd.to_datetime(df_flow.DATE).dt.floor('d')
+    df_flow.DATE = pd.to_datetime(df_flow.DATE).dt.date
     df_flow.loc[df_flow.ASSET == 'ZEUR', 'SHARES'] = df_flow.AMOUNT
     df_flow.AMOUNT = pd.to_numeric(df_flow.AMOUNT)
     df_flow.SHARES = pd.to_numeric(df_flow.SHARES)
@@ -166,7 +171,7 @@ df_trades.columns = [x.upper() for x in df_trades.columns]
 df_trades['TYPE'].replace('buy', 'B', inplace=True)
 df_trades['TYPE'].replace('sell', 'S', inplace=True)
 df_trades.DATETIME = pd.to_datetime(df_trades.DATETIME)
-df_trades['DATE'] = df_trades['DATETIME'].dt.floor('d')
+df_trades['DATE'] = df_trades['DATETIME'].dt.date
 
 
 # -------GET PRICES-------------------------------------------------------------------------------------------------
@@ -194,7 +199,7 @@ for asset_name in asset_names:
         df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
 
     df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
-    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.floor('d')
+    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.date
     df_trades_asset = df_trades[df_trades.ASSET == asset_name]
     df_asset_pos = get_asset_positions(
         asset_name=fix_asset_name,
@@ -206,7 +211,7 @@ for asset_name in asset_names:
 
 df_positions = pd.concat(df_list)
 df_positions.sort_values(by=['DATE'], inplace=True)
-df_positions = df_positions[df_positions.DATE.dt.date <= date_to]
+df_positions = df_positions[df_positions.DATE <= date_to]
 
 df_positions['TOTAL_SHARES'] = df_positions['SHARES'].cumsum()
 df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'] = df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'].cumsum()  # noqa # fmt: skip
@@ -223,6 +228,7 @@ df_positions['AMOUNT'] = df_positions.SHARES * df_positions.PRICE
 dates = pd.date_range(start=df_positions["DATE"].iloc[0], end=date_to, freq='d')
 df_cash_daily = pd.DataFrame(columns=['DATE'])
 df_cash_daily.DATE = dates
+df_cash_daily.DATE = df_cash_daily.DATE.dt.date
 df_cash_daily = pd.merge(df_cash_daily, df_positions.loc[df_positions.ASSET == 'ZEUR', :], on='DATE', how='left')
 df_cash_daily.ASSET = 'ZEUR'
 df_cash_daily.FEE = 0.0
@@ -279,6 +285,9 @@ def year_gain_perc(
     unrealised: float,
     verbose: bool = VERBOSE,
 ) -> float:
+    df_deposits.DATE = pd.to_datetime(df_deposits.DATE)
+    df_wd.DATE = pd.to_datetime(df_wd.DATE)
+    df_balances_avg.DATE = pd.to_datetime(df_balances_avg.DATE)
     deposit_amount_year = df_deposits[df_deposits.DATE.dt.year == year].AMOUNT.sum()
     wd_amount_year = -df_wd[df_wd.DATE.dt.year == year].AMOUNT.sum()
     daily_balances_year = df_balances_avg[df_balances_avg.DATE.dt.year == year]

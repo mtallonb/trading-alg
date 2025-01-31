@@ -124,7 +124,7 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
 
     # Check if the file exists
     if file_path.exists():
-        df_prices =  pd.read_csv(path)
+        df_prices = pd.read_csv(path)
         df_prices = df_prices.drop_duplicates(subset=['TIMESTAMP'])
         return df_prices
     else:
@@ -171,7 +171,7 @@ def get_max_price_since(kapi, pair_name: str, original_name: str, since_datetime
 def get_max_price_from_csv_since(pair_name: str, since_datetime: datetime) -> float | None:
     df_prices = read_prices_from_local_file(pair_name)
     df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
-    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.floor('d')
+    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.date
     return df_prices[df_prices.DATE.dt.date >= since_datetime.date()].PRICE.max()
 
 
@@ -243,22 +243,31 @@ def print_query_result(endpoint, result):
     print(f'Succeeded: {endpoint} records: {result["result"]["count"]}')
 
 
-def compute_ranking(df, count_sell_trades):
-    sum_margin_a = df.MARGIN_A.abs().sum()
-    df['MARGIN_PC'] = df.MARGIN_A / sum_margin_a
+def compute_ranking(df):
+    """
+    df input COLUMNS: ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES',
+    'ES_TRADES']
+    """
+
+    df['MARGIN_PC'] = df.MARGIN_A
     df['PB'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
     df['PS'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
     df['PERC_BS'] = (df.AVG_S - df.AVG_B) / df.AVG_S
-    df['S_TRADES'] = (df.S_TRADES / count_sell_trades) * 10
+    df['PERC_BS'].replace([np.inf, -np.inf], 0, inplace=True)
 
-    df['RANKING'] = df['PB'] + df['PS'] + df['PERC_BS'] + df['S_TRADES'] + df['MARGIN_PC']
+    # ------NORMALIZATION--------
+    COLS_TO_NORM = ['PB', 'PS', 'PERC_BS', 'S_TRADES', 'MARGIN_PC', 'ES_TRADES']
+    df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
+    # ---------------------------
+
+    df['RANKING'] = df['PB'] + df['PS'] + df['PERC_BS'] + df['S_TRADES'] + df['MARGIN_PC'] + df['ES_TRADES']
 
     idx = df['AVG_S'] == 0.0
     df.loc[idx, 'RANKING'] = np.nan
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    # df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.dropna(subset=["RANKING"], how="all", inplace=True)
-    idx = df['RANKING'] < -10
-    df.loc[idx, 'RANKING'] = -10
+    # idx = df['RANKING'] < -10
+    # df.loc[idx, 'RANKING'] = -10
     df['RANKING'] = df['RANKING'] - df['RANKING'].min()
     df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
 
