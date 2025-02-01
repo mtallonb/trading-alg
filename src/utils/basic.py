@@ -255,6 +255,9 @@ def compute_ranking(df):
     df['PERC_BS'] = (df.AVG_S - df.AVG_B) / df.AVG_S
     df['PERC_BS'].replace([np.inf, -np.inf], 0, inplace=True)
 
+    df.loc[df.PB <= -2, 'PB'] = -2.0
+    df.loc[df.PS <= -2, 'PS'] = -2.0
+
     # ------NORMALIZATION--------
     COLS_TO_NORM = ['PB', 'PS', 'PERC_BS', 'S_TRADES', 'MARGIN_PC', 'ES_TRADES']
     df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
