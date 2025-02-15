@@ -5,6 +5,7 @@ import ssl
 import time
 
 from threading import Thread
+from typing import Literal
 
 # set to true on debug environment only
 DEBUG = True
@@ -158,6 +159,9 @@ class JsonSocket(object):
     encrypt = property(_get_encrypt, _set_encrypt, doc='read only property socket port')
 
 
+# -----------------APIClient-------------------------------------
+
+
 class APIClient(JsonSocket):
     def __init__(self, address=DEFAULT_XAPI_ADDRESS, port=DEFAULT_XAPI_PORT, encrypt=True):
         super(APIClient, self).__init__(address, port, encrypt)
@@ -189,9 +193,16 @@ class APIClient(JsonSocket):
         data_dict = baseCommand('getAllSymbols')
         return self.execute(data_dict)
 
-    def getBalance(self):
-        data_dict = baseCommand('getBalance')
+    def getTrades(self, only_open: bool=True) -> dict:
+        data_dict = baseCommand('getTrades', arguments={'openedOnly': only_open})
         return self.execute(data_dict)
+
+    # def getTradesHistory(self, from: date) -> dict:
+    #     data_dict = baseCommand('getTradesHistory', arguments={"end": 0, "start": 1275993488000})
+    #     return self.execute(data_dict)
+
+
+# -----------------APIStreamClient-----------------------
 
 
 class APIStreamClient(JsonSocket):
@@ -303,6 +314,29 @@ class APIStreamClient(JsonSocket):
     def unsubscribeNews(self):
         self.execute(dict(command='stopNews', streamSessionId=self._ssId))
 
+    @staticmethod
+    def getOpType(cmd: int) -> Literal['buy', 'sell'] | None:
+        """
+        cmd meaning
+        BUY	0	buy
+        SELL	1	sell
+        BUY_LIMIT	2	buy limit
+        SELL_LIMIT	3	sell limit
+        BUY_STOP	4	buy stop
+        SELL_STOP	5	sell stop
+        BALANCE	6	Read only. Used in getTradesHistory  for manager's deposit/withdrawal operations (profit>0 for deposit, profit<0 for withdrawal).
+        CREDIT	7	Read only
+        """
+        from src.utils.classes import Trade
+
+        match cmd:
+            case 0, 2, 4:
+                return Trade.BUY
+            case 1, 3, 4:
+                return Trade.SELL
+            case _:
+                return None
+
 
 # Command templates
 def baseCommand(commandName, arguments=None) -> dict:
@@ -310,26 +344,33 @@ def baseCommand(commandName, arguments=None) -> dict:
         arguments = dict()
     return dict([('command', commandName), ('arguments', arguments)])
 
+
 # example function for processing ticks from Streaming socket
-def procTickExample(msg): 
+def procTickExample(msg):
     print("TICK: ", msg)
 
+
 # example function for processing trades from Streaming socket
-def procTradeExample(msg): 
+def procTradeExample(msg):
     print("TRADE: ", msg)
 
-# example function for processing trades from Streaming socket
-def procBalanceExample(msg): 
-    print("BALANCE: ", msg)
 
 # example function for processing trades from Streaming socket
-def procTradeStatusExample(msg): 
+def procBalanceExample(msg) -> dict:
+    print("BALANCE: ", msg)
+    return msg['data']
+
+
+# example function for processing trades from Streaming socket
+def procTradeStatusExample(msg):
     print("TRADE STATUS: ", msg)
 
+
 # example function for processing trades from Streaming socket
-def procProfitExample(msg): 
+def procProfitExample(msg):
     print("PROFIT: ", msg)
 
+
 # example function for processing news from Streaming socket
-def procNewsExample(msg): 
+def procNewsExample(msg):
     print("NEWS: ", msg)

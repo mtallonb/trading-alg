@@ -70,6 +70,12 @@ class Trade:
         self.shares += trade.shares
         self.amount += trade.amount
 
+@dataclass
+class Currency:
+    name: string
+
+    exc_rate_to_eur: float = 1.0
+    
 
 @dataclass
 class Asset:
@@ -77,6 +83,9 @@ class Asset:
     original_name: string
     orders: list[Order] = field(default_factory=list)
     trades: list[Trade] = field(default_factory=list)
+
+    description: string = ''
+    currency: Currency = None
 
     # Dataframe with columns DATE and PRICE
     close_prices: DataFrame = None

@@ -241,11 +241,23 @@ if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
     df_last = df[df['percentage_abs'] > 100].drop(columns=['percentage_abs'])
 
     print(f'\n***** ({df_closer.shape[0]}) < 10% *****\n')
-    print(df_closer.to_string(index=False))
+    if not df_closer.empty:
+        print(df_closer.to_string(index=False))
+    else:
+        print('EMPTY')
+
     print(f'\n***** ({df_middle.shape[0]}) > 10% *****\n')
-    print(df_middle.to_string(index=False))
+    if not df_middle.empty:
+        print(df_middle.to_string(index=False))
+    else:
+        print('EMPTY')
+
     print(f'\n***** ({df_last.shape[0]}) > 100% ****\n')
-    print(df_last.to_string(index=False))
+    if not df_last.empty:
+        print(df_last.to_string(index=False))
+    else:
+        print('EMPTY')
+
 
 elapsed_time_open_orders = datetime.utcnow() - open_orders_time_start
 
