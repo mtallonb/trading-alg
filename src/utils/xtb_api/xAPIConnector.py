@@ -4,8 +4,12 @@ import socket
 import ssl
 import time
 
+from datetime import date
 from threading import Thread
 from typing import Literal
+
+from utils.basic import from_date_to_timestamp
+from utils.classes import OP_BUY, OP_SELL
 
 # set to true on debug environment only
 DEBUG = True
@@ -193,18 +197,19 @@ class APIClient(JsonSocket):
         data_dict = baseCommand('getAllSymbols')
         return self.execute(data_dict)
 
-    def getTrades(self, only_open: bool=True) -> dict:
+    def getTrades(self, only_open: bool = True) -> dict:
         data_dict = baseCommand('getTrades', arguments={'openedOnly': only_open})
         return self.execute(data_dict)
 
-    # def getTradesHistory(self, from: date) -> dict:
-    #     data_dict = baseCommand('getTradesHistory', arguments={"end": 0, "start": 1275993488000})
-    #     return self.execute(data_dict)
+    def getTradesHistory(self, from_date: date) -> dict:
+        data_dict = baseCommand(
+            'getTradesHistory',
+            arguments={"end": 0, "start": from_date_to_timestamp(day=from_date)},
+        )
+        return self.execute(data_dict)
 
 
 # -----------------APIStreamClient-----------------------
-
-
 class APIStreamClient(JsonSocket):
     def __init__(
         self,
@@ -314,30 +319,8 @@ class APIStreamClient(JsonSocket):
     def unsubscribeNews(self):
         self.execute(dict(command='stopNews', streamSessionId=self._ssId))
 
-    @staticmethod
-    def getOpType(cmd: int) -> Literal['buy', 'sell'] | None:
-        """
-        cmd meaning
-        BUY	0	buy
-        SELL	1	sell
-        BUY_LIMIT	2	buy limit
-        SELL_LIMIT	3	sell limit
-        BUY_STOP	4	buy stop
-        SELL_STOP	5	sell stop
-        BALANCE	6	Read only. Used in getTradesHistory  for manager's deposit/withdrawal operations (profit>0 for deposit, profit<0 for withdrawal).
-        CREDIT	7	Read only
-        """
-        from src.utils.classes import Trade
 
-        match cmd:
-            case 0, 2, 4:
-                return Trade.BUY
-            case 1, 3, 4:
-                return Trade.SELL
-            case _:
-                return None
-
-
+# -----------UTILS FUNCTIONS------------------
 # Command templates
 def baseCommand(commandName, arguments=None) -> dict:
     if not arguments:
@@ -374,3 +357,26 @@ def procProfitExample(msg):
 # example function for processing news from Streaming socket
 def procNewsExample(msg):
     print("NEWS: ", msg)
+
+
+def getOpType(cmd: int) -> Literal['buy', 'sell'] | None:
+    """
+    cmd meaning
+    BUY	0	buy
+    SELL	1	sell
+    BUY_LIMIT	2	buy limit
+    SELL_LIMIT	3	sell limit
+    BUY_STOP	4	buy stop
+    SELL_STOP	5	sell stop
+    BALANCE	6	Read only. Used in getTradesHistory  for manager's deposit/withdrawal operations
+    (profit>0 for deposit, profit<0 for withdrawal).
+    CREDIT	7	Read only
+    """
+
+    match cmd:
+        case 0, 2, 4:
+            return OP_BUY
+        case 1, 3, 4:
+            return OP_SELL
+        case _:
+            return None

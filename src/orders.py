@@ -38,7 +38,7 @@ from utils.basic import (
     percentage,
     read_prices_from_local_file,
 )
-from utils.classes import Asset, Order, Trade
+from utils.classes import OP_BUY, OP_SELL, Asset, Order, Trade
 
 LAST_ORDERS = 200
 
@@ -467,9 +467,9 @@ if PRINT_ORDERS_SUMMARY:
             if AUTO_CANCEL_SELL_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete SELL orders from pair: {asset_name}.' + BCOLORS.ENDC)
                 input("Press Enter to continue or Ctrl+D to exit")
-                cancel_orders(kapi, Order.SELL, asset.orders)
+                cancel_orders(kapi, OP_SELL, asset.orders)
 
-        last_buy_order = asset.latest_order(type=Order.BUY)
+        last_buy_order = asset.latest_order(type=OP_BUY)
         buy_higher_price = asset.orders_buy_higher_price
         cancel_condition = (buy_higher_price and buy_higher_price <= thr_buy) or (
             last_buy_order and last_trade_execution > last_buy_order.creation_datetime
@@ -486,7 +486,7 @@ if PRINT_ORDERS_SUMMARY:
             if AUTO_CANCEL_BUY_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete BUY orders from pair: {asset_name}.' + BCOLORS.ENDC)
                 input("Press Enter to continue or Ctrl+D to exit")
-                cancel_orders(kapi, Order.BUY, asset.orders)
+                cancel_orders(kapi, OP_BUY, asset.orders)
 
         if buy_limit_amount_reached:
             print(

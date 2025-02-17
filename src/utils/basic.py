@@ -41,12 +41,17 @@ class BCOLORS:
     UNDERLINE = '\033[4m'
 
 
-def from_timestamp_to_str(timestamp):
+def from_timestamp_to_str(timestamp: datetime.timestamp) -> str:
     return time.strftime(DATE_FORMAT, time.localtime(timestamp))
 
 
-def from_timestamp_to_datetime(timestamp):
+def from_timestamp_to_datetime(timestamp: datetime.timestamp) -> datetime:
     return datetime.fromtimestamp(timestamp)
+
+
+def from_date_to_timestamp(day: datetime.date) -> datetime.timestamp:
+    dt = datetime(year=day.year, month=day.month, day=day.day)
+    return int(dt.timestamp())
 
 
 def chunks(elem_list, n):

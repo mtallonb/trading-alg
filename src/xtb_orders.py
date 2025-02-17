@@ -2,21 +2,23 @@
 
 import logging
 
+from datetime import date
+
 import pandas as pd
 
 from utils.basic import from_timestamp_to_datetime
-from utils.classes import Asset, Currency, Trade
+from utils.classes import OP_BUY, Asset, Currency, Trade
 
 # from utils.xtb_api.api import XTB
-from utils.xtb_api.xAPIConnector import (
-    APIClient,
-)
+from utils.xtb_api.xAPIConnector import APIClient
 
 xtb_key_path = "./data/xtb.key"
 logger = logging.getLogger("jsonSocket")
 
 assets_dict: dict[str, Asset] = {}
 xtb_assets_filename = './data/xtb_assets.csv'
+
+from_date = date(2025, 1, 1)
 
 # xtb_api = XTB("./data/xtb.key")
 # print(f'Server time: {xtb_api.get_ServerTime()}')
@@ -46,7 +48,7 @@ if not loginResponse['status']:
 EUR = Currency(name='EUR')
 DOL = Currency(name='DOL', exc_rate_to_eur=0.96)
 
-# historicalTrades = client.getTradesHistory()
+historicalTrades = client.getTradesHistory(from_date=from_date)
 
 openTrades = client.getTrades(only_open=True)
 for item in openTrades['returnData']:
@@ -63,14 +65,16 @@ for item in openTrades['returnData']:
         assets_dict[key_name] = asset
 
     trade = Trade(
-        trade_type=Trade.BUY,
+        trade_type=OP_BUY,
         shares=item['volume'],
         price=item['open_price'],
-        execution_datetime=from_timestamp_to_datetime(item['timestamp']/1000),
+        execution_datetime=from_timestamp_to_datetime(item['timestamp'] / 1000),
     )
     trade.amount = trade.shares * trade.price
     asset.insert_trade_on_top(trade=trade)
 
+# gracefully close RR socket
+client.disconnect()
 
 
 # --------------------------STREAMCLIENT-----
@@ -96,9 +100,6 @@ for item in openTrades['returnData']:
 # # gracefully close streaming socket
 # sclient.disconnect()
 # ------------------END---------------
-
-# gracefully close RR socket
-client.disconnect()
 
 
 # get ssId from login response

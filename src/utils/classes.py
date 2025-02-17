@@ -8,11 +8,11 @@ from typing import List
 
 from pandas import DataFrame
 
+OP_BUY = 'buy'
+OP_SELL = 'sell'
+
 
 class Order:
-    BUY = 'buy'
-    SELL = 'sell'
-
     def __init__(self, txid, order_type, shares, price):
         self.txid = txid
         self.order_type = order_type
@@ -31,9 +31,6 @@ class Order:
 
 
 class Trade:
-    BUY = 'buy'
-    SELL = 'sell'
-
     def __init__(self, trade_type, shares, price, amount=0.0, execution_datetime=None):
         self.trade_type = trade_type
         self.shares = shares
@@ -70,12 +67,14 @@ class Trade:
         self.shares += trade.shares
         self.amount += trade.amount
 
+
 @dataclass
 class Currency:
     name: string
 
+    # Optional fields
     exc_rate_to_eur: float = 1.0
-    
+
 
 @dataclass
 class Asset:
@@ -84,6 +83,7 @@ class Asset:
     orders: list[Order] = field(default_factory=list)
     trades: list[Trade] = field(default_factory=list)
 
+    # Optional fields
     description: string = ''
     currency: Currency = None
 
@@ -201,7 +201,7 @@ class Asset:
         else:
             return f'RANKING: {BCOLORS.WARNING}{my_round(self.ranking)}{BCOLORS.ENDC}'
 
-    def latest_order(self, type=Order.SELL) -> Order | None:
+    def latest_order(self, type=OP_SELL) -> Order | None:
         for order in self.orders:
             if order.order_type == type:
                 return order
@@ -217,9 +217,9 @@ class Asset:
         if not trades:
             return
 
-        if trades[0].trade_type == Trade.BUY:
+        if trades[0].trade_type == OP_BUY:
             for trade in trades:
-                if trade.trade_type == Trade.BUY:
+                if trade.trade_type == OP_BUY:
                     self.last_buys_count += 1
                     self.last_buys_shares += trade.shares
                     self.last_buys_avg_price += trade.price * trade.shares
@@ -228,7 +228,7 @@ class Asset:
 
         else:
             for trade in trades:
-                if trade.trade_type == Trade.SELL:
+                if trade.trade_type == OP_SELL:
                     self.last_sells_count += 1
                     self.last_sells_shares += trade.shares
                     self.last_sells_avg_price += trade.price * trade.shares
@@ -239,7 +239,7 @@ class Asset:
         self.last_sells_avg_price /= self.last_sells_shares if self.last_sells_shares > 0 else 1
 
     def update_calc(self, trade):
-        if trade.trade_type == Trade.BUY:
+        if trade.trade_type == OP_BUY:
             self.trades_buy_shares += trade.shares
             self.trades_buy_amount += trade.amount
             self.trades_buy_count += 1
@@ -298,12 +298,12 @@ class Asset:
         trades_list = self.trades
         if (
             len(trades_list) >= buy_limit
-            and trades_list[buy_limit - 1].trade_type == Trade.BUY
+            and trades_list[buy_limit - 1].trade_type == OP_BUY
             and buy_amount > buy_limit_amount
         ):
             # Iterate to check remaining are also buys
             for trade in trades_list[: buy_limit - 1]:
-                if trade.trade_type != Trade.BUY:
+                if trade.trade_type != OP_BUY:
                     return False
             return True
         return False
@@ -426,7 +426,7 @@ class PriceOHLC:
         return (self.high + self.low) / 2 or self.close
 
     def is_order_executed_today(self, order_type, price):
-        if order_type == Trade.SELL:
+        if order_type == OP_SELL:
             return price <= self.close
         else:
             return self.close <= price
@@ -484,7 +484,7 @@ class PairPrices:
 
     def add_trade(self, trade: Trade):
         self.trades.append(trade)
-        if trade.trade_type == Trade.BUY:
+        if trade.trade_type == OP_BUY:
             self.buy_trades.append(trade)
             self.consecutive_sells = 0
             self.consecutive_buys += 1
@@ -527,7 +527,7 @@ class Experiment:
                 shares = self.amount_bs / avg_price
             except ZeroDivisionError:
                 print(f'Zero division on price: {priceOHLC}')
-            initial_trade = Trade(Trade.BUY, shares, avg_price, self.amount_bs, priceOHLC.day)
+            initial_trade = Trade(OP_BUY, shares, avg_price, self.amount_bs, priceOHLC.day)
             pair.add_trade(initial_trade)
             print(f'Initial trade: {initial_trade} for pair: {pair.code}')
             self.simulate_pair(pair, entry_point)
@@ -542,18 +542,18 @@ class Experiment:
             next_buy_price = self.compute_next_buy_price(last_trade_price)
             next_sell_price = self.compute_next_sell_price(last_trade_price)
 
-            if price.is_order_executed_today(Order.BUY, next_buy_price):
+            if price.is_order_executed_today(OP_BUY, next_buy_price):
                 # Create new Trade
                 shares = self.amount_bs / next_buy_price
-                trade = Trade(Trade.BUY, shares, next_buy_price, self.amount_bs, price.day)
+                trade = Trade(OP_BUY, shares, next_buy_price, self.amount_bs, price.day)
                 if self.can_buy(pair):
                     print(trade)
                     pair.add_trade(trade)
 
-            if price.is_order_executed_today(Order.SELL, next_sell_price):
+            if price.is_order_executed_today(OP_SELL, next_sell_price):
                 # Create new Trade
                 shares = self.amount_bs / next_sell_price
-                trade = Trade(Trade.SELL, shares, next_sell_price, self.amount_bs, price.day)
+                trade = Trade(OP_SELL, shares, next_sell_price, self.amount_bs, price.day)
                 if self.can_sell(pair, trade):
                     print(trade)
                     pair.add_trade(trade)
