@@ -6,7 +6,7 @@ import time
 from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -337,3 +337,41 @@ def get_new_prices(kapi, asset_name: str, timestamp_from: datetime.timestamp) ->
     df_prices = df_prices[['TIMESTAMP', 'C']]
 
     return df_prices
+
+def count_sells_in_range(close_prices: pd.DataFrame, days: int, buy_perc: float, sell_perc: float) -> int:
+        latest_price = close_prices.DATE.iloc[-1]
+        session_start = latest_price - timedelta(days=days)
+        ref_df = close_prices[close_prices.DATE >= session_start]
+        ref_price = ref_df.PRICE.iloc[0]
+        ref_date = session_start
+        sell_count = 0
+        b_date = None
+        s_date = None
+        while 1:
+            exp_sells = ref_df[ref_df.PRICE >= ref_price * (1 + sell_perc)]
+            exp_buys = ref_df[ref_df.PRICE <= ref_price * (1 - buy_perc)]
+
+            if not exp_sells.empty:
+                s_date = exp_sells.DATE.iloc[0]
+                s_price = exp_sells.PRICE.iloc[0]
+            if not exp_buys.empty:
+                b_date = exp_buys.DATE.iloc[0]
+                b_price = exp_buys.PRICE.iloc[0]
+
+            if s_date is None and b_date is None:
+                break
+
+            if b_date:
+                ref_price = b_price
+                ref_date = b_date
+
+            if b_date is None or (b_date and s_date and s_date < b_date):
+                ref_price = s_price
+                ref_date = s_date
+                sell_count += 1
+
+            ref_df = ref_df[ref_df.DATE >= ref_date]
+            b_date = None
+            s_date = None
+        return sell_count
+

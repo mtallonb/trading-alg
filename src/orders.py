@@ -29,6 +29,7 @@ from utils.basic import (
     cancel_orders,
     chunks,
     compute_ranking,
+    count_sells_in_range,
     get_fix_pair_name,
     get_price_shares_from_order,
     get_trades_history,
@@ -372,7 +373,12 @@ for _, asset in sorted_pair_names_list_latest:
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
         buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
         margin_amount = asset.margin_amount
-        expected_sells_200 = asset.expected_sells_in_range(days=200, buy_perc=BUY_PERCENTAGE, sell_perc=SELL_PERCENTAGE)
+        expected_sells_200 = count_sells_in_range(
+            close_prices=asset.close_prices,
+            days=200,
+            buy_perc=BUY_PERCENTAGE,
+            sell_perc=SELL_PERCENTAGE,
+        )
         # This list will be loaded to a DataFrame see ranking_cols
         assets_by_last_trade.append(
             [
