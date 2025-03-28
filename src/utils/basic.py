@@ -262,6 +262,7 @@ def compute_ranking(df):
 
     df.loc[df.PB <= -2, 'PB'] = -2.0
     df.loc[df.PS <= -2, 'PS'] = -2.0
+    df.loc[df.MARGIN_PC > 5*df.MARGIN_A.mean(), 'MARGIN_PC'] = 5*df.MARGIN_A.mean()
 
     # ------NORMALIZATION--------
     COLS_TO_NORM = ['PB', 'PS', 'PERC_BS', 'S_TRADES', 'MARGIN_PC', 'ES_TRADES']

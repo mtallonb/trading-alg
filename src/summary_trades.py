@@ -17,7 +17,7 @@ year = 2025
 VERBOSE = True
 CSV_READ = False
 
-filename = f'./data/trades_{year}.csv'
+filename = './data/trades_2025.csv'
 file = None
 buy_trades = []
 sell_trades = []

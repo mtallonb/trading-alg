@@ -316,7 +316,7 @@ class Asset:
             AVG buy price {my_round(self.last_buys_avg_price)}, 
             accum buy count|amount: {self.last_buys_count}|{amount_msg},
             Optionally price to set (half perc / {gain_perc / 2}): {optional_price_msg},
-            Sessions AVG (10)(50)(200): {my_round(self.avg_sessions(days=10))}|{my_round(self.avg_sessions(days=50))}|{my_round(self.avg_sessions(days=200))}
+            Sessions AVG (200)(50)(10): {my_round(self.avg_sessions(days=200))}|{my_round(self.avg_sessions(days=50))}|{my_round(self.avg_sessions(days=10))}
         """  # noqa
 
         if self.is_staking:

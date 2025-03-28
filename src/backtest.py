@@ -58,7 +58,7 @@ sorted_asset = sorted(pairs_info, key=lambda x: x['avg_sells'], reverse=True)
 for ele in sorted_asset:
     print(f"{ele['name']} -> {ele['avg_sells']}")
 
-    
+
 # stats_list = []
 # for _ in range(ENTRY_POINTS):
 #     e = Experiment(pairs, AMOUNT_BS, SELL_HOLD_PERC, CONSECUTIVE_TRADES_LIMIT, EXPECTED_GL)

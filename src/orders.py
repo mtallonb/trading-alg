@@ -55,10 +55,10 @@ ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a elimina
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
-EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR']
+EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR']  # fmt: off  # noqa: E501
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 
-ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR']
+ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR', 'APENFTEUR']  # fmt: off  # noqa: E501
 
 MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 
@@ -91,7 +91,7 @@ kapi.load_key(KEY_FILE)
 # prepare request
 # req_data = {'docalcs': 'true'}
 
-# query servers
+# time to query servers
 start = datetime.utcnow()
 
 balance = kapi.query_private('Balance')
@@ -103,7 +103,7 @@ staked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocati
 
 # end = kapi.query_public('Time')
 # latency = end['result']['unixtime'] - start['result']['unixtime']
-latency = datetime.utcnow() - start
+elapsed_time_query_server = datetime.utcnow() - start
 currency = 'EUR'
 
 # EUR balance
@@ -553,7 +553,7 @@ if PRINT_ORDERS_SUMMARY:
 elapsed_time_since_begining = datetime.utcnow() - processing_time_start
 
 print('\n ***** TIME SUMMARY ***** ')
-print(f'Endpoints latency: {latency}')
+print(f'Endpoints latency: {elapsed_time_query_server}')
 print(f'Load CSV time: {elapsed_time_csv_trades}')
 print(f'Initialization time: {elapsed_time_initialization}')
 print(f'Open orders time: {elapsed_time_open_orders}')
