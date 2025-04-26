@@ -3,16 +3,14 @@
 # TODO
 # Métricas para conocer valor de compra y cuantos asset podemos tener en cartera
 # Umbral de perdidas y ganancia max percentile 10 esperar a que suba tras bajar para comprar
-# Notificaciones telegram con telebot
 # Dinero invertido en los asset muertos
 # Compensar ganancias con las perdidas de las muertas.
-# Añadir media (medias móviles) y varianza a cada asset de 30 dias por ejemplo parametrizable
 # Ejecutar las pérdidas si hay mucha ganancia este año
 
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Es decir un ranking de todos
 
-# BUG si hay más de 50 trades sin actualizar en los trades
+# BUG si hay más de 50 trades sin actualizar en los trades. Debería estar arreglado ya
 # TWRR en trades y más métricas
 # Mostrar si esta bloqueado el que esta a punto de vender
 
@@ -51,14 +49,19 @@ BUY_LIMIT_AMOUNT = (
     BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
+USE_ORDER_THR = False
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 
-EXCLUDE_PAIR_NAMES = ['ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR']  # fmt: off  # noqa: E501
+EXCLUDE_PAIR_NAMES = [
+    'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
+]  # fmt: off
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 
-ASSETS_TO_EXCLUDE_AMOUNT = ['SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR', 'APENFTEUR']  # fmt: off  # noqa: E501
+ASSETS_TO_EXCLUDE_AMOUNT = [
+    'SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR', 'APENFTEUR',
+]  # fmt: off
 
 MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 
@@ -68,7 +71,7 @@ MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 # 'FLOWEUR', 'AAVEEUR', 'XTZEUR', 'ADAEUR', 'AVAXEUR', 'ALGOEUR', 'MATICEUR']
 PAIR_TO_LAST_TRADES = []
 
-PAIR_TO_FORCE_INFO = ['ADAEUR', 'SOLEUR']
+PAIR_TO_FORCE_INFO = []  # ['ADAEUR', 'SOLEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -392,24 +395,40 @@ for _, asset in sorted_pair_names_list_latest:
                 my_round(margin_amount),
                 sell_trades_count,
                 expected_sells_200,
+                my_round(asset.avg_sessions(days=200)),
+                my_round(asset.avg_sessions(days=50)),
+                my_round(asset.avg_sessions(days=10)),
             ],
         )
 
 
 # ------ RANKING ----------------------------------------------------------------------------------
-# ibs -> is buy set, blr -> buy limit reached
-ranking_cols = ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES', 'ES_TRADES']
+ranking_cols = [
+    'NAME',
+    'LAST_TRADE',
+    'IBS',
+    'BLR',
+    'CURR_PRICE',
+    'AVG_B',
+    'AVG_S',
+    'MARGIN_A',
+    'S_TRADES',
+    'X_TRADES',
+    'AVG_200',
+    'AVG_50',
+    'AVG_10',
+]
 df = pd.DataFrame(assets_by_last_trade, columns=ranking_cols)
 df = compute_ranking(df)
-print(df.to_string(index=False))
+# Print RANKING sorted by latest trade
+# print(df.to_string(index=False))
 for record in df[['NAME', 'RANKING']].to_dict('records'):
-    # set ranking on the asset
     assets_dict[record['NAME']].ranking = record['RANKING']
 
 print(
     '\n*****PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
     'margin_a: sells_amount - buys_amount. '
-    'S_TRADES and ES_TRADES: Sell trades and Expected Sell trades on 200 sessions)*****',
+    'S_TRADES and X_TRADES: Sell trades and Expected Sell trades on 200 sessions)*****',
 )
 print(df.sort_values(by='RANKING', ascending=False).to_string(index=False))
 # -------------------------------------------------------------------------------------------------
@@ -459,7 +478,7 @@ if PRINT_ORDERS_SUMMARY:
         last_sell_order = asset.latest_order()
         last_trade_execution = asset.trades[0].execution_datetime.replace(tzinfo=None)
         sell_lower_price = asset.orders_sell_lower_price
-        cancel_condition = (sell_lower_price and sell_lower_price >= thr_sell) or (
+        cancel_condition = (USE_ORDER_THR and sell_lower_price and sell_lower_price >= thr_sell) or (
             last_sell_order and last_trade_execution > last_sell_order.creation_datetime
         )
         if cancel_condition:
@@ -477,7 +496,7 @@ if PRINT_ORDERS_SUMMARY:
 
         last_buy_order = asset.latest_order(type=OP_BUY)
         buy_higher_price = asset.orders_buy_higher_price
-        cancel_condition = (buy_higher_price and buy_higher_price <= thr_buy) or (
+        cancel_condition = (USE_ORDER_THR and buy_higher_price and buy_higher_price <= thr_buy) or (
             last_buy_order and last_trade_execution > last_buy_order.creation_datetime
         )
         if cancel_condition:

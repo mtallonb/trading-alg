@@ -115,8 +115,8 @@ latest_trade_csv = read_trades_csv(filename, buy_trades, sell_trades)
 # Read Trades from Kraken API
 trades_to_append_to_csv = []
 for page in range(PAGES):
-    request_data = dict(req_data)
-    trades = get_trades_history(request_data, page, RECORDS_PER_PAGE, kapi)
+    # request_data = dict(req_data)
+    trades = get_trades_history(request_data=req_data, page=page, records_per_page=RECORDS_PER_PAGE, kapi=kapi)
     if not trades:
         break
 

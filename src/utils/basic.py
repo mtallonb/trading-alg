@@ -92,13 +92,13 @@ def entries_to_remove(entries, the_dict):
             del the_dict[key]
 
 
-def get_trades_history(request_data, page, RECORDS_PER_PAGE, kapi):
-    request_data['ofs'] = RECORDS_PER_PAGE * page
+def get_trades_history(request_data, page, records_per_page, kapi) -> list[dict]:
+    request_data['ofs'] = records_per_page * page
     trades_history = kapi.query_private('TradesHistory', request_data)
     if not trades_history.get('result') or not trades_history['result']['trades']:
         return []
-    trades = [order for _, order in trades_history['result']['trades'].items()]
-    return trades
+
+    return [order for _, order in trades_history['result']['trades'].items()]
 
 
 def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
@@ -251,7 +251,7 @@ def print_query_result(endpoint, result):
 def compute_ranking(df):
     """
     df input COLUMNS: ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES',
-    'ES_TRADES']
+    'X_TRADES', 'AVG_200', 'AVG_50', 'AVG_10',]
     """
 
     df['MARGIN_PC'] = df.MARGIN_A
@@ -259,17 +259,26 @@ def compute_ranking(df):
     df['PS'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
     df['PERC_BS'] = (df.AVG_S - df.AVG_B) / df.AVG_S
     df['PERC_BS'].replace([np.inf, -np.inf], 0, inplace=True)
+    df['TREND_DIST'] = 3 * df.CURR_PRICE - df.AVG_200 - df.AVG_50 - df.AVG_10
+    df['TREND_DIST_ABS'] = (
+        (df.CURR_PRICE - df.AVG_200).abs() + (df.CURR_PRICE - df.AVG_50).abs() + (df.CURR_PRICE - df.AVG_10).abs()
+    )
+    df['TREND'] = df.TREND_DIST / df.TREND_DIST_ABS
+    df['TREND'].replace([np.inf, -np.inf], 0, inplace=True)
 
+    df.loc[df.TREND < 0, 'TREND'] = 0
     df.loc[df.PB <= -2, 'PB'] = -2.0
     df.loc[df.PS <= -2, 'PS'] = -2.0
-    df.loc[df.MARGIN_PC > 5*df.MARGIN_A.mean(), 'MARGIN_PC'] = 5*df.MARGIN_A.mean()
+    df.loc[df.MARGIN_PC > 5 * df.MARGIN_A.mean(), 'MARGIN_PC'] = 5 * df.MARGIN_A.mean()
 
     # ------NORMALIZATION--------
-    COLS_TO_NORM = ['PB', 'PS', 'PERC_BS', 'S_TRADES', 'MARGIN_PC', 'ES_TRADES']
+    COLS_TO_NORM = ['PB', 'PS', 'PERC_BS', 'S_TRADES', 'MARGIN_PC', 'X_TRADES']
     df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
     # ---------------------------
 
-    df['RANKING'] = df['PB'] + df['PS'] + df['PERC_BS'] + df['S_TRADES'] + df['MARGIN_PC'] + df['ES_TRADES']
+    df['RANKING'] = (
+        df['PB'] + df['PS'] + df['PERC_BS'] + df['S_TRADES'] + df['MARGIN_PC'] + df['X_TRADES'] + df['TREND']
+    )
 
     idx = df['AVG_S'] == 0.0
     df.loc[idx, 'RANKING'] = np.nan
@@ -280,7 +289,8 @@ def compute_ranking(df):
     df['RANKING'] = df['RANKING'] - df['RANKING'].min()
     df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
 
-    # df = df.drop(columns=['pb', 'ps'])
+    df = df.drop(columns=['AVG_200', 'AVG_50', 'AVG_10'])
+    df = df.drop(columns=['TREND_DIST', 'TREND_DIST_ABS'])
     return df
 
 
@@ -339,40 +349,40 @@ def get_new_prices(kapi, asset_name: str, timestamp_from: datetime.timestamp) ->
 
     return df_prices
 
+
 def count_sells_in_range(close_prices: pd.DataFrame, days: int, buy_perc: float, sell_perc: float) -> int:
-        latest_price = close_prices.DATE.iloc[-1]
-        session_start = latest_price - timedelta(days=days)
-        ref_df = close_prices[close_prices.DATE >= session_start]
-        ref_price = ref_df.PRICE.iloc[0]
-        ref_date = session_start
-        sell_count = 0
+    latest_price = close_prices.DATE.iloc[-1]
+    session_start = latest_price - timedelta(days=days)
+    ref_df = close_prices[close_prices.DATE >= session_start]
+    ref_price = ref_df.PRICE.iloc[0]
+    ref_date = session_start
+    sell_count = 0
+    b_date = None
+    s_date = None
+    while 1:
+        exp_sells = ref_df[ref_df.PRICE >= ref_price * (1 + sell_perc)]
+        exp_buys = ref_df[ref_df.PRICE <= ref_price * (1 - buy_perc)]
+
+        if not exp_sells.empty:
+            s_date = exp_sells.DATE.iloc[0]
+            s_price = exp_sells.PRICE.iloc[0]
+        if not exp_buys.empty:
+            b_date = exp_buys.DATE.iloc[0]
+            b_price = exp_buys.PRICE.iloc[0]
+
+        if s_date is None and b_date is None:
+            break
+
+        if b_date:
+            ref_price = b_price
+            ref_date = b_date
+
+        if b_date is None or (b_date and s_date and s_date < b_date):
+            ref_price = s_price
+            ref_date = s_date
+            sell_count += 1
+
+        ref_df = ref_df[ref_df.DATE >= ref_date]
         b_date = None
         s_date = None
-        while 1:
-            exp_sells = ref_df[ref_df.PRICE >= ref_price * (1 + sell_perc)]
-            exp_buys = ref_df[ref_df.PRICE <= ref_price * (1 - buy_perc)]
-
-            if not exp_sells.empty:
-                s_date = exp_sells.DATE.iloc[0]
-                s_price = exp_sells.PRICE.iloc[0]
-            if not exp_buys.empty:
-                b_date = exp_buys.DATE.iloc[0]
-                b_price = exp_buys.PRICE.iloc[0]
-
-            if s_date is None and b_date is None:
-                break
-
-            if b_date:
-                ref_price = b_price
-                ref_date = b_date
-
-            if b_date is None or (b_date and s_date and s_date < b_date):
-                ref_price = s_price
-                ref_date = s_date
-                sell_count += 1
-
-            ref_df = ref_df[ref_df.DATE >= ref_date]
-            b_date = None
-            s_date = None
-        return sell_count
-
+    return sell_count

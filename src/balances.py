@@ -307,7 +307,7 @@ def year_gain_perc(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 1150.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 1460.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,
@@ -324,34 +324,3 @@ for idx, year in enumerate(years):
 
 # _________________________________
 exit()
-
-
-# for asset in df_asset_sum:
-#     prices = cw.markets.get(f"kraken:{pair_name}", ohlc=True, ohlc_before=int(timestamp_to), periods=["1d"])
-
-#     prices_df = pd.DataFrame(prices.of_1d)
-#     # We take only dates and Close prices
-#     close_prices = prices_df[[0, 4]]
-#     close_prices.columns = ["date", "price"]
-#     close_prices['date'] = pd.to_datetime(close_prices['date'], unit='s')
-#     for close_price in close_prices.to_dict('records'):
-#         day = close_price['date'].date()
-#         price = close_price['price']
-#         priceOHLC = PriceOHLC(float(price), float(price), float(price), float(price), day)
-#         pp.prices.append(priceOHLC)
-
-#     print(f"Initial price for ({pair_name}): {pp.prices[0]}")
-#     print(f"Last price for ({pair_name}): {pp.prices[-1]}")
-
-
-# balance on date = position(date) + cash(date) + stacked(date)
-# balance = kapi.query_private('Balance')
-# Comparar el último con el que obtengo de Kraken
-# print(balance)
-# El balance contiene los stacked tb asi que solo queda multiplicar por el precio cada position
-# Calcular position diarios del fichero de trades y luego asignar precios diarios para calcular el balance diario
-# OJO Hay que tener en cuenta los deposits y wd. En realidad los stacked se pueden obviar.
-# gain_loss = balance / deposit_wd
-
-# first_deposit_date = date(2017, 10, 31)
-# first_deposit_date =
