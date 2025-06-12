@@ -9,6 +9,7 @@
 
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Es decir un ranking de todos
+# Incluir un agente IA con todos estos asset. Cual hubiera dado mayor retorno entrando cada 30 días.
 
 # BUG si hay más de 50 trades sin actualizar en los trades. Debería estar arreglado ya
 # TWRR en trades y más métricas
@@ -53,22 +54,22 @@ USE_ORDER_THR = False
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
-
 EXCLUDE_PAIR_NAMES = [
     'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
+    'MATICEUR',
 ]  # fmt: off
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
-
 ASSETS_TO_EXCLUDE_AMOUNT = [
     'SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR', 'APENFTEUR',
+    'MATICEUR',
 ]  # fmt: off
-
 MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
+# DUAL_ASSETS_NAME = {'MATICEUR': 'POLEUR'}
 
 # PAIR NAMES: [
 # 'SCEUR', 'ATOMEUR', 'ETCEUR', 'ETHEUR', 'BCHEUR', 'TIAEUR', 'TRXEUR', 'XRPEUR', 'LINKEUR', 'XBTEUR',
 # 'FLREUR', 'SNXEUR', 'EOSEUR', 'SOLEUR', 'XDGEUR', 'MINAEUR', 'LTCEUR', 'APTEUR', 'XLMEUR', 'UNIEUR', 'BATEUR',
-# 'FLOWEUR', 'AAVEEUR', 'XTZEUR', 'ADAEUR', 'AVAXEUR', 'ALGOEUR', 'MATICEUR']
+# 'FLOWEUR', 'AAVEEUR', 'XTZEUR', 'ADAEUR', 'AVAXEUR', 'ALGOEUR', 'MATICEUR', 'SUIEUR', 'TRUMPEUR']
 PAIR_TO_LAST_TRADES = []
 
 PAIR_TO_FORCE_INFO = []  # ['ADAEUR', 'SOLEUR']
@@ -97,9 +98,11 @@ kapi.load_key(KEY_FILE)
 # time to query servers
 start = datetime.utcnow()
 
+# CALLS TO KRAKEN API
+# kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
 balance = kapi.query_private('Balance')
-open_orders = kapi.query_private('OpenOrders', data={'trades': 'false'})
-staked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocations': 'true'})
+# open_orders = kapi.query_private('OpenOrders', data={'trades': 'false'})
+# staked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocations': 'true'})
 # trade_balance = kapi.query_private('TradeBalance')
 # close_orders = kapi.query_private('CloseOrders', req_data)
 # trades_history = kapi.query_private('TradesHistory', req_data)
@@ -133,6 +136,7 @@ initialization_time_start = datetime.utcnow()
 
 # Assets with balance or open order
 asset_original_names = list(balance['result'].keys())
+open_orders = kapi.query_private('OpenOrders', data={'trades': 'false'})
 asset_original_names.extend(set([order['descr']['pair'] for order in open_orders['result']['open'].values()]))
 asset_original_names = set(asset_original_names)
 
@@ -158,11 +162,12 @@ for key, value in balance['result'].items():
 
 
 # ----------FILL PRICES-------------------------------------------------------------------
-name_list = assets_dict.keys()
+name_list = list(assets_dict.keys())
 concatenate_names = ','.join(name_list)
-
 # Watch-out is returning all assets with the latest price
 tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
+# for key, val in DUAL_ASSETS_NAME.items():
+#     tickers_info['result'][key] = tickers_info['result'].pop(val)
 
 for name, ticker_info in tickers_info['result'].items():
     fixed_pair_name = get_fix_pair_name(name, FIX_X_PAIR_NAMES)
@@ -183,6 +188,7 @@ for name, ticker_info in tickers_info['result'].items():
             print(f'None prices found for asset: {fixed_pair_name}')
 
 # ----------FILL STACKING INFO-------------------------------------------------------------------
+staked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocations': 'true'})
 # Watch-out is returning all assets
 for staking_info in staked_assets['result']['items']:
     staking_name = staking_info['native_asset']
@@ -376,12 +382,22 @@ for _, asset in sorted_pair_names_list_latest:
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
         buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
         margin_amount = asset.margin_amount
-        expected_sells_200 = count_sells_in_range(
-            close_prices=asset.close_prices,
-            days=200,
-            buy_perc=BUY_PERCENTAGE,
-            sell_perc=SELL_PERCENTAGE,
-        )
+        if asset.close_prices is None:
+            expected_sells_200 = None
+            avg_sessions_200 = None
+            avg_sessions_50 = None
+            avg_sessions_10 = None
+            print(f"MISSING PRICES FOR ASSET: {asset.name}")
+        else:
+            expected_sells_200 = count_sells_in_range(
+                close_prices=asset.close_prices,
+                days=200,
+                buy_perc=BUY_PERCENTAGE,
+                sell_perc=SELL_PERCENTAGE,
+            )
+            avg_sessions_200 = asset.avg_sessions(days=200)
+            avg_sessions_50 = asset.avg_sessions(days=50)
+            avg_sessions_10 = asset.avg_sessions(days=10)
         # This list will be loaded to a DataFrame see ranking_cols
         assets_by_last_trade.append(
             [
@@ -395,9 +411,9 @@ for _, asset in sorted_pair_names_list_latest:
                 my_round(margin_amount),
                 sell_trades_count,
                 expected_sells_200,
-                my_round(asset.avg_sessions(days=200)),
-                my_round(asset.avg_sessions(days=50)),
-                my_round(asset.avg_sessions(days=10)),
+                my_round(avg_sessions_200),
+                my_round(avg_sessions_50),
+                my_round(avg_sessions_10),
             ],
         )
 

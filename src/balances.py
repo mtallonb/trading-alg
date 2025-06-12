@@ -195,8 +195,9 @@ for asset_name in asset_names:
 
     if latest_timestamp < timestamp_to:
         new_prices = get_new_prices(kapi=kapi, asset_name=asset_name, timestamp_from=latest_timestamp)
-        df_prices = pd.concat([df_prices, new_prices])
-        df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
+        if new_prices is not None:
+            df_prices = pd.concat([df_prices, new_prices])
+            df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
 
     df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
     df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.date
@@ -300,14 +301,14 @@ def year_gain_perc(
     if verbose:
         print(
             f'\n***YEAR: {year}| balance_0: {my_round(balance_0)}| balance_365: {my_round(balance_365)}| mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
-            f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)}.',
+            f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)} %.',
         )
-        print(f'Unrealised gain (perc): {my_round(100 * unrealised / mean_balance)} \n')
+        print(f'Unrealised gain (perc): {my_round(100 * unrealised / mean_balance)} %.\n')
     return gain
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 1700.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2000.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

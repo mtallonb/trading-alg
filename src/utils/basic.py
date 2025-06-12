@@ -254,11 +254,11 @@ def compute_ranking(df):
     'X_TRADES', 'AVG_200', 'AVG_50', 'AVG_10',]
     """
 
-    df['MARGIN_PC'] = df.MARGIN_A
+    df['MARGIN_P'] = df.MARGIN_A
     df['PB'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
     df['PS'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
-    df['PERC_BS'] = (df.AVG_S - df.AVG_B) / df.AVG_S
-    df['PERC_BS'].replace([np.inf, -np.inf], 0, inplace=True)
+    df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
+    df['BS_P'].replace([np.inf, -np.inf], 0, inplace=True)
     df['TREND_DIST'] = 3 * df.CURR_PRICE - df.AVG_200 - df.AVG_50 - df.AVG_10
     df['TREND_DIST_ABS'] = (
         (df.CURR_PRICE - df.AVG_200).abs() + (df.CURR_PRICE - df.AVG_50).abs() + (df.CURR_PRICE - df.AVG_10).abs()
@@ -269,19 +269,17 @@ def compute_ranking(df):
     df.loc[df.TREND < 0, 'TREND'] = 0
     df.loc[df.PB <= -2, 'PB'] = -2.0
     df.loc[df.PS <= -2, 'PS'] = -2.0
-    df.loc[df.MARGIN_PC > 5 * df.MARGIN_A.mean(), 'MARGIN_PC'] = 5 * df.MARGIN_A.mean()
+    df.loc[df.MARGIN_P > 5 * df.MARGIN_A.mean(), 'MARGIN_P'] = 5 * df.MARGIN_A.mean()
 
     # ------NORMALIZATION--------
-    COLS_TO_NORM = ['PB', 'PS', 'PERC_BS', 'S_TRADES', 'MARGIN_PC', 'X_TRADES']
+    COLS_TO_NORM = ['PB', 'PS', 'BS_P', 'S_TRADES', 'MARGIN_P', 'X_TRADES']
     df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
     # ---------------------------
 
-    df['RANKING'] = (
-        df['PB'] + df['PS'] + df['PERC_BS'] + df['S_TRADES'] + df['MARGIN_PC'] + df['X_TRADES'] + df['TREND']
-    )
+    df['RANKING'] = df['PB'] + df['PS'] + df['BS_P'] + df['S_TRADES'] + df['MARGIN_P'] + df['X_TRADES'] + df['TREND']
 
-    idx = df['AVG_S'] == 0.0
-    df.loc[idx, 'RANKING'] = np.nan
+    idx_avg_s_zeros = df['AVG_S'] == 0.0
+    df.loc[idx_avg_s_zeros, 'RANKING'] = np.nan
     # df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df.dropna(subset=["RANKING"], how="all", inplace=True)
     # idx = df['RANKING'] < -10
@@ -343,6 +341,8 @@ def append_trades_to_csv(filename, trades_to_append):
 def get_new_prices(kapi, asset_name: str, timestamp_from: datetime.timestamp) -> pd.DataFrame:
     # If timestamp_from is higher than 2 years display a warning
     prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
+    if not prices.get('result'):
+        return None
     df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
     df_prices.columns = HEADER_PRICES_KRAKEN
     df_prices = df_prices[['TIMESTAMP', 'C']]

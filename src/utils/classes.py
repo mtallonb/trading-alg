@@ -152,6 +152,8 @@ class Asset:
         return self.trades_sell_amount + self.balance + self.stacked_balance - self.trades_buy_amount
 
     def avg_sessions(self, days: int) -> float:
+        if self.close_prices is None:
+            return 0.0
         latest_price = self.close_prices.DATE.iloc[-1]
         session_start = latest_price - timedelta(days=days)
         return self.close_prices[self.close_prices.DATE >= session_start].PRICE.mean()
@@ -222,7 +224,7 @@ class Asset:
     def fill_staking_info(self, staking_info):
         if staking_info:
             self.is_staking = True
-            self.staked_shares = float(staking_info['amount_allocated']['total']['native'])
+            self.staked_shares += float(staking_info['amount_allocated']['total']['native'])
         else:
             from utils.basic import BCOLORS
 
@@ -342,12 +344,9 @@ class Asset:
         suggested_buy_price = None
 
         if self.balance < 1.5 * minimum_amount:
-            if not self.close_prices.empty:
+            max_close_price_after_trade = 0
+            if self.close_prices is not None:
                 max_close_price_after_trade = self.latest_max_price_since(day=latest_trade.execution_datetime.date())
-                # max_close_price_after_trade = get_max_price_from_csv_since(
-                #     pair_name=self.name,
-                #     since_datetime=latest_trade.execution_datetime,
-                # )
 
             if max_close_price_after_trade:
                 suggested_buy_price = max_close_price_after_trade * (1 - gain_perc)
