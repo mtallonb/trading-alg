@@ -132,7 +132,10 @@ def update_get_flow_file(flow_type: str):
     flow_filename = deposit_filename if flow_type == FLOW_TYPE_DEPOSIT else wd_filename
     df_flows = pd.read_csv(flow_filename)
     latest_flow_datetime = df_flows.TIME.iloc[-1]
-    flow_datetime = datetime.fromisoformat(latest_flow_datetime)
+    flow_datetime = pd.to_datetime(latest_flow_datetime)
+    if isinstance(flow_datetime, pd.Timestamp):
+        flow_datetime = flow_datetime.to_pydatetime(warn=False)
+    # flow_datetime = datetime.fromisoformat(latest_flow_datetime)
     # deposit_datetime += timedelta(days=1)
 
     df_new_flows = get_flow_from_kraken(
