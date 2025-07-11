@@ -26,7 +26,7 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 # configure api
 kapi = krakenex.API()
-kapi.load_key('./data/kraken.key')
+kapi.load_key('./data/keys/kraken.key')
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 

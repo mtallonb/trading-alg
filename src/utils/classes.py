@@ -123,12 +123,15 @@ class Asset:
 
     is_staking: bool = False
     staked_shares: float = 0.0
+    autostaking_shares: float = 0.0
 
     def to_dict(self):
         return {
             'name': self.name,
             'original_name': self.original_name,
             'price': self.price,
+            'shares': self.shares,
+            'balance': self.balance,
         }
 
     @property
@@ -148,8 +151,18 @@ class Asset:
         return self.staked_shares * self.price
 
     @property
+    def autostacked_balance(self) -> float:
+        return self.autostaking_shares * self.price
+
+    @property
     def margin_amount(self) -> float:
-        return self.trades_sell_amount + self.balance + self.stacked_balance - self.trades_buy_amount
+        return (
+            self.trades_sell_amount
+            + self.balance
+            + self.stacked_balance
+            + self.autostacked_balance
+            - self.trades_buy_amount
+        )
 
     def avg_sessions(self, days: int) -> float:
         if self.close_prices is None:
@@ -305,7 +318,7 @@ class Asset:
 
         message = f"""
             Missing buy: {self.name}| price to set: {my_round(next_buy_price)}| {self.get_ranking_message()},
-            curr. shares: {my_round(self.shares)}| curr. balance: {my_round(self.balance)},
+            curr. shares: {my_round(self.shares)}| curr. balance: {my_round(self.balance)}| autostaking balance: {my_round(self.autostacked_balance)},
             curr. price: {my_round(self.price)}| latest trade price: {my_round(last_price)},
             latest trade: Amount: {my_round(latest_trade.amount)}| Vol: {my_round(latest_trade.shares)}| Exec date: {latest_trade.execution_datetime.date()},
             ALL buys: Avg price: {self.get_buy_avg_msg()}| Amount: {my_round(self.trades_buy_amount)},
@@ -355,7 +368,7 @@ class Asset:
 
         message = f"""
             Missing sell: {self.name}| price to set: {my_round(next_price)}| {self.get_ranking_message()}, 
-            curr. shares: {my_round(self.shares)}| curr. balance: {my_round(self.balance)},
+            curr. shares: {my_round(self.shares)}| curr. balance: {my_round(self.balance)}| autostaking balance: {my_round(self.autostacked_balance)},
             current price: {my_round(self.price)}| latest trade price: {my_round(last_price)},
             latest trade amount: {my_round(latest_trade.amount)}| latest trade vol: {my_round(latest_trade.shares)},
             execution date: {latest_trade.execution_datetime.date()},

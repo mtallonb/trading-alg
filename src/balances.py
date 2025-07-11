@@ -56,7 +56,7 @@ timestamp_to = datetime(
 
 # configure api
 kapi = krakenex.API()
-kapi.load_key('./data/kraken.key')
+kapi.load_key('./data/keys/kraken.key')
 
 # prepare request
 # req_data = {'trades': 'false'}
@@ -311,7 +311,7 @@ def year_gain_perc(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2000.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2250.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

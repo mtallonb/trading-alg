@@ -22,7 +22,8 @@ LOCAL_TZ = pytz.timezone('Europe/Madrid')
 
 # fix pair names
 FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']
-STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR')
+STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR', '.FEUR')
+AUTOSTAKING_SUFFIXES = ('.FEUR',)
 
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 HEADER_PRICES_KRAKEN = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
@@ -59,8 +60,20 @@ def chunks(elem_list, n):
     return (elem_list[i : i + n] for i in range(0, len(elem_list), n))
 
 
-def is_staked(name):
+def is_staked(name: str):
     return name.endswith(STAKING_SUFFIXES)
+
+
+def is_auto_staked(name: str):
+    return name.endswith(AUTOSTAKING_SUFFIXES)
+
+
+def remove_staking_suffix(name: str):
+    for suffix in STAKING_SUFFIXES:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+
+    return name
 
 
 # TODO not working on 5e-05

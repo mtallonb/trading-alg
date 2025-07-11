@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 import krakenex
 import pandas as pd
 
+from ia_agent import get_smart_summary
 from utils.basic import (
     BCOLORS,
     FIX_X_PAIR_NAMES,
@@ -32,11 +33,13 @@ from utils.basic import (
     get_fix_pair_name,
     get_price_shares_from_order,
     get_trades_history,
+    is_auto_staked,
     is_staked,
     load_from_csv,
     my_round,
     percentage,
     read_prices_from_local_file,
+    remove_staking_suffix,
 )
 from utils.classes import OP_BUY, OP_SELL, Asset, Order, Trade
 
@@ -79,14 +82,17 @@ PRINT_ORDERS_SUMMARY = True
 PRINT_BUYS_WARN_CONSECUTIVE = False
 PRINT_PERCENTAGE_TO_EXECUTE_ORDERS = True
 SHOW_COUNT_BUYS = False
+SHOW_SMART_SUMMARY = False
 
 AUTO_CANCEL_BUY_ORDER = True
+AUTO_BUY_ORDER = False
 AUTO_CANCEL_SELL_ORDER = True
+AUTO_SELL_ORDER = False
 
 GET_FULL_TRADE_HISTORY = True
 LOAD_ALL_CLOSE_PRICES = True
 TRADE_FILE = './data/trades_2025.csv'
-KEY_FILE = './data/kraken.key'
+KEY_FILE = './data/keys/kraken.key'
 
 # configure api
 kapi = krakenex.API()
@@ -157,8 +163,17 @@ for key, value in balance['result'].items():
     if not is_staked(key_name) and key_name not in EXCLUDE_PAIR_NAMES and not assets_dict.get(key_name, False):
         print(f'Missing balance for pair: {key_name}')
         continue
-    if key_name not in EXCLUDE_PAIR_NAMES and not is_staked(key_name):
-        assets_dict[key_name].shares = float(value)
+    if key_name not in EXCLUDE_PAIR_NAMES:
+        if not is_staked(key_name):
+            assets_dict[key_name].shares = float(value)
+
+        if is_auto_staked(key_name):
+            asset_name_clean = f'{remove_staking_suffix(key_name)}EUR'
+            if not assets_dict.get(asset_name_clean, False):
+                print(f'Cannot fill autostaking balance for pair: {key_name} and clean pair: {asset_name_clean}')
+                continue
+            else:
+                assets_dict[asset_name_clean].autostaking_shares = float(value)
 
 
 # ----------FILL PRICES-------------------------------------------------------------------
@@ -586,6 +601,13 @@ if PRINT_ORDERS_SUMMARY:
     )
 
 elapsed_time_since_begining = datetime.utcnow() - processing_time_start
+
+if SHOW_SMART_SUMMARY:
+    print('\n ***** SMART SUMMARY ***** ')
+    smart_summary_time_start = datetime.utcnow()
+    positions = [asset.to_dict() for asset in assets_dict.values()]
+    agent_response = get_smart_summary(positions=positions, death_assets=death_asset_names)
+    elapsed_time_smart_summary = datetime.utcnow() - smart_summary_time_start
 
 print('\n ***** TIME SUMMARY ***** ')
 print(f'Endpoints latency: {elapsed_time_query_server}')
