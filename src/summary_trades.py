@@ -10,7 +10,9 @@ from decimal import Decimal as D
 import krakenex
 
 from utils.basic import (
+    FIX_X_PAIR_NAMES,
     append_trades_to_csv,
+    get_fix_pair_name,
     get_paginated_response_from_kraken,
     my_round,
     read_trades_csv,
@@ -132,12 +134,12 @@ if not trade_pages:
 
 for trade_page in trade_pages:
     for trade_detail in trade_page.values():
-        closetime = time.strftime(DATE_FORMAT, time.gmtime(trade_detail['time']))
-        if closetime > latest_trade_csv.completed:
+        closetime_str = time.strftime(DATE_FORMAT, time.gmtime(trade_detail['time']))
+        if datetime.strptime(closetime_str, DATE_FORMAT) > latest_trade_csv.completed:
             # fix_name = REPLACE_NAMES[name] if name in REPLACE_NAMES.keys() else name
             trade = CSVTrade(
                 trade_detail['pair'],
-                closetime,
+                closetime_str,
                 trade_detail['type'],
                 trade_detail['price'],
                 trade_detail['cost'],
@@ -189,6 +191,7 @@ for asset_name in sell_pairs_in_year:
     pair_gains.append(
         {
             'name': asset_name,
+            'fix_name': get_fix_pair_name(pair_name=asset_name, fix_x_pair_names=FIX_X_PAIR_NAMES),
             'gl': total_gain_loss_asset,
             'gl_year': gain_loss_year_asset,
             'unrealised_p_year': unrealised_p_year,
@@ -217,7 +220,7 @@ pair_gains.sort(reverse=True, key=lambda x: x['gl'])
 print('\n== G/L PAIRS (TOTAL ACCUM/CURRENT YEAR (FIFO)/(LIFO)) ==')
 for pair in pair_gains:
     print(
-        f'{pair["name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
+        f'{pair["fix_name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
         f'{my_round(pair["unrealised_p_year"]):{10}}',
     )
 
@@ -226,7 +229,7 @@ pair_gains.sort(reverse=True, key=lambda x: x['unrealised_p_year'])
 print('\n== G/L PAIRS SORT BY LIFO (3rd COLUMN) ==')
 for pair in pair_gains:
     print(
-        f'{pair["name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
+        f'{pair["fix_name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year"]):{10}}'
         f'{my_round(pair["unrealised_p_year"]):{10}}',
     )
 

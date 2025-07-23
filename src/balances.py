@@ -15,7 +15,7 @@ from utils.basic import (
 )
 
 # Invested on each asset and current balance -> result No muy util
-# balance a principio de año y actual quitando los flujos de IO
+# Fix unrealised gain on asset delisting. Venta forzosa no se gana el 20%
 
 # date_from = date(2022, 1, 1)
 # date_to = date(2023, 1, 1)
@@ -324,7 +324,7 @@ def year_gain_perc(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2740.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2825.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

@@ -57,7 +57,7 @@ PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 EXCLUDE_PAIR_NAMES = [
     'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
-    'MATICEUR',
+    'MATICEUR', 'EOSEUR',
 ]  # fmt: off
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 ASSETS_TO_EXCLUDE_AMOUNT = [
@@ -146,7 +146,7 @@ asset_original_names = set(asset_original_names)
 
 # ----------INITIALIZE PAIRS DICT-------------------------------------------------------------------
 for name in asset_original_names:
-    key_name = name[1:] if name[0] == name[1] == 'X' else name
+    key_name = name[1:] if len(name) > 2 and name[0] == name[1] == 'X' else name
     original_name = name + 'Z' if name[0] == 'X' else name
     original_name = original_name if original_name.endswith(currency) else original_name + currency
     key_name = get_fix_pair_name(pair_name=key_name, fix_x_pair_names=FIX_X_PAIR_NAMES)
@@ -156,7 +156,7 @@ for name in asset_original_names:
 
 # ----------FILL BALANCE-------------------------------------------------------------------
 for key, value in balance['result'].items():
-    key_name = key[1:] if key[0] == key[1] == 'X' else key
+    key_name = key[1:] if len(key) > 2 and key[0] == key[1] == 'X' else key
     key_name = get_fix_pair_name(key_name, FIX_X_PAIR_NAMES)
     if not is_staked(key_name) and key_name not in EXCLUDE_PAIR_NAMES and not assets_dict.get(key_name, False):
         print(f'Missing balance for pair: {key_name}')
