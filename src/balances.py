@@ -8,8 +8,8 @@ import pandas as pd
 from utils.basic import (
     FIX_X_PAIR_NAMES,
     get_fix_pair_name,
-    get_flow_from_kraken,
     get_new_prices,
+    get_paginated_response_from_kraken,
     my_round,
     read_prices_from_local_file,
 )
@@ -98,9 +98,9 @@ def get_asset_positions(
     df_pos_temp = pd.merge(df_pos_temp, df_trades, on='DATE', how='left')
     df_pos_temp.SHARES = df_pos_temp.TOTAL_SHARES
     df_pos_temp.drop(['VOL', 'DATETIME', 'TYPE', 'TOTAL_SHARES'], axis=1, inplace=True)
-    df_pos_temp.SHARES.ffill(inplace=True)
+    df_pos_temp['SHARES'] = df_pos_temp['SHARES'].ffill()
     df_pos_temp.AMOUNT = df_pos_temp.SHARES * df_pos_temp.PRICE
-    df_pos_temp.FEE.fillna(0, inplace=True)
+    df_pos_temp['FEE'] = df_pos_temp['FEE'].fillna(0)
     df_pos_temp.drop_duplicates(subset=['DATE'], keep='last', inplace=True)
 
     return pd.concat([df_pos_temp, df_cash_pos])
@@ -138,14 +138,27 @@ def update_get_flow_file(flow_type: str):
     # flow_datetime = datetime.fromisoformat(latest_flow_datetime)
     # deposit_datetime += timedelta(days=1)
 
-    df_new_flows = get_flow_from_kraken(
+    # df_new_flows = get_flow_from_kraken(
+    #     kapi=kapi,
+    #     flow_type=flow_type,
+    #     pages=PAGES,
+    #     record_p_page=RECORDS_PER_PAGE,
+    #     timestamp_from=flow_datetime.timestamp(),
+    # )
+
+    new_flow_pages = get_paginated_response_from_kraken(
         kapi=kapi,
-        flow_type=flow_type,
+        endpoint='Ledgers',
+        dict_key='ledger',
+        params={'type': flow_type},
         pages=PAGES,
-        record_p_page=RECORDS_PER_PAGE,
+        records_per_page=RECORDS_PER_PAGE,
+        is_private=True,
         timestamp_from=flow_datetime.timestamp(),
     )
-
+    df_new_flows = pd.DataFrame([rec for page in new_flow_pages for rec in page.values()])
+    df_new_flows.columns = [x.upper() for x in df_new_flows.columns]
+    df_new_flows.TIME = pd.to_datetime(df_new_flows.TIME, unit='s')
     df_new_flows = df_new_flows[df_new_flows.TIME > latest_flow_datetime]
     if not df_new_flows.empty:
         df_flows = pd.concat([df_flows, df_new_flows])
@@ -167,12 +180,12 @@ df_list = [df_deposits, df_wd]
 df_trades = pd.read_csv(filename)
 
 df_trades.drop(columns=['ordertype'], inplace=True)
-df_trades.rename({'pair': 'Asset', 'time': 'Datetime', 'cost': 'Amount'}, axis=1, inplace=True)
+df_trades.rename({'pair': 'Asset', 'time(UTC)': 'Datetime', 'cost': 'Amount'}, axis=1, inplace=True)
 df_trades.columns = [x.upper() for x in df_trades.columns]
 
 # Operation types D|W|B|S stands for Deposit, Withdrawal, Buy, Sell
-df_trades['TYPE'].replace('buy', 'B', inplace=True)
-df_trades['TYPE'].replace('sell', 'S', inplace=True)
+df_trades['TYPE'] = df_trades['TYPE'].replace('buy', 'B')
+df_trades['TYPE'] = df_trades['TYPE'].replace('sell', 'S')
 df_trades.DATETIME = pd.to_datetime(df_trades.DATETIME)
 df_trades['DATE'] = df_trades['DATETIME'].dt.date
 
@@ -237,8 +250,8 @@ df_cash_daily = pd.merge(df_cash_daily, df_positions.loc[df_positions.ASSET == '
 df_cash_daily.ASSET = 'ZEUR'
 df_cash_daily.FEE = 0.0
 df_cash_daily.PRICE = 1.0
-df_cash_daily.SHARES.ffill(inplace=True)
-df_cash_daily.AMOUNT.ffill(inplace=True)
+df_cash_daily['SHARES'] = df_cash_daily['SHARES'].ffill()
+df_cash_daily['AMOUNT'] = df_cash_daily['AMOUNT'].ffill()
 
 
 # df_positions.reset_index(inplace=True)
@@ -311,7 +324,7 @@ def year_gain_perc(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2250.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2740.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

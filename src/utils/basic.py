@@ -22,8 +22,8 @@ LOCAL_TZ = pytz.timezone('Europe/Madrid')
 
 # fix pair names
 FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']
-STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR', '.FEUR')
 AUTOSTAKING_SUFFIXES = ('.FEUR',)
+STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR', *AUTOSTAKING_SUFFIXES)
 
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 HEADER_PRICES_KRAKEN = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
@@ -103,35 +103,6 @@ def entries_to_remove(entries, the_dict):
     for key in entries:
         if key in the_dict:
             del the_dict[key]
-
-
-def get_trades_history(request_data, page, records_per_page, kapi) -> list[dict]:
-    request_data['ofs'] = records_per_page * page
-    trades_history = kapi.query_private('TradesHistory', request_data)
-    if not trades_history.get('result') or not trades_history['result']['trades']:
-        return []
-
-    return [order for _, order in trades_history['result']['trades'].items()]
-
-
-def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
-    ledger_flow = []
-    request_data = {'type': flow_type}
-    if timestamp_from:
-        request_data['start'] = timestamp_from
-
-    for page in range(pages):
-        request_data['ofs'] = record_p_page * page
-        ledger_flow_page = kapi.query_private('Ledgers', request_data)
-        if not ledger_flow_page.get('result') or not ledger_flow_page['result']['ledger']:
-            break
-
-        for _, rec in ledger_flow_page['result']['ledger'].items():
-            ledger_flow.append(rec)
-    flow = pd.DataFrame(ledger_flow)
-    flow.columns = [x.upper() for x in flow.columns]
-    flow.TIME = pd.to_datetime(flow.TIME, unit='s')
-    return flow
 
 
 def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
@@ -271,13 +242,13 @@ def compute_ranking(df):
     df['PB'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
     df['PS'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
     df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
-    df['BS_P'].replace([np.inf, -np.inf], 0, inplace=True)
+    df['BS_P'] = df['BS_P'].replace([np.inf, -np.inf], 0)
     df['TREND_DIST'] = 3 * df.CURR_PRICE - df.AVG_200 - df.AVG_50 - df.AVG_10
     df['TREND_DIST_ABS'] = (
         (df.CURR_PRICE - df.AVG_200).abs() + (df.CURR_PRICE - df.AVG_50).abs() + (df.CURR_PRICE - df.AVG_10).abs()
     )
     df['TREND'] = df.TREND_DIST / df.TREND_DIST_ABS
-    df['TREND'].replace([np.inf, -np.inf], 0, inplace=True)
+    df['TREND'] = df['TREND'].replace([np.inf, -np.inf], 0)
 
     df.loc[df.TREND < 0, 'TREND'] = 0
     df.loc[df.PB <= -2, 'PB'] = -2.0
@@ -399,3 +370,53 @@ def count_sells_in_range(close_prices: pd.DataFrame, days: int, buy_perc: float,
         b_date = None
         s_date = None
     return sell_count
+
+
+def get_paginated_response_from_kraken(
+    kapi,
+    endpoint: str,
+    dict_key: str,
+    params: dict,
+    pages: int,
+    records_per_page: int,
+    is_private: bool = True,
+    timestamp_from=None,
+) -> list[dict]:
+    records = []
+    if timestamp_from:
+        params['start'] = timestamp_from
+
+    for page in range(pages):
+        params['ofs'] = records_per_page * page
+        if is_private:
+            response = kapi.query_private(endpoint, params)
+        else:
+            response = kapi.query_public(endpoint, params)
+
+        results = response.get('result').get(dict_key)
+        if results:
+            records.append(results)
+        else:
+            return records
+
+    return records
+
+
+def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
+    ledger_flow = []
+    request_data = {'type': flow_type}
+    if timestamp_from:
+        request_data['start'] = timestamp_from
+
+    for page in range(pages):
+        request_data['ofs'] = record_p_page * page
+        ledger_flow_page = kapi.query_private('Ledgers', request_data)
+        if not ledger_flow_page.get('result') or not ledger_flow_page['result']['ledger']:
+            break
+
+        for _, rec in ledger_flow_page['result']['ledger'].items():
+            ledger_flow.append(rec)
+    flow = pd.DataFrame(ledger_flow)
+    flow.columns = [x.upper() for x in flow.columns]
+    flow.TIME = pd.to_datetime(flow.TIME, unit='s')
+    return flow

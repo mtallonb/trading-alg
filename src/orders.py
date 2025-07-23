@@ -2,21 +2,19 @@
 #!/usr/bin/env python
 # TODO
 # Métricas para conocer valor de compra y cuantos asset podemos tener en cartera
-# Umbral de perdidas y ganancia max percentile 10 esperar a que suba tras bajar para comprar
 # Dinero invertido en los asset muertos
 # Compensar ganancias con las perdidas de las muertas.
 # Ejecutar las pérdidas si hay mucha ganancia este año
 
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Es decir un ranking de todos
-# Incluir un agente IA con todos estos asset. Cual hubiera dado mayor retorno entrando cada 30 días.
 
 # BUG si hay más de 50 trades sin actualizar en los trades. Debería estar arreglado ya
 # TWRR en trades y más métricas
 # Mostrar si esta bloqueado el que esta a punto de vender
 
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import krakenex
 import pandas as pd
@@ -31,8 +29,8 @@ from utils.basic import (
     compute_ranking,
     count_sells_in_range,
     get_fix_pair_name,
+    get_paginated_response_from_kraken,
     get_price_shares_from_order,
-    get_trades_history,
     is_auto_staked,
     is_staked,
     load_from_csv,
@@ -102,7 +100,7 @@ kapi.load_key(KEY_FILE)
 # req_data = {'docalcs': 'true'}
 
 # time to query servers
-start = datetime.utcnow()
+start = datetime.now(timezone.utc)
 
 # CALLS TO KRAKEN API
 # kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
@@ -115,7 +113,7 @@ balance = kapi.query_private('Balance')
 
 # end = kapi.query_public('Time')
 # latency = end['result']['unixtime'] - start['result']['unixtime']
-elapsed_time_query_server = datetime.utcnow() - start
+elapsed_time_query_server = datetime.now(timezone.utc) - start
 currency = 'EUR'
 
 # EUR balance
@@ -125,7 +123,7 @@ staked_eur = 0.0
 elapsed_time_open_orders = None
 elapsed_time_last_trades = None
 elapsed_time_orders_summary = None
-processing_time_start = datetime.utcnow()
+processing_time_start = datetime.now(timezone.utc)
 
 # Pandas conf
 # Float output format
@@ -138,7 +136,7 @@ buys_amount = 0
 
 yesterday = (datetime.today() - timedelta(days=1)).date()
 # ------------------------------------------------
-initialization_time_start = datetime.utcnow()
+initialization_time_start = datetime.now(timezone.utc)
 
 # Assets with balance or open order
 asset_original_names = list(balance['result'].keys())
@@ -173,7 +171,7 @@ for key, value in balance['result'].items():
                 print(f'Cannot fill autostaking balance for pair: {key_name} and clean pair: {asset_name_clean}')
                 continue
             else:
-                assets_dict[asset_name_clean].autostaking_shares = float(value)
+                assets_dict[asset_name_clean].autostaked_shares = float(value)
 
 
 # ----------FILL PRICES-------------------------------------------------------------------
@@ -215,7 +213,7 @@ for staking_info in staked_assets['result']['items']:
     if asset:
         asset.fill_staking_info(staking_info)
 
-elapsed_time_initialization = datetime.utcnow() - initialization_time_start
+elapsed_time_initialization = datetime.now(timezone.utc) - initialization_time_start
 
 # ----------SORTING BY BALANCE-------------------------------------------------------------------
 print(f'\n *****PAIR NAMES SORTED BY BALANCE TOTAL: {len(assets_dict)} *****')
@@ -225,10 +223,24 @@ name_list = [ele[0] for ele in sorted_pair_names_list_balance]
 [print(ele) for ele in chunks(name_list, 5)]
 
 # ----------FILL ORDERS-------------------------------------------------------------------
-open_orders_time_start = datetime.utcnow()
+open_orders_time_start = datetime.now(timezone.utc)
 orders = []
 print('\n *****OPEN ORDERS READ*****')
-for txid, order_dict in open_orders['result']['open'].items():
+# order_pages = get_paginated_response_from_kraken(
+#     kapi,
+#     endpoint='OpenOrders',
+#     dict_key='open',
+#     params={'trades': 'false'},
+#     pages=PAGES,
+#     records_per_page=RECORDS_PER_PAGE,
+# )
+# if not order_pages:
+#     print(BCOLORS.WARNING + 'No Orders Found' + BCOLORS.ENDC)
+
+# for order_page in order_pages:
+# for txid, order_dict in order_page.items:
+
+for txid, order_dict in open_orders.get('result').get('open').items():
     order_detail = order_dict['descr']
     pair_name = order_detail['pair']
     asset = assets_dict.get(pair_name)
@@ -253,7 +265,9 @@ for txid, order_dict in open_orders['result']['open'].items():
         asset.update_orders_sell_lower_price(price)
 
     # This array is used exclusively for Pandas stats
-    orders.append({'asset': pair_name, 'order_type': order.order_type, 'price': price, 'current_price': asset.price})
+    orders.append(
+        {'asset': pair_name, 'order_type': order.order_type, 'price': price, 'current_price': asset.price},
+    )
 
 if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
     df = pd.DataFrame(orders)
@@ -284,30 +298,34 @@ if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
         print('EMPTY')
 
 
-elapsed_time_open_orders = datetime.utcnow() - open_orders_time_start
+elapsed_time_open_orders = datetime.now(timezone.utc) - open_orders_time_start
 
 # ----------FILL TRADES-------------------------------------------------------------------
-csv_trades_time_start = datetime.utcnow()
+csv_trades_time_start = datetime.now(timezone.utc)
 last_trade_from_csv = None
 
 if GET_FULL_TRADE_HISTORY:
     # Load trades from CSV
     last_trade_from_csv = load_from_csv(TRADE_FILE, assets_dict, FIX_X_PAIR_NAMES)
 
-elapsed_time_csv_trades = datetime.utcnow() - csv_trades_time_start
+elapsed_time_csv_trades = datetime.now(timezone.utc) - csv_trades_time_start
 
-trades_time_start = datetime.utcnow()
+trades_time_start = datetime.now(timezone.utc)
 print('\n *****TRADES*****')
 asset_name = ''
-trade = None
-for page in range(PAGES):
-    trades = get_trades_history({'trades': 'false'}, page, RECORDS_PER_PAGE, kapi)
-    # time.sleep(1)
-    if not trades:
-        print(BCOLORS.WARNING + 'No trades Found' + BCOLORS.ENDC)
-        break
+trade_pages = get_paginated_response_from_kraken(
+    kapi,
+    endpoint='TradesHistory',
+    dict_key='trades',
+    params={'trades': 'false'},
+    pages=2,
+    records_per_page=RECORDS_PER_PAGE,
+)
+if not trade_pages:
+    print(BCOLORS.WARNING + 'No trades Found' + BCOLORS.ENDC)
 
-    for trade_detail in trades:
+for trade_page in trade_pages:
+    for trade_detail in trade_page.values():
         asset_name = get_fix_pair_name(trade_detail['pair'], FIX_X_PAIR_NAMES)
         asset = assets_dict.get(asset_name)
         if asset:
@@ -315,9 +333,9 @@ for page in range(PAGES):
             execution_datetime_tz = LOCAL_TZ.localize(execution_datetime.replace(microsecond=0))
 
             trade = Trade(
-                trade_detail['type'],
-                float(trade_detail['vol']),
-                float(trade_detail['price']),
+                trade_type=trade_detail['type'],
+                shares=float(trade_detail['vol']),
+                price=float(trade_detail['price']),
                 amount=float(trade_detail['cost']),
                 execution_datetime=execution_datetime_tz,
             )
@@ -375,7 +393,7 @@ if PRINT_LAST_TRADES:
         for trade in asset.trades[:LAST_ORDERS]:
             print(f'\n {trade}')
 
-elapsed_time_last_trades = datetime.utcnow() - trades_time_start
+elapsed_time_last_trades = datetime.now(timezone.utc) - trades_time_start
 
 # ----------FILL LAST TRADES-------------------------------------------------------------------
 print('\n*****PAIR NAMES BY LATEST TRADE:*****')
@@ -476,7 +494,7 @@ count_valid_asset -= len(ASSETS_TO_EXCLUDE_AMOUNT)
 
 # ------ SUMMARY ----------------------------------------------------------------------------------
 if PRINT_ORDERS_SUMMARY:
-    orders_summary_time_start = datetime.utcnow()
+    orders_summary_time_start = datetime.now(timezone.utc)
     print('\n *****ORDERS TO CREATE*****')
 
     for _, asset in sorted_pair_names_list_balance:
@@ -582,7 +600,7 @@ if PRINT_ORDERS_SUMMARY:
 
         print('\n')
 
-    elapsed_time_orders_summary = datetime.utcnow() - orders_summary_time_start
+    elapsed_time_orders_summary = datetime.now(timezone.utc) - orders_summary_time_start
     print('\n ***** SUMMARY ***** ')
     cash_needed_missing_buy = count_missing_buys * MINIMUM_BUY_AMOUNT
     cash_needed = count_remaining_buys * MINIMUM_BUY_AMOUNT
@@ -600,14 +618,16 @@ if PRINT_ORDERS_SUMMARY:
         f'Staked cash: {my_round(staked_eur)}',
     )
 
-elapsed_time_since_begining = datetime.utcnow() - processing_time_start
+elapsed_time_since_begining = datetime.now(timezone.utc) - processing_time_start
 
 if SHOW_SMART_SUMMARY:
     print('\n ***** SMART SUMMARY ***** ')
-    smart_summary_time_start = datetime.utcnow()
+    smart_summary_time_start = datetime.now(timezone.utc)
     positions = [asset.to_dict() for asset in assets_dict.values()]
     agent_response = get_smart_summary(positions=positions, death_assets=death_asset_names)
-    elapsed_time_smart_summary = datetime.utcnow() - smart_summary_time_start
+    print(f'Agent response: {agent_response}')
+    elapsed_time_smart_summary = datetime.now(timezone.utc) - smart_summary_time_start
+    print(f'Smart summary latency: {elapsed_time_smart_summary}')
 
 print('\n ***** TIME SUMMARY ***** ')
 print(f'Endpoints latency: {elapsed_time_query_server}')

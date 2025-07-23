@@ -4,12 +4,17 @@
 
 import time
 
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal as D
 
 import krakenex
 
-from utils.basic import append_trades_to_csv, get_trades_history, my_round, read_trades_csv
+from utils.basic import (
+    append_trades_to_csv,
+    get_paginated_response_from_kraken,
+    my_round,
+    read_trades_csv,
+)
 from utils.classes import CSVTrade
 
 year = 2025
@@ -107,33 +112,38 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
     return total_gain_loss, gain_loss_year, fees
 
 
-read_start = datetime.utcnow()
+read_start = datetime.now(timezone.utc)
 latest_trade_csv = read_trades_csv(filename, buy_trades, sell_trades)
 # latest_trade_csv_completed_tz = pytz.UTC.localize(latest_trade_csv.completed).astimezone(localtz)
 # latest_trade_csv_completed = latest_trade_csv.completed
 
 # Read Trades from Kraken API
 trades_to_append_to_csv = []
-for page in range(PAGES):
-    # request_data = dict(req_data)
-    trades = get_trades_history(request_data=req_data, page=page, records_per_page=RECORDS_PER_PAGE, kapi=kapi)
-    if not trades:
-        break
+trade_pages = get_paginated_response_from_kraken(
+    kapi,
+    endpoint='TradesHistory',
+    dict_key='trades',
+    params={'trades': 'false'},
+    pages=2,
+    records_per_page=RECORDS_PER_PAGE,
+)
+if not trade_pages:
+    print('*****No trades Found*****')
 
-    for trade_detail in trades:
+for trade_page in trade_pages:
+    for trade_detail in trade_page.values():
         closetime = time.strftime(DATE_FORMAT, time.gmtime(trade_detail['time']))
-        name = trade_detail['pair']
-        # fix_name = REPLACE_NAMES[name] if name in REPLACE_NAMES.keys() else name
-        trade = CSVTrade(
-            name,
-            closetime,
-            trade_detail['type'],
-            trade_detail['price'],
-            trade_detail['cost'],
-            trade_detail['fee'],
-            trade_detail['vol'],
-        )
-        if trade.completed > latest_trade_csv.completed:
+        if closetime > latest_trade_csv.completed:
+            # fix_name = REPLACE_NAMES[name] if name in REPLACE_NAMES.keys() else name
+            trade = CSVTrade(
+                trade_detail['pair'],
+                closetime,
+                trade_detail['type'],
+                trade_detail['price'],
+                trade_detail['cost'],
+                trade_detail['fee'],
+                trade_detail['vol'],
+            )
             trades_to_append_to_csv.append(trade)
 
             if trade.type == 'buy':
@@ -222,6 +232,6 @@ for pair in pair_gains:
 
 # Append trades to CSV
 append_trades_to_csv(filename, trades_to_append_to_csv_asc)
-elapsed_time_read = datetime.utcnow() - read_start
+elapsed_time_read = datetime.now(timezone.utc) - read_start
 print('\n ***** TIME SUMMARY ***** ')
 print(f'Time: {elapsed_time_read}')

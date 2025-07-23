@@ -29,18 +29,18 @@ api_key = open(KEY_FILE).read().strip()
 def get_smart_summary(positions, death_assets):
     prompt = f"""
         Eres un asesor financiero experto en cripto y acciones.
-        En base a estas posiciones genera recomendaciones para incorporar nuevos activos con análisis claros y concisos.
+        En base a estas posiciones:
+        {positions}
+        Genera recomendaciones para incorporar nuevos activos que no tenga actualmente en mi cartera con análisis claros y concisos.
         Los activos deben estar disponibles en Kraken y estar en euros.
         También indica las posiciones que deberíamos vender por completo.
         Especialmente los siguientes activos: {death_assets}
         Haz un Ranking de mis posiciones evaluando de 0 a 10 según tu mejor criterio e indicame el criterio usado.
-        Podrías usar medias móviles, RSI, PER etc
-
-        POSITIONS:
-        {positions}
+        Podrías usar medias móviles, RSI (sobreventa) + MACD (cruce alcista) + volumen alto para confirmar señales.
+        La salida debe ser un json con el ranking (añade también las puntuaciones de cada indicador) y las recomendaciones en un formato entendible.
 
         Smart summary:
-    """
+    """  # noqa: E501
 
     # response = client.chat.completions.create(
     #     model="gpt-3",
