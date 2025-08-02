@@ -36,12 +36,14 @@ kapi = krakenex.API()
 kapi.load_key('./data/keys/kraken.key')
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
+FILTER_ASSET_NAME = ''  #'EOSEUR' 'MATICEUR'
 
 # prepare request
 req_data = {'trades': 'false'}
 
 
-def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
+
+def compute_gain_loss(buy_trades, sell_trades, year, asset_name) -> tuple[D, D, D, bool]:
     total_gain_loss = 0
     gain_loss_year = 0
     fees = 0  # Sell fees since Buy fees are included proportionally on price
@@ -106,12 +108,14 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name):
                     f'sell remaining_volume after: {my_round(sell.remaining_volume)}.',
                 )
 
+    is_position_closed = True if buy.remaining_volume <= 0.001 else False
     print('===== ASSET SUMMARY =====')
     print(f'total gain loss: {my_round(total_gain_loss)}')
     print(f'gain loss ({year}): {my_round(gain_loss_year)}')
     print(f'fees ({year}): {my_round(fees)}')
+    print(f'is_position_closed: {is_position_closed}')
     print('==========\n')
-    return total_gain_loss, gain_loss_year, fees
+    return total_gain_loss, gain_loss_year, fees, is_position_closed
 
 
 read_start = datetime.now(timezone.utc)
@@ -161,6 +165,7 @@ sell_trades_asc = sorted(sell_trades, key=lambda x: x.completed)
 trades_to_append_to_csv_asc = sorted(trades_to_append_to_csv, key=lambda x: x.completed)
 
 sell_pairs_in_year = set([sell.asset_name for sell in sell_trades if sell.completed.year == year])
+sell_pairs_in_year = set([FILTER_ASSET_NAME]) if FILTER_ASSET_NAME else sell_pairs_in_year
 
 total_gain_loss = 0
 gain_loss_year = 0
@@ -172,7 +177,7 @@ pair_gains = []
 for asset_name in sell_pairs_in_year:
     buy_trades_asset = [buy for buy in buy_trades if buy.asset_name == asset_name]
     sell_trades_asset = [sell for sell in sell_trades if sell.asset_name == asset_name and sell.completed.year <= year]
-    total_gain_loss_asset, gain_loss_year_asset, fees = compute_gain_loss(
+    total_gain_loss_asset, gain_loss_year_asset, fees, is_position_closed = compute_gain_loss(
         buy_trades_asset,
         sell_trades_asset,
         year,
@@ -183,7 +188,7 @@ for asset_name in sell_pairs_in_year:
         sell.amount for sell in sell_trades if sell.asset_name == asset_name and sell.completed.year == year
     ]
     sell_total_year = sum(sell_trades_asset_year_amount)
-    unrealised_p_year = sell_total_year * D('0.2')
+    unrealised_p_year = sell_total_year * D('0.2') if not is_position_closed else gain_loss_year_asset
     total_gain_loss += total_gain_loss_asset
     gain_loss_year += gain_loss_year_asset
     unrealised_p_total_year += unrealised_p_year
@@ -198,7 +203,7 @@ for asset_name in sell_pairs_in_year:
         },
     )
 
-# Buy /Sells summary
+# Buy/Sells summary
 total_buy_amount = sum([buy.amount for buy in buy_trades])
 total_sell_amount = sum([sell.amount for sell in sell_trades])
 total_fees = sum([trade.fee for trade in buy_trades + sell_trades])
@@ -213,7 +218,7 @@ print('\n ===== SUMMARY =====')
 print(f'total gain loss (traded assets): {my_round(total_gain_loss)}')
 print(f'gain loss ({year}): {my_round(gain_loss_year)}')
 print(f'unrealised gain ({year}): {my_round(unrealised_p_total_year)}')
-print(f'fees ({year})/  total fees : {my_round(year_fees)} / {my_round(total_fees)}')
+print(f'fees ({year})/  total fees: {my_round(year_fees)} / {my_round(total_fees)}')
 
 pair_gains.sort(reverse=True, key=lambda x: x['gl'])
 

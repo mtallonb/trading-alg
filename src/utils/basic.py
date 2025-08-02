@@ -400,23 +400,3 @@ def get_paginated_response_from_kraken(
             return records
 
     return records
-
-
-def get_flow_from_kraken(kapi, flow_type: str, pages: int, record_p_page=50, timestamp_from=None) -> pd.DataFrame:
-    ledger_flow = []
-    request_data = {'type': flow_type}
-    if timestamp_from:
-        request_data['start'] = timestamp_from
-
-    for page in range(pages):
-        request_data['ofs'] = record_p_page * page
-        ledger_flow_page = kapi.query_private('Ledgers', request_data)
-        if not ledger_flow_page.get('result') or not ledger_flow_page['result']['ledger']:
-            break
-
-        for _, rec in ledger_flow_page['result']['ledger'].items():
-            ledger_flow.append(rec)
-    flow = pd.DataFrame(ledger_flow)
-    flow.columns = [x.upper() for x in flow.columns]
-    flow.TIME = pd.to_datetime(flow.TIME, unit='s')
-    return flow

@@ -159,6 +159,14 @@ class Asset:
         return self.autostaked_shares * self.price
 
     @property
+    def manual_stacked_shares(self) -> float:
+        return self.staked_shares - self.autostaked_shares
+
+    @property
+    def manual_stacked_balance(self) -> float:
+        return self.manual_stacked_shares * self.price
+
+    @property
     def margin_amount(self) -> float:
         return self.trades_sell_amount + self.balance - self.trades_buy_amount
 
@@ -295,6 +303,7 @@ class Asset:
         ***** staking info *****
         Shares (incl. autostaked shares): {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {self.balance},
         AutoStaked shares: {my_round(self.autostaked_shares)}| AutoStaked balance: {my_round(self.autostacked_balance)},
+        Manual stacked shares: {my_round(self.manual_stacked_shares)}| Manual stacked balance: {my_round(self.manual_stacked_balance)},
         """  # noqa: E501
 
     def get_buy_avg_msg(self) -> str:
