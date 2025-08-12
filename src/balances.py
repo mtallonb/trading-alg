@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import krakenex
 import pandas as pd
@@ -27,7 +27,7 @@ pd.options.display.float_format = "{:,.4f}".format
 VERBOSE = True
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 PAGES = 4  # 50 RECORDS per page
-RECORDS_PER_PAGE = 50  # Watchout is not working for higher values than 50
+RECORDS_PER_PAGE = 50  # Watch-out is not working for higher values than 50
 FLOW_TYPE_DEPOSIT = 'deposit'
 FLOW_TYPE_WD = 'withdrawal'
 
@@ -45,6 +45,8 @@ timestamp_to = datetime(
     yesterday.year,
     yesterday.month,
     yesterday.day,
+    hour=0,
+    tzinfo=timezone.utc,
 ).timestamp()  # We need a datetime to get timestamp
 
 # REPLACE_NAMES = {'ETHEUR': 'XETHZEUR',
@@ -62,7 +64,7 @@ kapi.load_key('./data/keys/kraken.key')
 # req_data = {'trades': 'false'}
 
 
-# -----------------------------------------
+# -----Func definitions--------------------------------------------------
 def get_asset_positions(
     asset_name: str,
     df_trades: pd.DataFrame,
@@ -135,16 +137,6 @@ def update_get_flow_file(flow_type: str):
     flow_datetime = pd.to_datetime(latest_flow_datetime)
     if isinstance(flow_datetime, pd.Timestamp):
         flow_datetime = flow_datetime.to_pydatetime(warn=False)
-    # flow_datetime = datetime.fromisoformat(latest_flow_datetime)
-    # deposit_datetime += timedelta(days=1)
-
-    # df_new_flows = get_flow_from_kraken(
-    #     kapi=kapi,
-    #     flow_type=flow_type,
-    #     pages=PAGES,
-    #     record_p_page=RECORDS_PER_PAGE,
-    #     timestamp_from=flow_datetime.timestamp(),
-    # )
 
     new_flow_pages = get_paginated_response_from_kraken(
         kapi=kapi,
@@ -168,6 +160,38 @@ def update_get_flow_file(flow_type: str):
 
     return df_flows
 
+
+# GAIN per year
+def year_gain_perc(
+    df_deposits: pd.DataFrame,
+    df_wd: pd.DataFrame,
+    df_balances_avg: pd.DataFrame,
+    year: int,
+    unrealised: float,
+    verbose: bool = VERBOSE,
+) -> float:
+    df_deposits.DATE = pd.to_datetime(df_deposits.DATE)
+    df_wd.DATE = pd.to_datetime(df_wd.DATE)
+    df_balances_avg.DATE = pd.to_datetime(df_balances_avg.DATE)
+    deposit_amount_year = df_deposits[df_deposits.DATE.dt.year == year].AMOUNT.sum()
+    wd_amount_year = -df_wd[df_wd.DATE.dt.year == year].AMOUNT.sum()
+    daily_balances_year = df_balances_avg[df_balances_avg.DATE.dt.year == year]
+    balance_0 = daily_balances_year.AMOUNT.iloc[0]
+    balance_365 = daily_balances_year.AMOUNT.iloc[-1]
+    flows = wd_amount_year - deposit_amount_year
+    mean_balance = daily_balances_year.AMOUNT.mean()
+    gain_numerator = balance_365 - balance_0 + flows
+    gain = 100 * gain_numerator / mean_balance
+    if verbose:
+        print(
+            f'\n***YEAR: {year}| balance_0: {my_round(balance_0)}| balance_365: {my_round(balance_365)}| mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
+            f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)} %.',
+        )
+        print(f'Unrealised gain (perc): {my_round(100 * unrealised / mean_balance)} %.\n')
+    return gain
+
+
+# --------End of functions------------------------------------------------------------------------------------------
 
 # ----GET DEPOSITS and WD-------------------------------------------------------------------------------------------
 df_deposits = update_get_flow_file(flow_type=FLOW_TYPE_DEPOSIT)
@@ -213,6 +237,7 @@ for asset_name in asset_names:
         new_prices = get_new_prices(kapi=kapi, asset_name=asset_name, timestamp_from=latest_timestamp)
         if new_prices is not None:
             df_prices = pd.concat([df_prices, new_prices])
+            df_prices = df_prices.drop_duplicates(subset=['TIMESTAMP'])
             df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
 
     df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
@@ -253,7 +278,6 @@ df_cash_daily.PRICE = 1.0
 df_cash_daily['SHARES'] = df_cash_daily['SHARES'].ffill()
 df_cash_daily['AMOUNT'] = df_cash_daily['AMOUNT'].ffill()
 
-
 # df_positions.reset_index(inplace=True)
 # i = df_positions[df_positions.ASSET == 'ZEUR'].index
 # df_positions.drop(i, inplace=True)
@@ -269,7 +293,6 @@ df_positions.sort_values(by=['DATE'], inplace=True)
 # print(f'Last day: {last_date}')
 
 # ---SUMMARY------------------------------------------------------------------------
-
 total_buy_amount = df_trades[df_trades.TYPE == 'B'].AMOUNT.sum()
 total_sell_amount = df_trades[df_trades.TYPE == 'S'].AMOUNT.sum()
 total_fees = df_trades.FEE.sum()
@@ -293,38 +316,8 @@ df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index(
 # print(df_avg_balances_per_day.to_string())
 
 
-# GAIN per year
-def year_gain_perc(
-    df_deposits: pd.DataFrame,
-    df_wd: pd.DataFrame,
-    df_balances_avg: pd.DataFrame,
-    year: int,
-    unrealised: float,
-    verbose: bool = VERBOSE,
-) -> float:
-    df_deposits.DATE = pd.to_datetime(df_deposits.DATE)
-    df_wd.DATE = pd.to_datetime(df_wd.DATE)
-    df_balances_avg.DATE = pd.to_datetime(df_balances_avg.DATE)
-    deposit_amount_year = df_deposits[df_deposits.DATE.dt.year == year].AMOUNT.sum()
-    wd_amount_year = -df_wd[df_wd.DATE.dt.year == year].AMOUNT.sum()
-    daily_balances_year = df_balances_avg[df_balances_avg.DATE.dt.year == year]
-    balance_0 = daily_balances_year.AMOUNT.iloc[0]
-    balance_365 = daily_balances_year.AMOUNT.iloc[-1]
-    flows = wd_amount_year - deposit_amount_year
-    mean_balance = daily_balances_year.AMOUNT.mean()
-    gain_numerator = balance_365 - balance_0 + flows
-    gain = 100 * gain_numerator / mean_balance
-    if verbose:
-        print(
-            f'\n***YEAR: {year}| balance_0: {my_round(balance_0)}| balance_365: {my_round(balance_365)}| mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
-            f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)} %.',
-        )
-        print(f'Unrealised gain (perc): {my_round(100 * unrealised / mean_balance)} %.\n')
-    return gain
-
-
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2340.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2415.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,
@@ -335,9 +328,4 @@ for idx, year in enumerate(years):
     )
 
 # print(df_positions[df_positions.DATE.dt.date == date(2021, 5, 19)].to_string())
-
 # df_positions[df_positions.DATE.dt.date == date_to - timedelta(days=1)]
-# df_positions[df_positions.DATE.dt.date == date_to]
-
-# _________________________________
-exit()

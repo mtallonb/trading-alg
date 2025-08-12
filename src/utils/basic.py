@@ -253,7 +253,7 @@ def compute_ranking(df):
     df.loc[df.TREND < 0, 'TREND'] = 0
     df.loc[df.PB <= -2, 'PB'] = -2.0
     df.loc[df.PS <= -2, 'PS'] = -2.0
-    df.loc[df.MARGIN_P > 5 * df.MARGIN_A.mean(), 'MARGIN_P'] = 5 * df.MARGIN_A.mean()
+    df.loc[df.MARGIN_P > 6 * df.MARGIN_A.mean(), 'MARGIN_P'] = 6 * df.MARGIN_A.mean()
 
     # ------NORMALIZATION--------
     COLS_TO_NORM = ['PB', 'PS', 'BS_P', 'S_TRADES', 'MARGIN_P', 'X_TRADES']
@@ -334,7 +334,13 @@ def get_new_prices(kapi, asset_name: str, timestamp_from: datetime.timestamp) ->
     return df_prices
 
 
-def count_sells_in_range(close_prices: pd.DataFrame, days: int, buy_perc: float, sell_perc: float) -> int:
+def count_sells_in_range(
+    close_prices: pd.DataFrame,
+    days: int,
+    buy_perc: float,
+    sell_perc: float,
+    buy_limit: int = 0,
+) -> int:
     latest_price = close_prices.DATE.iloc[-1]
     session_start = latest_price - timedelta(days=days)
     ref_df = close_prices[close_prices.DATE >= session_start]
@@ -343,6 +349,7 @@ def count_sells_in_range(close_prices: pd.DataFrame, days: int, buy_perc: float,
     sell_count = 0
     b_date = None
     s_date = None
+    acc_buys = 0
     while 1:
         exp_sells = ref_df[ref_df.PRICE >= ref_price * (1 + sell_perc)]
         exp_buys = ref_df[ref_df.PRICE <= ref_price * (1 - buy_perc)]
@@ -360,11 +367,16 @@ def count_sells_in_range(close_prices: pd.DataFrame, days: int, buy_perc: float,
         if b_date:
             ref_price = b_price
             ref_date = b_date
+            acc_buys += 1 if buy_limit and acc_buys < buy_limit else 0
 
         if b_date is None or (b_date and s_date and s_date < b_date):
             ref_price = s_price
             ref_date = s_date
-            sell_count += 1
+            if buy_limit and acc_buys:
+                sell_count += 1
+                acc_buys -= 1
+            elif not buy_limit:
+                sell_count += 1
 
         ref_df = ref_df[ref_df.DATE >= ref_date]
         b_date = None

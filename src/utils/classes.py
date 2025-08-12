@@ -185,10 +185,21 @@ class Asset:
         else:
             return f'RANKING: {BCOLORS.WARNING}{my_round(self.ranking)}{BCOLORS.ENDC}'
 
-    def latest_order(self, type=OP_SELL) -> Order | None:
+    def oldest_order(self, type: str | None = None) -> Order | None:
+        if type is None:
+            return self.orders[0] if self.orders else None
+
         for order in self.orders:
             if order.order_type == type:
                 return order
+        return None
+
+    def latest_trade(self, type: str | None = None) -> Trade | None:
+        if type is None:
+            return self.trades[0] if self.trades else None
+        for trade in self.trades:
+            if trade.trade_type == type:
+                return trade
         return None
 
     def latest_max_price_since(self, day: date) -> float | None:
@@ -348,6 +359,25 @@ class Asset:
         if self.is_staking:
             message += self.print_staking_info()
         return (BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
+
+    def print_set_order_message(self, order_type: str, order_percentage: float, minimum_order_amount: float) -> None:
+        from utils.basic import BCOLORS, my_round
+
+        last_trade = self.latest_trade(type=order_type)
+        if last_trade:
+            price_to_trade = (
+                last_trade.price * (1 - order_percentage)
+                if order_type == OP_BUY
+                else last_trade.price * (1 + order_percentage)
+            )
+            shares_to_trade = minimum_order_amount / price_to_trade
+            print(
+                BCOLORS.WARNING
+                + f'Going to create {order_type} order from pair: {self.name}.'
+                + f'Price: {my_round(price_to_trade)}, Shares: {my_round(shares_to_trade)}'
+                + f'| Total amount: {my_round(price_to_trade * shares_to_trade)}.'
+                + BCOLORS.ENDC,
+            )
 
     def get_sell_avg_msg(self) -> str:
         from utils.basic import BCOLORS, my_round, percentage

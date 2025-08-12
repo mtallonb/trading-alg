@@ -5,12 +5,7 @@
 # Dinero invertido en los asset muertos
 # Compensar ganancias con las perdidas de las muertas.
 # Ejecutar las pérdidas si hay mucha ganancia este año
-
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
-# Es decir un ranking de todos
-
-# BUG si hay más de 50 trades sin actualizar en los trades. Debería estar arreglado ya
-# TWRR en trades y más métricas
 # Mostrar si esta bloqueado el que esta a punto de vender
 
 
@@ -41,8 +36,6 @@ from utils.basic import (
 )
 from utils.classes import OP_BUY, OP_SELL, Asset, Order, Trade
 
-LAST_ORDERS = 200
-
 # -----ALG PARAMS------------------------------------------------------------------------------------------------------
 BUY_LIMIT = 4  # Number of consecutive buy trades
 BUY_PERCENTAGE = SELL_PERCENTAGE = 0.2  # Risk percentage to sell/buy 20%
@@ -55,6 +48,7 @@ USE_ORDER_THR = False
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
+LAST_ORDERS = 10
 EXCLUDE_PAIR_NAMES = [
     'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
     'MATICEUR', 'EOSEUR',
@@ -77,15 +71,15 @@ PAIR_TO_FORCE_INFO = []  # ['ADAEUR', 'SOLEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
-PRINT_BUYS_WARN_CONSECUTIVE = False
 PRINT_PERCENTAGE_TO_EXECUTE_ORDERS = True
-SHOW_COUNT_BUYS = False
 SHOW_SMART_SUMMARY = False
 
 AUTO_CANCEL_BUY_ORDER = True
 AUTO_BUY_ORDER = False
 AUTO_CANCEL_SELL_ORDER = True
 AUTO_SELL_ORDER = False
+PRINT_BUYS_WARN_CONSECUTIVE = False
+SHOW_COUNT_BUYS = False
 
 GET_FULL_TRADE_HISTORY = True
 LOAD_ALL_CLOSE_PRICES = True
@@ -524,18 +518,19 @@ if PRINT_ORDERS_SUMMARY:
         if asset_name in PAIR_TO_FORCE_INFO:
             print(BCOLORS.WARNING + f'FORCE INFO ON PAIR: {asset_name}' + BCOLORS.ENDC)
 
-        last_sell_order = asset.latest_order()
+        oldest_sell_order = asset.oldest_order(type=OP_SELL)
         last_trade_execution = asset.trades[0].execution_datetime.replace(tzinfo=None)
         sell_lower_price = asset.orders_sell_lower_price
         cancel_condition = (USE_ORDER_THR and sell_lower_price and sell_lower_price >= thr_sell) or (
-            last_sell_order and last_trade_execution > last_sell_order.creation_datetime
+            oldest_sell_order and last_trade_execution > oldest_sell_order.creation_datetime
         )
         if cancel_condition:
+            # SELL ORDERS
             perc = percentage(last_trade_price, asset.orders_sell_lower_price)
             print(
                 BCOLORS.WARNING + f'Watch-out sell order greater than THR for pair: {asset.name}.'
                 f'Order price: {my_round(asset.orders_sell_lower_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n'  # noqa: E501
-                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_sell_order.creation_datetime}.'  # noqa: E501
+                f'Or is outdated, last_trade execution: {last_trade_execution}, oldest order creation: {oldest_sell_order.creation_datetime}.'  # noqa: E501
                  + BCOLORS.ENDC,
             )
             if AUTO_CANCEL_SELL_ORDER:
@@ -543,17 +538,18 @@ if PRINT_ORDERS_SUMMARY:
                 input("Press Enter to continue or Ctrl+D to exit")
                 cancel_orders(kapi, OP_SELL, asset.orders)
 
-        last_buy_order = asset.latest_order(type=OP_BUY)
+        oldest_buy_order = asset.oldest_order(type=OP_BUY)
         buy_higher_price = asset.orders_buy_higher_price
         cancel_condition = (USE_ORDER_THR and buy_higher_price and buy_higher_price <= thr_buy) or (
-            last_buy_order and last_trade_execution > last_buy_order.creation_datetime
+            oldest_buy_order and last_trade_execution > oldest_buy_order.creation_datetime
         )
         if cancel_condition:
+            # BUY ORDERS
             perc = percentage(last_trade_price, asset.orders_buy_higher_price)
             print(
                 BCOLORS.WARNING + f'Watch-out buy order lower than THR for pair: {asset_name}.'
                 f'Order price: {my_round(asset.orders_buy_higher_price)}, last trade price: {my_round(last_trade_price)}, perc: {my_round(perc)} %. \n'  # noqa: E501
-                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {last_buy_order.creation_datetime}.'  # noqa: E501
+                f'Or is outdated, last_trade execution: {last_trade_execution}, last order creation: {oldest_buy_order.creation_datetime}.'  # noqa: E501
                  + BCOLORS.ENDC,
             )
 
@@ -575,14 +571,23 @@ if PRINT_ORDERS_SUMMARY:
             )
 
         if asset.orders_buy_count >= 2:
-            print(BCOLORS.FAIL + 'Buy duplicated for asset: {}'.format(asset_name) + BCOLORS.ENDC)
+            print(BCOLORS.FAIL + 'Buy order duplicated for asset: {}'.format(asset_name) + BCOLORS.ENDC)
 
         if asset.orders_sell_count >= 2:
-            print(BCOLORS.OKCYAN + 'Sell duplicated for asset: {}'.format(asset_name) + BCOLORS.ENDC)
+            print(BCOLORS.OKCYAN + 'Sell order duplicated for asset: {}'.format(asset_name) + BCOLORS.ENDC)
 
         if not asset.orders_buy_amount or asset_name in PAIR_TO_FORCE_INFO:
             if not buy_limit_reached or PRINT_BUYS_WARN_CONSECUTIVE or asset_name in PAIR_TO_FORCE_INFO:
                 print(asset.print_buy_message(BUY_PERCENTAGE))
+
+                if AUTO_BUY_ORDER:
+                    asset.print_set_order_message(
+                        order_type=OP_BUY,
+                        order_percentage=BUY_PERCENTAGE,
+                        minimum_order_amount=MINIMUM_BUY_AMOUNT,
+                    )
+                    # input("Press Enter to continue or Ctrl+D to exit")
+                    # buy_order(kapi, OP_BUY)
 
             if not any(
                 [
@@ -597,6 +602,13 @@ if PRINT_ORDERS_SUMMARY:
 
         if not asset.orders_sell_amount or asset_name in PAIR_TO_FORCE_INFO:
             print(asset.print_sell_message(SELL_PERCENTAGE, MINIMUM_BUY_AMOUNT))
+
+            if AUTO_SELL_ORDER:
+                asset.print_set_order_message(
+                    order_type=OP_SELL,
+                    order_percentage=SELL_PERCENTAGE,
+                    minimum_order_amount=MINIMUM_BUY_AMOUNT,
+                )
 
         print('\n')
 
@@ -614,7 +626,7 @@ if PRINT_ORDERS_SUMMARY:
         f'Count remaining buys: {count_remaining_buys}.\n'
         f'Needed cash: {cash_needed}.\n'
         f'Count ALL remaining buys (worst case): {count_all_remaining_buys}.\n'
-        f'ALL Needed cash: {all_cash_needed}.\n'
+        f'ALL Needed cash (excluding existing buy orders): {all_cash_needed}.\n'
         f'Staked cash: {my_round(staked_eur)}',
     )
 
