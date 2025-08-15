@@ -1,12 +1,14 @@
 #!/usr/bin/python3
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import krakenex
 import pandas as pd
 
 from utils.basic import (
     FIX_X_PAIR_NAMES,
+    from_date_to_datetime_aware,
+    from_date_to_timestamp,
     get_fix_pair_name,
     get_new_prices,
     get_paginated_response_from_kraken,
@@ -16,6 +18,7 @@ from utils.basic import (
 
 # Invested on each asset and current balance -> result No muy util
 # Fix unrealised gain on asset delisting. Venta forzosa no se gana el 20%
+# Dates instead of timestamps csv close files
 
 # date_from = date(2022, 1, 1)
 # date_to = date(2023, 1, 1)
@@ -39,15 +42,10 @@ file = None
 buy_trades = []
 sell_trades = []
 
-yesterday = datetime.today() - timedelta(days=1)
-date_to = yesterday.date()
-timestamp_to = datetime(
-    yesterday.year,
-    yesterday.month,
-    yesterday.day,
-    hour=0,
-    tzinfo=timezone.utc,
-).timestamp()  # We need a datetime to get timestamp
+yesterday = (datetime.today() - timedelta(days=1)).date()
+date_to = yesterday
+datetime_to = from_date_to_datetime_aware(day=yesterday)
+timestamp_to = datetime_to.timestamp()
 
 # REPLACE_NAMES = {'ETHEUR': 'XETHZEUR',
 #                  'LTCEUR': 'XLTCEUR',
@@ -123,7 +121,7 @@ def clean_flows_df(df_flow: pd.DataFrame) -> pd.DataFrame:
 
 
 def drop_cash_rows(df: pd.DataFrame) -> pd.DataFrame:
-    df.reset_index(inplace=True)
+    # df.reset_index(inplace=True)
     i = df[df.ASSET == 'ZEUR'].index
     df.drop(i, inplace=True)
 
@@ -213,6 +211,12 @@ df_trades['TYPE'] = df_trades['TYPE'].replace('sell', 'S')
 df_trades.DATETIME = pd.to_datetime(df_trades.DATETIME)
 df_trades['DATE'] = df_trades['DATETIME'].dt.date
 
+# Ojo con este trade
+# XXLMXXBT,2018-02-01 17:33:11,buy,limit,0.00004885,0.014990794,0.000038976,306.8739771
+# reemplazar por
+# XXBTZEUR,2018-02-01 17:33:11,sell,limit,7163,107.3,0,0.014990794
+# XXLMZEUR,2018-02-01 17:33:11,buy,limit,0.35,107.3,0.2,306.8739771
+
 
 # -------GET PRICES-------------------------------------------------------------------------------------------------
 # ticker_prices = kapi.query_public('OHLC', {'pair': 'XETHZEUR', 'interval': 1440, 'since': timestamp_from})
@@ -221,27 +225,29 @@ df_trades['DATE'] = df_trades['DATETIME'].dt.date
 
 # Remove trades from 'XXLMXXBT', 'BSVEUR'
 asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR'])].ASSET.dropna().unique()
-# asset_names = ['XXBTZEUR']
+asset_names = ['XXBTZEUR']
 # asset_names = ['TRUMPEUR']
 
 for asset_name in asset_names:
-    latest_timestamp = None
+    latest_date = yesterday - timedelta(days=600)
     fix_asset_name = get_fix_pair_name(asset_name, FIX_X_PAIR_NAMES)
     df_prices = read_prices_from_local_file(asset_name=fix_asset_name)
-    if df_prices.empty:
-        latest_timestamp = (yesterday - timedelta(days=600)).timestamp()
-    else:
-        latest_timestamp = df_prices.TIMESTAMP.iloc[-1]
+    if not df_prices.empty:
+        latest_date = df_prices.DATE.iloc[-1].date()
 
-    if latest_timestamp < timestamp_to:
-        new_prices = get_new_prices(kapi=kapi, asset_name=asset_name, timestamp_from=latest_timestamp)
+    if latest_date < date_to:
+        new_prices = get_new_prices(
+            kapi=kapi,
+            asset_name=asset_name,
+            timestamp_from=from_date_to_timestamp(day=latest_date),
+        )
         if new_prices is not None:
+            new_prices.TIMESTAMP = pd.to_datetime(df_prices.TIMESTAMP, unit='s')
+            new_prices.rename({'TIMESTAMP': 'DATE', 'C': 'PRICE'}, axis=1, inplace=True)
             df_prices = pd.concat([df_prices, new_prices])
-            df_prices = df_prices.drop_duplicates(subset=['TIMESTAMP'])
+            df_prices = df_prices.drop_duplicates(subset=['DATE'])
             df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
 
-    df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
-    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.date
     df_trades_asset = df_trades[df_trades.ASSET == asset_name]
     df_asset_pos = get_asset_positions(
         asset_name=fix_asset_name,
@@ -253,6 +259,8 @@ for asset_name in asset_names:
 
 df_positions = pd.concat(df_list)
 df_positions.sort_values(by=['DATE'], inplace=True)
+df_positions.dropna(subset=['AMOUNT'], inplace=True)
+df_positions.reset_index(inplace=True)
 df_positions = df_positions[df_positions.DATE <= date_to]
 
 df_positions['TOTAL_SHARES'] = df_positions['SHARES'].cumsum()
@@ -314,6 +322,7 @@ print('\n CASH: {}'.format(my_round(cash)))
 # AVG BALANCE
 df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index()
 # print(df_avg_balances_per_day.to_string())
+# print(df_positions[df_positions.ASSET == 'XBTEUR'].to_string())
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]

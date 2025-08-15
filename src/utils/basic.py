@@ -6,7 +6,7 @@ import time
 from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -53,6 +53,11 @@ def from_timestamp_to_datetime(timestamp: datetime.timestamp) -> datetime:
 def from_date_to_timestamp(day: datetime.date) -> datetime.timestamp:
     dt = datetime(year=day.year, month=day.month, day=day.day)
     return int(dt.timestamp())
+
+
+def from_date_to_datetime_aware(day: datetime.date, hour: int = 0) -> datetime:
+    dt = datetime(year=day.year, month=day.month, day=day.day, hour=hour, tzinfo=timezone.utc)
+    return dt
 
 
 def chunks(elem_list, n):
@@ -114,11 +119,17 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
     # Check if the file exists
     if file_path.exists():
         df_prices = pd.read_csv(path)
-        df_prices = df_prices.drop_duplicates(subset=['TIMESTAMP'])
+        if "TIMESTAMP" in df_prices.columns:
+            df_prices = df_prices.drop_duplicates(subset=['TIMESTAMP'])
+            df_prices['TIMESTAMP'] = pd.to_datetime(df_prices['TIMESTAMP'], unit='s')
+            df_prices.rename({'C': 'PRICE', 'TIMESTAMP': 'DATE'}, axis=1, inplace=True)
         return df_prices
     else:
         print(f"Prices for: {asset_name} taken from OHLC prices")
         df_prices = pd.read_csv(f'./data/OHLC_prices/{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C']]
+        df_prices['TIMESTAMP'] = pd.to_datetime(df_prices['TIMESTAMP'], unit='s')
+        df_prices.rename({'C': 'PRICE', 'TIMESTAMP': 'DATE'}, axis=1, inplace=True)
+        df_prices = df_prices.drop_duplicates(subset=['DATE'])
         df_prices.to_csv(f'./data/prices/{asset_name}_CLOSE_DAILY.csv', index=False)
         return df_prices
 
