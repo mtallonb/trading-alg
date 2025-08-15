@@ -10,6 +10,7 @@ from decimal import Decimal as D
 import krakenex
 
 from utils.basic import (
+    DATETIME_FORMAT,
     FIX_X_PAIR_NAMES,
     append_trades_to_csv,
     get_fix_pair_name,
@@ -29,8 +30,6 @@ file = None
 buy_trades = []
 sell_trades = []
 
-DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-
 # configure api
 kapi = krakenex.API()
 kapi.load_key('./data/keys/kraken.key')
@@ -40,7 +39,6 @@ FILTER_ASSET_NAME = ''  #'EOSEUR' 'MATICEUR'
 
 # prepare request
 req_data = {'trades': 'false'}
-
 
 
 def compute_gain_loss(buy_trades, sell_trades, year, asset_name) -> tuple[D, D, D, bool]:
@@ -138,8 +136,8 @@ if not trade_pages:
 
 for trade_page in trade_pages:
     for trade_detail in trade_page.values():
-        closetime_str = time.strftime(DATE_FORMAT, time.gmtime(trade_detail['time']))
-        if datetime.strptime(closetime_str, DATE_FORMAT) > latest_trade_csv.completed:
+        closetime_str = time.strftime(DATETIME_FORMAT, time.gmtime(trade_detail['time']))
+        if datetime.strptime(closetime_str, DATETIME_FORMAT) > latest_trade_csv.completed:
             # fix_name = REPLACE_NAMES[name] if name in REPLACE_NAMES.keys() else name
             trade = CSVTrade(
                 trade_detail['pair'],

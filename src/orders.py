@@ -185,7 +185,10 @@ for name, ticker_info in tickers_info['result'].items():
         df_prices = read_prices_from_local_file(asset_name=fixed_pair_name)
         if not df_prices.empty:
             asset.close_prices = df_prices
-            latest_price_date = df_prices.DATE.iloc[-1].date()
+            latest_price_date = df_prices.DATE.iloc[-1]
+            # latest_price_date = (
+            #     from_str_to_date(day=latest_price_date) if isinstance(latest_price_date, str) else latest_price_date
+            # )
             if latest_price_date < yesterday:
                 print(f'Local PRICES of asset {fixed_pair_name} not updated since: {latest_price_date}')
         else:

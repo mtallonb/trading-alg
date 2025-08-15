@@ -597,10 +597,10 @@ class CSVTrade:
     accumulated_buy_amount = 0
 
     def __init__(self, asset_name, completed, type, price, cost, fee, vol):
-        from utils.basic import DATE_FORMAT
+        from utils.basic import DATETIME_FORMAT
 
         self.asset_name = asset_name
-        self.completed = datetime.strptime(completed, DATE_FORMAT)
+        self.completed = datetime.strptime(completed, DATETIME_FORMAT)
         self.type = type
         self.price = D(price)
         self.amount = D(cost)

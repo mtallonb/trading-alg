@@ -14,7 +14,8 @@ import pytz
 
 from .classes import CSVTrade, PriceOHLC, Trade
 
-DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+DATE_FORMAT = '%Y-%m-%d'
 DECIMALS = 3
 
 # pytzutc = pytz.timezone('UTC')
@@ -42,8 +43,12 @@ class BCOLORS:
     UNDERLINE = '\033[4m'
 
 
+def from_str_to_date(day: str) -> datetime.timestamp:
+    return datetime.strptime(day, DATE_FORMAT).date()
+
+
 def from_timestamp_to_str(timestamp: datetime.timestamp) -> str:
-    return time.strftime(DATE_FORMAT, time.localtime(timestamp))
+    return time.strftime(DATETIME_FORMAT, time.localtime(timestamp))
 
 
 def from_timestamp_to_datetime(timestamp: datetime.timestamp) -> datetime:
@@ -110,6 +115,12 @@ def entries_to_remove(entries, the_dict):
             del the_dict[key]
 
 
+def timestamp_df_to_date_df(df: pd.DataFrame) -> pd.DataFrame:
+    df.TIMESTAMP = pd.to_datetime(df.TIMESTAMP, unit='s').dt.date
+    df.rename({'TIMESTAMP': 'DATE', 'C': 'PRICE'}, axis=1, inplace=True)
+    return df
+
+
 def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
     from pathlib import Path
 
@@ -120,18 +131,18 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
     if file_path.exists():
         df_prices = pd.read_csv(path)
         if "TIMESTAMP" in df_prices.columns:
-            df_prices = df_prices.drop_duplicates(subset=['TIMESTAMP'])
-            df_prices['TIMESTAMP'] = pd.to_datetime(df_prices['TIMESTAMP'], unit='s')
-            df_prices.rename({'C': 'PRICE', 'TIMESTAMP': 'DATE'}, axis=1, inplace=True)
-        return df_prices
+            df_prices = timestamp_df_to_date_df(df=df_prices)
+            df_prices = df_prices.drop_duplicates(subset=['DATE'])
+        else:
+            df_prices.DATE = pd.to_datetime(df_prices.DATE).dt.date
     else:
         print(f"Prices for: {asset_name} taken from OHLC prices")
         df_prices = pd.read_csv(f'./data/OHLC_prices/{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C']]
-        df_prices['TIMESTAMP'] = pd.to_datetime(df_prices['TIMESTAMP'], unit='s')
-        df_prices.rename({'C': 'PRICE', 'TIMESTAMP': 'DATE'}, axis=1, inplace=True)
+        df_prices = timestamp_df_to_date_df(df=df_prices)
         df_prices = df_prices.drop_duplicates(subset=['DATE'])
         df_prices.to_csv(f'./data/prices/{asset_name}_CLOSE_DAILY.csv', index=False)
-        return df_prices
+
+    return df_prices
 
 
 def cancel_orders(kapi, order_type, orders):
@@ -206,7 +217,7 @@ def load_from_csv(filename, assets_dict, fix_x_pair_names):
         for asset_csv in csv_reader:
             asset_name = get_fix_pair_name(asset_csv['pair'], fix_x_pair_names)
             asset = assets_dict.get(asset_name)
-            execution_time = datetime.strptime(asset_csv['time'], DATE_FORMAT)
+            execution_time = datetime.strptime(asset_csv['time'], DATETIME_FORMAT)
 
             # Execution_time: Note CSV data is in UTC
             execution_time_local = pytz.UTC.localize(execution_time).astimezone(LOCAL_TZ)

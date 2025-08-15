@@ -14,6 +14,7 @@ from utils.basic import (
     get_paginated_response_from_kraken,
     my_round,
     read_prices_from_local_file,
+    timestamp_df_to_date_df,
 )
 
 # Invested on each asset and current balance -> result No muy util
@@ -225,7 +226,7 @@ df_trades['DATE'] = df_trades['DATETIME'].dt.date
 
 # Remove trades from 'XXLMXXBT', 'BSVEUR'
 asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR'])].ASSET.dropna().unique()
-asset_names = ['XXBTZEUR']
+# asset_names = ['XXBTZEUR']
 # asset_names = ['TRUMPEUR']
 
 for asset_name in asset_names:
@@ -233,7 +234,7 @@ for asset_name in asset_names:
     fix_asset_name = get_fix_pair_name(asset_name, FIX_X_PAIR_NAMES)
     df_prices = read_prices_from_local_file(asset_name=fix_asset_name)
     if not df_prices.empty:
-        latest_date = df_prices.DATE.iloc[-1].date()
+        latest_date = df_prices.DATE.iloc[-1]
 
     if latest_date < date_to:
         new_prices = get_new_prices(
@@ -242,8 +243,7 @@ for asset_name in asset_names:
             timestamp_from=from_date_to_timestamp(day=latest_date),
         )
         if new_prices is not None:
-            new_prices.TIMESTAMP = pd.to_datetime(df_prices.TIMESTAMP, unit='s')
-            new_prices.rename({'TIMESTAMP': 'DATE', 'C': 'PRICE'}, axis=1, inplace=True)
+            new_prices = timestamp_df_to_date_df(df=new_prices)
             df_prices = pd.concat([df_prices, new_prices])
             df_prices = df_prices.drop_duplicates(subset=['DATE'])
             df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
