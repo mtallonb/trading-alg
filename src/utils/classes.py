@@ -312,7 +312,7 @@ class Asset:
 
         return f"""
         ***** staking info *****
-        Shares (incl. autostaked shares): {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {self.balance},
+        Shares (incl. autostaked shares): {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {my_round(self.balance)},
         AutoStaked shares: {my_round(self.autostaked_shares)}| AutoStaked balance: {my_round(self.autostacked_balance)},
         Manual stacked shares: {my_round(self.manual_stacked_shares)}| Manual stacked balance: {my_round(self.manual_stacked_balance)},
         """  # noqa: E501

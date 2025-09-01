@@ -32,10 +32,8 @@ for asset_name in ASSET_NAMES:
         print(f'No prices found for {asset_name}')
         continue
 
-    latest_timestamp = df_prices.TIMESTAMP.iloc[-1]
+    latest_date = df_prices.DATE.iloc[-1]
 
-    df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
-    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.date
 
     print(f"ASSET: {asset_name}|Initial price: {df_prices.PRICE.iloc[0]}|Last price: {df_prices.PRICE.iloc[-1]}")
     num_prices = len(df_prices)
