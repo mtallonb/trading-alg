@@ -39,7 +39,6 @@ def get_smart_summary(positions, death_assets):
         Podrías usar medias móviles, RSI (sobreventa) + MACD (cruce alcista) + volumen alto para confirmar señales.
         La salida debe ser un json con el ranking (añade también las puntuaciones de cada indicador) y las recomendaciones en un formato entendible.
         Muestrame el ranking completo.
-        
         Smart summary:
     """  # noqa: E501
 

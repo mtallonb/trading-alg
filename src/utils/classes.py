@@ -341,7 +341,7 @@ class Asset:
         message = f"""
         Missing buy: {self.name}| Price to set: {my_round(next_buy_price)}| {self.get_ranking_message()},
         Curr. Price: {my_round(self.price)}| latest trade price: {my_round(last_price)},
-        Spot. Shares: {my_round(self.shares)}| Spot. Balance: {my_round(self.spot_balance)},
+        Spot + Autostaking. Shares: {my_round(self.shares + self.autostaked_shares)}| Spot + Autostaking. Balance: {my_round(self.spot_balance + self.autostacked_balance)},
         Latest trade: Amount: {my_round(latest_trade.amount)}| Vol: {my_round(latest_trade.shares)}| Exec date: {latest_trade.execution_datetime.date()},
         ALL buys: Avg price: {self.get_buy_avg_msg()}| Amount: {my_round(self.trades_buy_amount)},
         ALL sells amount: {my_round(self.trades_sell_amount)},
@@ -410,7 +410,7 @@ class Asset:
         message = f"""
         Missing sell: {self.name}| price to set: {my_round(next_price)}| {self.get_ranking_message()}, 
         Curr. price: {my_round(self.price)}| latest trade price: {my_round(last_price)},
-        Spot. shares: {my_round(self.shares)}| Spot. balance: {my_round(self.balance)},
+        Spot + Autostaking. Shares: {my_round(self.shares + self.autostaked_shares)}| Spot + Autostaking. Balance: {my_round(self.spot_balance + self.autostacked_balance)},
         Latest trade amount: {my_round(latest_trade.amount)}| latest trade vol: {my_round(latest_trade.shares)},
         Execution date: {latest_trade.execution_datetime.date()},
         ALL sells  Avg price: {self.get_sell_avg_msg()},

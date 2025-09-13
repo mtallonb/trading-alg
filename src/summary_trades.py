@@ -106,7 +106,7 @@ def compute_gain_loss(buy_trades, sell_trades, year, asset_name) -> tuple[D, D, 
                     f'sell remaining_volume after: {my_round(sell.remaining_volume)}.',
                 )
 
-    is_position_closed = True if buy.remaining_volume <= 0.001 else False
+    is_position_closed = True if buy.remaining_volume <= 0.001 and asset_name != 'XXBTZEUR' else False
     print('===== ASSET SUMMARY =====')
     print(f'total gain loss: {my_round(total_gain_loss)}')
     print(f'gain loss ({year}): {my_round(gain_loss_year)}')

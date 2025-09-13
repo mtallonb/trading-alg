@@ -3,8 +3,6 @@
 
 from random import randint
 
-import pandas as pd
-
 from utils.basic import count_sells_in_range, my_round, read_prices_from_local_file
 
 # Para las semillas usar un rango de dias igual en todas las
@@ -33,7 +31,6 @@ for asset_name in ASSET_NAMES:
         continue
 
     latest_date = df_prices.DATE.iloc[-1]
-
 
     print(f"ASSET: {asset_name}|Initial price: {df_prices.PRICE.iloc[0]}|Last price: {df_prices.PRICE.iloc[-1]}")
     num_prices = len(df_prices)
