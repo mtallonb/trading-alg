@@ -26,7 +26,7 @@ api_key = open(KEY_FILE).read().strip()
 # print(completion.choices[0].message.content)
 
 
-def get_smart_summary(positions, death_assets):
+def get_smart_summary(positions: list, death_assets: list):
     prompt = f"""
         Eres un asesor financiero experto en cripto y acciones.
         En base a estas posiciones:
@@ -60,7 +60,8 @@ def get_smart_summary(positions, death_assets):
     }
 
     data = {
-        "model": "llama3-70b-8192",
+        # "model": "llama3-70b-8192",
+        "model": "llama-3.1-8b-instant",
         "messages": [{"role": "user", "content": prompt}],
     }
 
