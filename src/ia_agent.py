@@ -28,7 +28,7 @@ api_key = open(KEY_FILE).read().strip()
 
 def get_smart_summary(positions: list, death_assets: list):
     prompt = f"""
-        Eres un asesor financiero experto en cripto y acciones.
+        Eres un asesor financiero experto en criptomonedas.
         En base a estas posiciones:
         {positions}
         Genera recomendaciones para incorporar nuevos activos que no tenga actualmente en mi cartera con análisis claros y concisos.
@@ -37,9 +37,8 @@ def get_smart_summary(positions: list, death_assets: list):
         Especialmente los siguientes activos: {death_assets}
         Haz un Ranking de mis posiciones evaluando de 0 a 10 según tu mejor criterio e indicame el criterio usado.
         Podrías usar medias móviles, RSI (sobreventa) + MACD (cruce alcista) + volumen alto para confirmar señales.
-        La salida debe ser un json con el ranking (añade también las puntuaciones de cada indicador) y las recomendaciones en un formato entendible.
+        La salida debe una tabla tabulada correctamente con el ranking ordenado de mayor a menor (añade también las puntuaciones de cada indicador) y las recomendaciones en un formato entendible.
         Muestrame el ranking completo.
-        Smart summary:
     """  # noqa: E501
 
     # response = client.chat.completions.create(
@@ -61,7 +60,8 @@ def get_smart_summary(positions: list, death_assets: list):
 
     data = {
         # "model": "llama3-70b-8192",
-        "model": "llama-3.1-8b-instant",
+        # "model": "llama-3.1-8b-instant", Muy malo
+        "model": "openai/gpt-oss-120b",
         "messages": [{"role": "user", "content": prompt}],
     }
 
