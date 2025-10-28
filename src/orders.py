@@ -8,6 +8,8 @@
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Mostrar si esta bloqueado el que esta a punto de vender
 
+# Mejorar el calculo de ganancias en LIFO quizás se podria hacer con Pandas y pasarle la estrategia LIFO o FIFO
+# La métrica de Volumen podria servir para puntuaciones de ranking. Mayor volumen mejor puntuación si tendencia alcista.
 
 from datetime import datetime, timedelta, timezone
 
