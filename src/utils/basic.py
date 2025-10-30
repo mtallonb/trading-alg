@@ -124,7 +124,7 @@ def timestamp_df_to_date_df(df: pd.DataFrame) -> pd.DataFrame:
 def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
     from pathlib import Path
 
-    path = f'./data/prices/{asset_name}_CLOSE_DAILY.csv'
+    path = f'./data/prices_with_volume/{asset_name}_DAILY_WITH_VOLUME.csv'
     file_path = Path(path)
 
     # Check if the file exists
@@ -137,10 +137,12 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
             df_prices.DATE = pd.to_datetime(df_prices.DATE).dt.date
     else:
         print(f"Prices for: {asset_name} taken from OHLC prices")
-        df_prices = pd.read_csv(f'./data/OHLC_prices/{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C']]
+        df_prices = pd.read_csv(f'./data/OHLCV_prices/{asset_name}_1440.csv', names=HEADER_PRICES)[
+            ['TIMESTAMP', 'C', 'VOL']
+        ]
         df_prices = timestamp_df_to_date_df(df=df_prices)
         df_prices = df_prices.drop_duplicates(subset=['DATE'])
-        df_prices.to_csv(f'./data/prices/{asset_name}_CLOSE_DAILY.csv', index=False)
+        df_prices.to_csv(f'./data/prices_with_volume/{asset_name}_CLOSE_DAILY.csv', index=False)
 
     return df_prices
 
@@ -344,14 +346,22 @@ def append_trades_to_csv(filename, trades_to_append):
         csvfile.close()
 
 
-def get_new_prices(kapi, asset_name: str, timestamp_from: datetime.timestamp) -> pd.DataFrame:
+def get_new_prices(
+    kapi,
+    asset_name: str,
+    timestamp_from: datetime.timestamp,
+    with_volumes: bool = False,
+) -> pd.DataFrame:
     # If timestamp_from is higher than 2 years display a warning
     prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
     if not prices.get('result'):
         return None
     df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
     df_prices.columns = HEADER_PRICES_KRAKEN
-    df_prices = df_prices[['TIMESTAMP', 'C']]
+    columns_to_get = ['TIMESTAMP', 'C']
+    if with_volumes:
+        columns_to_get = ['TIMESTAMP', 'C', 'VOL']
+    df_prices = df_prices[columns_to_get]
 
     return df_prices
 

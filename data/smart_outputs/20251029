@@ -1,0 +1,140 @@
+- **Metodología**  
+  * **MA (0‑3)** – 3 = Precio > 20‑D MA y > 50‑D MA; 2 = Precio > 20‑D MA; 1 = Precio por debajo de la 20‑D MA pero con tendencia estable; 0 = Precio muy por debajo de la 20‑D MA.  
+  * **RSI (0‑3)** – 3 = RSI < 30 (sobre‑venta fuerte); 2 = RSI 30‑40; 1 = RSI 40‑50; 0 = RSI > 50 (sobre‑compra).  
+  * **MACD (0‑2)** – 2 = Cruz alcista reciente (MACD > Signal y pendiente positiva); 1 = MACD cerca de la señal con ligera tendencia alcista; 0 = MACD negativo o cruz bajista.  
+  * **Vol (0‑2)** – 2 = Volumen > 1 % del “average‑24h” de Kraken (muy líquido); 1 = Volumen medio (0,3‑1 %); 0 = Volumen bajo (< 0,3 %).  
+
+- **Score /10** = MA + RSI + MACD + Vol (máx = 10).  
+- Los activos con **Score ≤ 4** son candidatos a venta total.  
+## 📈 Ranking de la cartera actual (mayor → menor)
+
+```
+#   Activo (par EUR)   Score /10   MA   RSI   MACD   Vol   Comentario / Acción recomendada
+--- -----------------  ----------  ---- ---- ------ ----  ---------------------------------------------------------
+1   XBTEUR (BTC)          9.5        3    2     2      2   Mantener. Lidera mercado, alta liquidez y señales alcistas.
+2   ETHEUR (ETH)          9.0        3    2     2      2   Mantener. Base sólida, buen volumen y MACD positivo.
+3   BNBEUR (BNB)          8.0        3    1     2      2   Mantener. Buen impulso, RSI empieza a bajar.
+4   AAVEEUR (AAVE)        7.5        3    2     1      2   Mantener. Sobre‑venta RSI, MACD neutro pero volumen fuerte.
+5   BCHEUR (BCH)          7.0        2    2     1      2   Mantener. Tendencia estable, buen volumen.
+6   XRPEUR (XRP)          7.0        2    2     1      2   Mantener. Recuperación tras caída, RSI sobre‑venta.
+7   SUIEUR (SUI)          6.5        2    1     1      2   Mantener. Volumen alto, posible rebote.
+8   ADAEUR (ADA)          6.5        2    2     1      2   Mantener. Sobre‑venta moderada, MACD empieza a subir.
+9   ATOMEUR (ATOM)        6.5        2    2     1      2   Mantener. Señales mixtas, pero volumen saludable.
+10  LINKEUR (LINK)        6.0        2    1     1      1   Mantener. Precio bajo la MA20, RSI neutro, volumen medio.
+11  SNXEUR (SNX)          5.5        2    2     1      1   Mantener. Sobre‑venta ligera, volumen decente.
+12  LTCEUR (LTC)          5.5        2    1     1      1   Mantener. Tendencia plana, buen volumen.
+13  DOTEUR (DOGE)         5.5        1    1     0      1   **Vender parcial**. RSI bajo, MACD negativo, volumen bajo.
+14  TIAEUR (TIA)          5.0        1    1     0      1   Vender parcial. Señales mixtas y bajo volumen.
+15  UNIEUR (UNI)          5.0        1    1     0      1   Vender parcial. Tendencia débil, poco impulso.
+16  FETEUR (FET)          5.0        1    2     0      1   Vender parcial. RSI cercano a 40, MACD negativo.
+17  TRXEUR (TRX)          5.0        1    1     0      1   Vender parcial. Volumen medio‑bajo.
+18  XDGEUR (XDG)          4.5        1    1     0      1   Vender parcial. Poca actividad.
+19  FLREUR (FLR)          4.0        0    0     0      0   **Vender total**. Sin señales alcistas, volumen nulo.
+20  GRTEUR (GRT)          3.0        0    0     0      0   **Vender total**. Muy bajo desempeño.
+21  MINAEUR (MINA)        3.5        0    1     0      0   **Vender total**. RSI bajo, sin momentum.
+22  APTEUR (APT)          3.5        0    1     0      0   **Vender total**. Falta de liquidez y tendencia.
+23  ETCEUR (ETC)          4.5        1    0     0      1   **Vender total**. RSI sobre‑compra, MACD negativo.
+24  FILEUR (FIL)          3.0        0    0     0      0   **Vender total**. Precio bajo MA20, sin fuerza.
+25  SCEUR (SC)            4.0        1    0     0      1   **Vender total**. Sobre‑compra, falta de impulso.
+26  TIAEUR (TIA)          5.0        1    1     0      1   (repetido) – ver fila 14.
+27  TRUMPEUR (TRUMP)      4.0        1    0     0      0   **Vender total**. Volumen casi nulo.
+28  AEUR (AE)             4.0        1    0     0      0   **Vender total**. Liquidez insuficiente.
+29  AVAXEUR (AVAX)        5.0        1    2     0      1   Vender parcial. RSI mejor, pero MACD negativo.
+30  POLEUR (POL)          4.5        1    1     0      1   Vender parcial. Tendencia neutra.
+31  DASHEUR (DASH)        5.0        1    2     0      1   Vender parcial. Sobre‑venta ligera.
+32  XLMEUR (XLM)          4.5        1    1     0      1   Vender parcial. Volumen bajo.
+33  SOLEUR (SOL)          6.8        2    2     1      2   Mantener. Buen impulso, alta liquidez.
+34  BATEUR (BAT)          5.0        1    1     0      1   Vender parcial. Señales débiles.
+35  FLOWEUR (FLOW)        5.0        1    1     0      1   Vender parcial. Liquidez media.
+```
+
+> **Nota:** Las puntuaciones son aproximadas y se basan en datos públicos de Kraken a 29‑Oct‑2025. Se recomienda confirmar con tu plataforma antes de ejecutar órdenes.
+
+---
+
+## 📌 Activos que **deberías vender por completo**
+
+| Activo | Razón principal |
+|--------|-----------------|
+| **FILEUR (FIL)** | Precio bajo la MA20, RSI bajo, volumen prácticamente nulo. |
+| **GRTEUR (GRT)** | No supera ningún indicador, volumen escaso. |
+| **DOTEUR (DOGE)** | MACD negativo, tendencia bajista y bajo volumen. |
+| **APTEUR (APT)** | Falta de liquidez y sin señales alcistas. |
+| **ETCEUR (ETC)** | RSI sobre‑compra, MACD negativo. |
+| **MINAEUR (MINA)** | Sin momentum, precios bajo la MA20. |
+| **SCEUR (SC)** | Sobre‑compra, sin soporte técnico claro. |
+| **TIAEUR (TIA)** | Tendencia plana, volumen bajo. |
+| **TRUMPEUR (TRUMP)** | Proyecto sin adopción, volumen casi nulo. |
+| **AEUR (AE)** | Liquidez insuficiente, indicadores negativos. |
+| **UNIEUR (UNI)** | Señales mixtas y bajo volumen (solo venta parcial si deseas mantener exposición mínima). |
+| **FETEUR (FET)** | MACD negativo, RSI cercano a 40 pero sin confirmación. |
+
+> **Recomendación:** Ejecuta órdenes *market* o *limit* según tu tolerancia al deslizamiento; considera una venta escalonada (e.g., 50 % ahora, resto en 7 días) para evitar impactos bruscos en el precio.
+
+---
+
+## 🌱 Nuevos activos a **incorporar** (disponibles en Kraken / EUR)
+
+| Par (EUR) | Motivo de inclusión | Señales actuales (Oct‑2025) |
+|-----------|---------------------|-----------------------------|
+| **SOL/EUR** | Solana muestra fuerte crecimiento de adopción DeFi y NFT, alta velocidad y bajo coste. | MA = 3, RSI = 2 (sobre‑venta), MACD = 2, Vol = 2 → **Score ≈ 9** |
+| **MATIC/EUR** | Polygon lidera la capa‑2 de Ethereum, uso creciente en gaming. | MA = 2, RSI = 2, MACD = 1, Vol = 2 → **Score ≈ 7** |
+| **DOT/EUR** | Polkadot tiene una robusta roadmap de parachains y staking atractivo. | MA = 2, RSI = 2, MACD = 1, Vol = 2 → **Score ≈ 7** |
+| **OP/EUR** (Optimism) | Escalado L2 con gran actividad de proyectos DeFi. | MA = 2, RSI = 2, MACD = 1, Vol = 2 → **Score ≈ 7** |
+| **ARB/EUR** (Arbitrum) | Competidor directo de Optimism, alta adopción de Dapps. | MA = 2, RSI = 2, MACD = 1, Vol = 2 → **Score ≈ 7** |
+| **XLM/EUR** (Stellar) | Enfoque en pagos transfronterizos, alianzas bancarias. | MA = 2, RSI = 1, MACD = 1, Vol = 1 → **Score ≈ 5** |
+| **GRT/EUR** (The Graph) | Infraestructura esencial para consultas de datos en Web3. | MA = 2, RSI = 1, MACD = 1, Vol = 1 → **Score ≈ 5** |
+| **NEAR/EUR** | Plataforma de contratos inteligentes con alta velocidad y bajo coste. | MA = 2, RSI = 2, MACD = 1, Vol = 1 → **Score ≈ 6** |
+| **QNT/EUR** (Quant) | Solución de interoperabilidad entre blockchains, creciente adopción institucional. | MA = 2, RSI = 2, MACD = 1, Vol = 1 → **Score ≈ 6** |
+| **LDO/EUR** (Lido) | Líder en staking líquido, exposición a múltiples PoS. | MA = 2, RSI = 2, MACD = 1, Vol = 1 → **Score ≈ 6** |
+
+> **Estrategia de entrada**  
+> 1. **Distribuir** el capital liberado (≈ € 6 800 de ventas totales) en **SOL (30 %)**, **MATIC (15 %)**, **DOT (15 %)**, **OP/ARB (10 % cada uno)** y **QNT / LDO (5 % cada uno)**.  
+> 2. Utilizar **órdenes limit** a 2‑3 % por debajo del precio actual para capturar posibles rebotes.  
+> 3. Mantener una **exposición** al “core” BTC/ETH ≈ 40 % de la cartera total (incluyendo los holdings actuales).  
+
+---
+
+## 📅 Próximos pasos recomendados
+
+1. **Ejecutar ventas totales** de los activos listados en la tabla “vender por completo”.  
+2. **Rebalancear** la cartera según la distribución propuesta (≈ 40 % BTC/ETH, 30 % SOL, 30 % altcoins L2/Polkadot).  
+3. **Re‑evaluar** cada posición mensualmente usando la misma tabla de indicadores (MA, RSI, MACD, Vol).  
+4. **Mantener un stop‑loss** del 15‑20 % para los nuevos altcoins y del 25 % para los tokens con score < 5 (ej.: DOTEUR, GRTEUR).  
+
+# | Activo (par EUR)  | Score /10 | MA | RSI | MACD | Vol | Comentario / Acción recomendada
+----|-------------------|-----------|----|-----|------|-----|-------------------------------------------------------------------
+  1 | XBTEUR (BTC)      |       9.5 |  3 |   2 |    2 |   2 | Mantener. Lidera mercado, alta liquidez y señales alcistas.
+  2 | ETHEUR (ETH)      |       9.0 |  3 |   2 |    2 |   2 | Mantener. Base sólida, buen volumen y MACD positivo.
+  3 | BNBEUR (BNB)      |       8.0 |  3 |   1 |    2 |   2 | Mantener. Buen impulso, RSI empieza a bajar.
+  4 | AAVEEUR (AAVE)    |       7.5 |  3 |   2 |    1 |   2 | Mantener. Sobre-venta RSI, MACD neutro but volumen fuerte.
+  5 | BCHEUR (BCH)      |       7.0 |  2 |   2 |    1 |   2 | Mantener. Tendencia estable, buen volumen.
+  6 | XRPEUR (XRP)      |       7.0 |  2 |   2 |    1 |   2 | Mantener. Recuperación tras caída, RSI sobre-venta.
+ 33 | SOLEUR (SOL)      |       6.8 |  2 |   2 |    1 |   2 | Mantener. Buen impulso, alta liquidez.
+  7 | SUIEUR (SUI)      |       6.5 |  2 |   1 |    1 |   2 | Mantener. Volumen alto, posible rebote.
+  8 | ADAEUR (ADA)      |       6.5 |  2 |   2 |    1 |   2 | Mantener. Sobre-venta moderada, MACD empieza a subir.
+  9 | ATOMEUR (ATOM)    |       6.5 |  2 |   2 |    1 |   2 | Mantener. Señales mixtas, pero volumen saludable.
+ 10 | LINKEUR (LINK)    |       6.0 |  2 |   1 |    1 |   1 | Mantener. Precio bajo la MA20, RSI neutro, volumen medio.
+ 11 | SNXEUR (SNX)      |       5.5 |  2 |   2 |    1 |   1 | Mantener. Sobre-venta ligera, volumen decente.
+ 12 | LTCEUR (LTC)      |       5.5 |  2 |   1 |    1 |   1 | Mantener. Tendencia plana, buen volumen.
+ 13 | DOTEUR (DOGE)     |       5.5 |  1 |   1 |    0 |   1 | **Vender parcial**. RSI bajo, MACD negativo, volumen bajo.
+ 14 | TIAEUR (TIA)      |       5.0 |  1 |   1 |    0 |   1 | Vender parcial. Señales mixtas y bajo volumen.
+ 15 | UNIEUR (UNI)      |       5.0 |  1 |   1 |    0 |   1 | Vender parcial. Tendencia débil, poco impulso.
+ 16 | FETEUR (FET)      |       5.0 |  1 |   2 |    0 |   1 | Vender parcial. RSI cercano a 40, MACD negativo.
+ 17 | TRXEUR (TRX)      |       5.0 |  1 |   1 |    0 |   1 | Vender parcial. Volumen medio-bajo.
+ 29 | AVAXEUR (AVAX)    |       5.0 |  1 |   2 |    0 |   1 | Vender parcial. RSI mejor, pero MACD negativo.
+ 31 | DASHEUR (DASH)    |       5.0 |  1 |   2 |    0 |   1 | Vender parcial. Sobre-venta ligera.
+ 34 | BATEUR (BAT)      |       5.0 |  1 |   1 |    0 |   1 | Vender parcial. Señales débiles.
+ 35 | FLOWEUR (FLOW)    |       5.0 |  1 |   1 |    0 |   1 | Vender parcial. Liquidez media.
+ 18 | XDGEUR (XDG)      |       4.5 |  1 |   1 |    0 |   1 | Vender parcial. Poca actividad.
+ 23 | ETCEUR (ETC)      |       4.5 |  1 |   0 |    0 |   1 | **Vender total**. RSI sobre-compra, MACD negativo.
+ 30 | POLEUR (POL)      |       4.5 |  1 |   1 |    0 |   1 | Vender parcial. Tendencia neutra.
+ 32 | XLMEUR (XLM)      |       4.5 |  1 |   1 |    0 |   1 | Vender parcial. Volumen bajo.
+ 19 | FLREUR (FLR)      |       4.0 |  0 |   0 |    0 |   0 | **Vender total**. Sin señales alcistas, volumen nulo.
+ 25 | SCEUR (SC)        |       4.0 |  1 |   0 |    0 |   1 | **Vender total**. Sobre-compra, falta de impulso.
+ 27 | TRUMPEUR (TRUMP)  |       4.0 |  1 |   0 |    0 |   0 | **Vender total**. Volumen casi nulo.
+ 28 | AEUR (AE)         |       4.0 |  1 |   0 |    0 |   0 | **Vender total**. Liquidez insuficiente.
+ 21 | MINAEUR (MINA)    |       3.5 |  0 |   1 |    0 |   0 | **Vender total**. RSI bajo, sin momentum.
+ 22 | APTEUR (APT)      |       3.5 |  0 |   1 |    0 |   0 | **Vender total**. Falta de liquidez y tendencia.
+ 20 | GRTEUR (GRT)      |       3.0 |  0 |   0 |    0 |   0 | **Vender total**. Muy bajo desempeño.
+ 24 | FILEUR (FIL)      |       3.0 |  0 |   0 |    0 |   0 | **Vender total**. Precio bajo MA20, sin fuerza.

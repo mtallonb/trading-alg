@@ -246,7 +246,10 @@ for asset_name in asset_names:
             new_prices = timestamp_df_to_date_df(df=new_prices)
             df_prices = pd.concat([df_prices, new_prices])
             df_prices = df_prices.drop_duplicates(subset=['DATE'])
+            # df_prices['VOL'] = pd.to_numeric(df_prices['VOL']).round(2)
+
             df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
+            # df_prices.to_csv(f'./data/prices_with_volume/{fix_asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
     df_trades_asset = df_trades[df_trades.ASSET == asset_name]
     df_asset_pos = get_asset_positions(

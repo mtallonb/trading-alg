@@ -1,17 +1,24 @@
 import glob
 import os
 
+import krakenex
 import pandas as pd
+
+from utils.basic import get_new_prices
 
 # --- Configuración de Directorios ---
 PRICES_DIR = './data/prices'
-OHLC_DIR = '.data/OHLC_prices/'
-OUTPUT_DIR = '.data/prices_with_volume/'
+OHLCV_DIR = './data/OHLCV_prices/'
+OUTPUT_DIR = './data/prices_with_volume/'
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 # ------------------------------------
+kapi = krakenex.API()
+kapi.load_key('./data/keys/kraken.key')
 
 
 print(f"Searching for files in: {PRICES_DIR}")
+
+excluded_assets = ['MATICEUR']
 
 # 2. Find all daily price files
 # glob.glob finds files matching the pattern
@@ -31,11 +38,13 @@ for price_file_path in price_files:
         # e.g., 'prices/AAVEEUR_CLOSE_DAILY.csv' -> 'AAVEEUR'
         base_name = os.path.basename(price_file_path)
         asset_name = base_name.replace('_CLOSE_DAILY.csv', '')
+        if asset_name in excluded_assets:
+            continue
 
         print(f"\n--- Processing Asset: {asset_name} ---")
 
         # 5. Build the path to the corresponding OHLC file
-        ohlc_file_path = os.path.join(OHLC_DIR, f'{asset_name}_1440.csv')
+        ohlc_file_path = os.path.join(OHLCV_DIR, f'{asset_name}_1440.csv')
 
         # 6. Load the two CSV files into pandas DataFrames
 
@@ -72,12 +81,60 @@ for price_file_path in price_files:
         #            if it finds a matching date. If not, it puts 'NaN' (Null).
         df_merged = pd.merge(df_price, df_volume, on='DATE', how='left')
 
+        # Fill gaps on volume as NaN
+        # --- INICIO: RELLENAR HUECOS DE VOLUMEN USANDO LA API DE KRAKEN ---
+        if df_merged['VOL'].isnull().any():
+            print("  > Se han encontrado datos de volumen faltantes. Rellenando desde la API de Kraken...")
+
+            # 1. Encontrar la primera fecha donde 'VOL' es NaN
+            first_nan_date_str = df_merged[df_merged['VOL'].isnull()]['DATE'].iloc[0]
+            since_timestamp = int(pd.to_datetime(first_nan_date_str).timestamp())
+
+            print(f"  > Obteniendo datos para {asset_name} desde {first_nan_date_str}")
+
+            try:
+                # 2. Llamar a la API de Kraken
+                ohlcv = get_new_prices(
+                    kapi=kapi,
+                    asset_name=asset_name,
+                    timestamp_from=since_timestamp,
+                    with_volumes=True,
+                )
+
+                if not ohlcv.empty:
+                    datetime_obj = pd.to_datetime(ohlcv['TIMESTAMP'], unit='s')
+                    ohlcv['DATE'] = datetime_obj.dt.strftime('%Y-%m-%d')
+                    ohlcv['VOL'] = pd.to_numeric(ohlcv['VOL'])
+
+                    # 4. Rellenar los valores NaN en df_merged
+                    df_new_volume = ohlcv[['DATE', 'VOL']]
+
+                    # Preparamos los dataframes para la actualización
+                    df_merged.set_index('DATE', inplace=True)
+                    df_new_volume.set_index('DATE', inplace=True)
+
+                    # Actualizamos los valores faltantes en df_merged
+                    df_merged.update(df_new_volume)
+
+                    # Restauramos el índice
+                    df_merged.reset_index(inplace=True)
+
+                    print(f"  > Éxito: Se rellenaron {len(df_new_volume)} valores de volumen.")
+                else:
+                    print(
+                        f"  > La API de Kraken no devolvió datos nuevos para {asset_name} desde {first_nan_date_str}.",
+                    )
+
+            except Exception as api_error:
+                print(f"  > ERROR al contactar con la API de Kraken para {asset_name}: {api_error}")
+        # --- FIN DEL BLOQUE PARA RELLENAR HUECOS ---
+
         # 9. Save the result
         output_filename = os.path.join(OUTPUT_DIR, f'{asset_name}_DAILY_WITH_VOLUME.csv')
 
         # index=False: Don't save the pandas index in the CSV
-        # float_format: Ensures long decimals (like volume) are saved properly
-        df_merged.to_csv(output_filename, index=False, float_format='%.10f')
+        df_merged['VOL'] = df_merged['VOL'].round(2)
+        df_merged.to_csv(output_filename, index=False)
 
         print(f"  > Success! Merged file saved to: {output_filename}")
 
