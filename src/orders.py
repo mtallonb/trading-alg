@@ -11,6 +11,7 @@
 # Mejorar el calculo de ganancias en LIFO quizás se podria hacer con Pandas y pasarle la estrategia LIFO o FIFO
 # La métrica de Volumen podria servir para puntuaciones de ranking. Mayor volumen mejor puntuación si tendencia alcista.
 
+
 from datetime import datetime, timedelta, timezone
 
 import krakenex
@@ -123,7 +124,8 @@ processing_time_start = datetime.now(timezone.utc)
 
 # Pandas conf
 # Float output format
-pd.options.display.float_format = '{:.3f}'.format
+PANDAS_FLOAT_FORMAT = '{:.3f}'.format
+pd.options.display.float_format = PANDAS_FLOAT_FORMAT
 
 assets_dict: dict[str, Asset] = {}
 ledger_deposit = []
@@ -464,24 +466,28 @@ ranking_cols = [
     'AVG_10',
 ]
 df = pd.DataFrame(assets_by_last_trade, columns=ranking_cols)
-df = compute_ranking(df)
+ranking_df, detailed_ranking_df = compute_ranking(df)
 # Print RANKING sorted by latest trade
 # print(df.to_string(index=False))
-for record in df[['NAME', 'RANKING']].to_dict('records'):
+for record in ranking_df[['NAME', 'RANKING']].to_dict('records'):
     assets_dict[record['NAME']].ranking = record['RANKING']
 
 print(
     '\n*****PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
-    'margin_a: sells_amount - buys_amount. '
     'S_TRADES and X_TRADES: Sell trades and Expected Sell trades on 200 sessions)*****',
 )
-print(df.sort_values(by='RANKING', ascending=False).to_string(index=False))
+
+pd.options.display.float_format = '{:.1f}'.format
+print(ranking_df.to_string(index=False))
+print('\n*****PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount - buys_amount.')
+pd.options.display.float_format = PANDAS_FLOAT_FORMAT
+print(detailed_ranking_df.to_string(index=False))
 # -------------------------------------------------------------------------------------------------
-live_asset_names = list(df[df.IBS == 1].NAME)
-death_asset_names = list(df[df.IBS == 0].NAME)
+live_asset_names = list(ranking_df[ranking_df.IBS == 1].NAME)
+death_asset_names = list(ranking_df[ranking_df.IBS == 0].NAME)
 print(f'\n*** LIVE ASSET NAMES ({len(live_asset_names)}): {live_asset_names}')
 print(f'\n*** DEATH ASSET NAMES ({len(death_asset_names)}): {death_asset_names}')
-
+# -------------------------------------------------------------------------------------------------
 count_valid_asset = 0
 count_remaining_buys = 0
 count_missing_buys = 0

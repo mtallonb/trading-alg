@@ -29,6 +29,16 @@ STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR', *AUTOSTAKING_SUFFIXES)
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 HEADER_PRICES_KRAKEN = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
 HEADER_POSITIONS = ['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
+RENAME_ASSET_MAPPING = {
+    'XBTEUR': 'XXBTZEUR',
+    'XRPEUR': 'XXRPZEUR',
+    'ETCEUR': 'XETCZEUR',
+    'XLMEUR': 'XXLMZEUR',
+    'ETHEUR': 'XETHZEUR',
+}
+
+OHLCV_DIR = './data/OHLCV_prices/'
+PRICES_DIR = './data/prices_with_volume/'
 
 
 class BCOLORS:
@@ -124,7 +134,7 @@ def timestamp_df_to_date_df(df: pd.DataFrame) -> pd.DataFrame:
 def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
     from pathlib import Path
 
-    path = f'./data/prices_with_volume/{asset_name}_DAILY_WITH_VOLUME.csv'
+    path = f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv'
     file_path = Path(path)
 
     # Check if the file exists
@@ -137,12 +147,10 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
             df_prices.DATE = pd.to_datetime(df_prices.DATE).dt.date
     else:
         print(f"Prices for: {asset_name} taken from OHLC prices")
-        df_prices = pd.read_csv(f'./data/OHLCV_prices/{asset_name}_1440.csv', names=HEADER_PRICES)[
-            ['TIMESTAMP', 'C', 'VOL']
-        ]
+        df_prices = pd.read_csv(f'{OHLCV_DIR}{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C', 'VOL']]
         df_prices = timestamp_df_to_date_df(df=df_prices)
         df_prices = df_prices.drop_duplicates(subset=['DATE'])
-        df_prices.to_csv(f'./data/prices_with_volume/{asset_name}_CLOSE_DAILY.csv', index=False)
+        df_prices.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
     return df_prices
 
@@ -258,8 +266,10 @@ def print_query_result(endpoint, result):
 
 def compute_ranking(df):
     """
-    df input COLUMNS: ['NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES',
-    'X_TRADES', 'AVG_200', 'AVG_50', 'AVG_10',]
+    df input COLUMNS: [
+        'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES', 'X_TRADES',
+        'AVG_200', 'AVG_50', 'AVG_10'
+        ]
     """
 
     df['MARGIN_P'] = df.MARGIN_A
@@ -295,9 +305,17 @@ def compute_ranking(df):
     df['RANKING'] = df['RANKING'] - df['RANKING'].min()
     df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
 
-    df = df.drop(columns=['AVG_200', 'AVG_50', 'AVG_10'])
-    df = df.drop(columns=['TREND_DIST', 'TREND_DIST_ABS'])
-    return df
+    # # Lista de columnas a redondear
+    # cols_to_round = [ 'RANKING', 'TREND', 'MARGIN_P', 'PB', 'PS', 'BS_P', 'S_TRADES', 'X_TRADES', 'AVG_B', 'AVG_S', 'AVG_200', 'AVG_50', 'AVG_10', 'MARGIN_A', 'TREND_DIST', 'TREND_DIST_ABS', ]  # fmt: skip # noqa
+    # # Asegurar que las columnas son numéricas y luego redondearlas a 1 decimal
+    # for col in cols_to_round:
+    #     df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
+
+    df.sort_values(by=['RANKING'], inplace=True, ignore_index=True, ascending=False)
+    ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'PB', 'PS', 'BS_P', 'TREND']]  # fmt: skip # noqa
+    details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'AVG_200', 'AVG_50', 'AVG_10', 'TREND_DIST', 'TREND_DIST_ABS']]  # fmt: skip # noqa
+    # details_df = details_df.style.format({'CURR_PRICE': '{:.5f}'})
+    return ranking_df, details_df
 
 
 def read_trades_csv(filename, buy_trades, sell_trades):
@@ -352,6 +370,9 @@ def get_new_prices(
     timestamp_from: datetime.timestamp,
     with_volumes: bool = False,
 ) -> pd.DataFrame:
+    RENAME_ASSET_MAPPING
+    if asset_name in RENAME_ASSET_MAPPING:
+        asset_name = RENAME_ASSET_MAPPING[asset_name]
     # If timestamp_from is higher than 2 years display a warning
     prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
     if not prices.get('result'):

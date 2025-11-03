@@ -7,6 +7,7 @@ import pandas as pd
 
 from utils.basic import (
     FIX_X_PAIR_NAMES,
+    PRICES_DIR,
     from_date_to_datetime_aware,
     from_date_to_timestamp,
     get_fix_pair_name,
@@ -241,15 +242,15 @@ for asset_name in asset_names:
             kapi=kapi,
             asset_name=asset_name,
             timestamp_from=from_date_to_timestamp(day=latest_date),
+            with_volumes=True,
         )
         if new_prices is not None:
             new_prices = timestamp_df_to_date_df(df=new_prices)
             df_prices = pd.concat([df_prices, new_prices])
             df_prices = df_prices.drop_duplicates(subset=['DATE'])
-            # df_prices['VOL'] = pd.to_numeric(df_prices['VOL']).round(2)
 
-            df_prices.to_csv(f'./data/prices/{fix_asset_name}_CLOSE_DAILY.csv', index=False)
-            # df_prices.to_csv(f'./data/prices_with_volume/{fix_asset_name}_DAILY_WITH_VOLUME.csv', index=False)
+            df_prices.to_csv(f'{PRICES_DIR}{fix_asset_name}_DAILY_WITH_VOLUME.csv', index=False)
+
 
     df_trades_asset = df_trades[df_trades.ASSET == asset_name]
     df_asset_pos = get_asset_positions(
@@ -329,7 +330,7 @@ df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2920.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2950.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

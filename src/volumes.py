@@ -4,28 +4,28 @@ import os
 import krakenex
 import pandas as pd
 
-from utils.basic import get_new_prices
+from utils.basic import OHLCV_DIR, get_new_prices
 
 # --- Configuración de Directorios ---
-PRICES_DIR = './data/prices'
-OHLCV_DIR = './data/OHLCV_prices/'
 OUTPUT_DIR = './data/prices_with_volume/'
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
+PRICES_ONLY_DIR = './data/prices/'
 # ------------------------------------
 kapi = krakenex.API()
 kapi.load_key('./data/keys/kraken.key')
 
 
-print(f"Searching for files in: {PRICES_DIR}")
+print(f"Searching for files in: {PRICES_ONLY_DIR}")
 
-excluded_assets = ['MATICEUR']
+excluded_assets = ['MATICEUR', 'WALEUR', 'SGBEUR', 'EOSEUR', 'APENFTEUR', 'ETHWEUR', 'XMREUR', 'LUNA2EUR']
+
 
 # 2. Find all daily price files
 # glob.glob finds files matching the pattern
-price_files = glob.glob(os.path.join(PRICES_DIR, '*_CLOSE_DAILY.csv'))
+price_files = glob.glob(os.path.join(PRICES_ONLY_DIR, '*_CLOSE_DAILY.csv'))
 
 if not price_files:
-    print(f"Error: No '*_CLOSE_DAILY.csv' files found in the directory '{PRICES_DIR}'.")
+    print(f"Error: No '*_CLOSE_DAILY.csv' files found in the directory '{PRICES_ONLY_DIR}'.")
     print("Make sure the script is in the correct location.")
     exit(1)
 
@@ -133,7 +133,6 @@ for price_file_path in price_files:
         output_filename = os.path.join(OUTPUT_DIR, f'{asset_name}_DAILY_WITH_VOLUME.csv')
 
         # index=False: Don't save the pandas index in the CSV
-        df_merged['VOL'] = df_merged['VOL'].round(2)
         df_merged.to_csv(output_filename, index=False)
 
         print(f"  > Success! Merged file saved to: {output_filename}")
