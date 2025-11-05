@@ -596,7 +596,7 @@ class CSVTrade:
     related_buys = []
     accumulated_buy_amount = 0
 
-    def __init__(self, asset_name, completed, type, price, cost, fee, vol):
+    def __init__(self, asset_name: str, completed: str, type: str, price: str, cost: str, fee: str, vol: str):
         from utils.basic import DATETIME_FORMAT
 
         self.asset_name = asset_name

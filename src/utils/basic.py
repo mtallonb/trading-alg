@@ -35,6 +35,7 @@ RENAME_ASSET_MAPPING = {
     'ETCEUR': 'XETCZEUR',
     'XLMEUR': 'XXLMZEUR',
     'ETHEUR': 'XETHZEUR',
+    'LTCEUR': 'XLTCZEUR',
 }
 
 OHLCV_DIR = './data/OHLCV_prices/'
@@ -139,20 +140,23 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
 
     # Check if the file exists
     if file_path.exists():
-        df_prices = pd.read_csv(path)
-        if "TIMESTAMP" in df_prices.columns:
-            df_prices = timestamp_df_to_date_df(df=df_prices)
-            df_prices = df_prices.drop_duplicates(subset=['DATE'])
+        df = pd.read_csv(path)
+        if "TIMESTAMP" in df.columns:
+            df = timestamp_df_to_date_df(df=df)
+            df = df.drop_duplicates(subset=['DATE'])
         else:
-            df_prices.DATE = pd.to_datetime(df_prices.DATE).dt.date
+            df.DATE = pd.to_datetime(df.DATE).dt.date
     else:
         print(f"Prices for: {asset_name} taken from OHLC prices")
-        df_prices = pd.read_csv(f'{OHLCV_DIR}{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C', 'VOL']]
-        df_prices = timestamp_df_to_date_df(df=df_prices)
-        df_prices = df_prices.drop_duplicates(subset=['DATE'])
-        df_prices.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
+        df = pd.read_csv(f'{OHLCV_DIR}{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C', 'VOL']]
+        df = timestamp_df_to_date_df(df=df)
+        df = df.drop_duplicates(subset=['DATE'])
+        df.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
-    return df_prices
+    df_prices = df[['DATE', 'PRICE']]
+    df['VOL_EUR'] = df.VOL * df.PRICE
+    df_volumes = df[['DATE', 'VOL_EUR']]
+    return df_prices, df_volumes
 
 
 def cancel_orders(kapi, order_type, orders):
@@ -190,9 +194,7 @@ def get_max_price_since(kapi, pair_name: str, original_name: str, since_datetime
 
 
 def get_max_price_from_csv_since(pair_name: str, since_datetime: datetime) -> float | None:
-    df_prices = read_prices_from_local_file(pair_name)
-    df_prices.rename({'C': 'PRICE'}, axis=1, inplace=True)
-    df_prices['DATE'] = pd.to_datetime(df_prices.TIMESTAMP, unit='s').dt.date
+    df_prices, _ = read_prices_from_local_file(pair_name)
     return df_prices[df_prices.DATE.dt.date >= since_datetime.date()].PRICE.max()
 
 

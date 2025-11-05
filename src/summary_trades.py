@@ -6,6 +6,7 @@ import time
 
 from datetime import datetime, timezone
 from decimal import Decimal as D
+from typing import List
 
 import krakenex
 
@@ -41,7 +42,12 @@ FILTER_ASSET_NAME = ''  #'EOSEUR' 'MATICEUR'
 req_data = {'trades': 'false'}
 
 
-def compute_gain_loss(buy_trades, sell_trades, year, asset_name) -> tuple[D, D, D, bool]:
+def compute_gain_loss(
+    buy_trades: List[CSVTrade],
+    sell_trades: List[CSVTrade],
+    year: int,
+    asset_name: str,
+) -> tuple[D, D, D, bool]:
     total_gain_loss = 0
     gain_loss_year = 0
     fees = 0  # Sell fees since Buy fees are included proportionally on price
@@ -132,7 +138,7 @@ trade_pages = get_paginated_response_from_kraken(
     records_per_page=RECORDS_PER_PAGE,
 )
 if not trade_pages:
-    print('*****No trades Found*****')
+    print('*****No new trades Found*****')
 
 for trade_page in trade_pages:
     for trade_detail in trade_page.values():
@@ -140,13 +146,13 @@ for trade_page in trade_pages:
         if datetime.strptime(closetime_str, DATETIME_FORMAT) > latest_trade_csv.completed:
             # fix_name = REPLACE_NAMES[name] if name in REPLACE_NAMES.keys() else name
             trade = CSVTrade(
-                trade_detail['pair'],
-                closetime_str,
-                trade_detail['type'],
-                trade_detail['price'],
-                trade_detail['cost'],
-                trade_detail['fee'],
-                trade_detail['vol'],
+                assert_name=trade_detail['pair'],
+                completed=closetime_str,
+                type=trade_detail['type'],
+                price=trade_detail['price'],
+                cost=trade_detail['cost'],
+                fee=trade_detail['fee'],
+                vol=trade_detail['vol'],
             )
             trades_to_append_to_csv.append(trade)
 

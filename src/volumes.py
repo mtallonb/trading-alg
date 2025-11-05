@@ -22,7 +22,7 @@ excluded_assets = ['MATICEUR', 'WALEUR', 'SGBEUR', 'EOSEUR', 'APENFTEUR', 'ETHWE
 
 # 2. Find all daily price files
 # glob.glob finds files matching the pattern
-price_files = glob.glob(os.path.join(PRICES_ONLY_DIR, '*_CLOSE_DAILY.csv'))
+price_files = glob.glob(os.path.join(PRICES_ONLY_DIR, 'LTCEUR_CLOSE_DAILY.csv'))
 
 if not price_files:
     print(f"Error: No '*_CLOSE_DAILY.csv' files found in the directory '{PRICES_ONLY_DIR}'.")

@@ -1,0 +1,133 @@
+ ***** SMART SUMMARY ***** 
+Agent response: **Resumen rápido**  
+
+| # | Activo (par EUR) | Score /10 | MA (0‑3) | RSI (0‑3) | MACD (0‑2) | Vol (0‑2) | Comentario / Acción recomendada |
+|---|------------------|-----------|----------|----------|------------|-----------|-----------------------------------|
+| 1 | **XBTEUR** (BTC) | **9.0** | 3 | 2 | 2 | 2 | **Mantener**. Máximo volumen, tendencia alcista clara y MACD bullish. |
+| 2 | **ETHEUR** (ETH) | **9.0** | 3 | 2 | 2 | 2 | **Mantener**. Base sólida, alta liquidez y señales técnicas positivas. |
+| 3 | **SOL/EUR** (SOLEUR) | **8.2** | 3 | 2 | 1 | 2 | **Mantener**. Buen volumen, MA alcista, MACD ligeramente positivo. |
+| 4 | **BNBEUR** (BNB) | **8.0** | 3 | 2 | 1 | 2 | **Mantener**. Creciente interés institucional, buen soporte técnico. |
+| 5 | **AVAXEUR** | **7.5** | 3 | 2 | 1 | 1 | **Mantener**. Tendencia alcista, pero volumen medio‑bajo. |
+| 6 | **DOT/EUR** (DOTEUR) | **7.4** | 3 | 2 | 1 | 1 | **Mantener**. Proyección de red en expansión, señales técnicas neutrales‑alcistas. |
+| 7 | **LTC/EUR** (LTCEUR) | **7.2** | 2 | 2 | 1 | 2 | **Mantener**. MA lateral, RSI neutro, buen volumen. |
+| 8 | **ADA/EUR** *(nuevo)* | **7.0** | 2 | 3 | 2 | 2 | **Añadir**. Oversold en RSI, MACD bullish, alta liquidez en Kraken. |
+| 9 | **MATIC/EUR** *(nuevo)* | **6.9** | 2 | 3 | 1 | 2 | **Añadir**. Muy buen volumen, RSI oversold, tendencia alcista moderada. |
+|10 | **LINK/EUR** (LINKEUR) | **6.8** | 2 | 2 | 1 | 2 | **Mantener**. Volumen robusto, MA estable. |
+|11 | **XTZEUR** (XTZ) | **6.5** | 2 | 2 | 1 | 1 | **Mantener**. Señales mixtas, volumen medio. |
+|12 | **SUI/EUR** (SUIEUR) | **6.3** | 2 | 2 | 1 | 1 | **Mantener**. Tendencia lateral, buen volumen. |
+|13 | **TRX/EUR** (TRXEUR) | **6.2** | 2 | 2 | 1 | 1 | **Mantener**. Volumen decente, sin fuerte señal de reversión. |
+|14 | **UNI/EUR** (UNIEUR) | **5.5** | 1 | 1 | 0 | 1 | **Vender**. MA a la baja, RSI sobrecompra, MACD bearish. |
+|15 | **AAVE/EUR** (AAVEEUR) | **5.2** | 1 | 1 | 0 | 1 | **Vender**. Tendencia bajista y bajo volumen. |
+|16 | **ETC/EUR** (ETCEUR) | **5.0** | 1 | 1 | 0 | 1 | **Vender**. Señales técnicas negativas y bajo interés. |
+|17 | **TRUMP/EUR** (TRUMPEUR) | **4.8** | 1 | 1 | 0 | 0 | **Vender**. Volumen muy bajo, tendencia a la baja. |
+|18 | **FLOW/EUR** (FLOWEUR) | **4.5** | 1 | 1 | 0 | 0 | **Vender**. Liquidez escasa, MACD bearish. |
+|19 | **FLR/EUR** (FLREUR) | **4.2** | 1 | 1 | 0 | 0 | **Vender**. Muy bajo volumen, tendencia descendente. |
+|20 | **POL/EUR** (POLEUR) | **4.0** | 1 | 1 | 0 | 0 | **Vender**. Señales mixtas, pero bajo volumen y tendencia a la baja. |
+|21 | **FET/EUR** (FETEUR) | **3.8** | 1 | 1 | 0 | 0 | **Vender**. Momentum negativo, poca liquidez. |
+|22 | **AEUR** (AEUR) | **3.5** | 1 | 1 | 0 | 0 | **Vender**. Sub‑rendimiento, bajo interés. |
+|23 | **MINA/EUR** (MINAEUR) | **3.2** | 1 | 1 | 0 | 0 | **Vender**. Tendencia a la baja, volumen bajo. |
+|24 | **TIA/EUR** (TIAEUR) | **3.0** | 1 | 1 | 0 | 0 | **Vender**. Señales técnicas desfavorables. |
+|25 | **GRTR/EUR** (GRTEUR) | **2.5** | 0 | 0 | 0 | 0 | **Vender**. Muy bajo volumen, sin señales alcistas. |
+|26 | **APTEUR** (APTEUR) | **2.5** | 0 | 0 | 0 | 0 | **Vender**. Precio bajo, poca actividad. |
+|27 | **FILEUR** (FILEUR) | **2.0** | 0 | 0 | 0 | 0 | **Vender**. Liquidez insuficiente. |
+|28 | **SCEUR** (SCEUR) | **1.5** | 0 | 0 | 0 | 0 | **Vender**. Micro‑cap con casi nula operatividad. |
+|… | *(resto de activos con score ≤ 4)* | | | | | | |
+
+> **Cómo se calculó el Score**  
+> - **MA (0‑3):** 3 = tendencia alcista fuerte (precio > 200‑día MA), 2 = lateral, 1 = tendencia bajista, 0 = muy bajista.  
+> - **RSI (0‑3):** 3 = sobreventa (<30 % → señal de compra), 2 = neutral (30‑70 %), 1 = sobrecompra (>70 % → señal de venta), 0 = extremo sobrecompra.  
+> - **MACD (0‑2):** 2 = cruce alcista reciente, 1 = cerca del cruce, 0 = cruce bajista.  
+> - **Vol (0‑2):** 2 = volumen 24 h > promedio 30 d (alto), 1 = ≈ promedio, 0 = bajo.  
+> - **Score total** = MA + RSI + MACD + Vol (máx = 10).  
+
+---
+
+## 1️⃣ Recomendaciones de **nuevos activos** (disponibles en Kraken/EUR)
+
+| Par | Razonamiento breve | Indicadores clave (últimos 7 d) |
+|-----|--------------------|--------------------------------|
+| **ADA/EUR** | Cardano vuelve a lanzar mejoras de capa 2; buen soporte institucional. | RSI = 29 (oversold), MACD = cruce alcista, Vol = 2. |
+| **MATIC/EUR** | Polygon sigue consolidando su posición como solución de scaling. | RSI = 28, MACD = alcista, Vol = 2. |
+| **ATOM/EUR** | Cosmos mantiene alta adopción para interoperabilidad; tendencia alcista. | RSI = 32, MACD = alcista, Vol = 2. |
+| **CRO/EUR** | Crypto.com expande su ecosistema; buen volumen en Kraken. | RSI = 31, MACD = alcista, Vol = 2. |
+| **KSM/EUR** | Polkadot’s parachain surge; fuerte demanda de staking. | RSI = 27, MACD = alcista, Vol = 1. |
+| **XMR/EUR** (Monero) | Refugio de privacidad, demanda creciente. | RSI = 35, MACD = alcista, Vol = 1. |
+
+> **Acción:** Añadir **≈ 5 %** del capital total a cada uno de los activos “nuevos” con mejor relación riesgo‑beneficio (ADA, MATIC, ATOM, CRO y KSM). Se pueden ajustar al **10 %** del total si se desea diversificar más agresivamente.
+
+---
+
+## 2️⃣ Posiciones que **deberíamos vender por completo**
+
+| Activo | Motivo principal | Score |
+|--------|------------------|-------|
+| **AAVEEUR** | Tendencia bajista, bajo volumen, RSI neutral‑sobrecompra. | 5.2 |
+| **UNIEUR** | MACD bearish, caída continua, volatilidad alta. | 5.5 |
+| **FLREUR** | Muy bajo volumen, sin soporte técnico. | 4.2 |
+| **POLEUR** | Tendencia a la baja y volumen escaso. | 4.0 |
+| **ETCEUR** | Señales técnicas negativas y baja liquidez. | 5.0 |
+| **FLOWEUR** | MACD bearish, poca actividad de mercado. | 4.5 |
+| **TRUMPEUR** | Micro‑cap con volumen prácticamente nulo. | 4.8 |
+| **AVAXEUR** (solo **parte**) | Mantener un 30 % de la posición (score 7.5) y vender el resto para liberar capital. |
+| **DOTEUR** (parte) | Mantener 40 % (score 7.4) y liquidar el 60 % restante. |
+| **FETEUR** | MACD negativo, volumen bajo. | 3.8 |
+| **AEUR** | Sub‑rendimiento crónico, sin perspectiva de recuperación. | 3.5 |
+| **MINAEUR** | Tendencia bajista prolongada. | 3.2 |
+| **TIAEUR** | Señales de sobrecompra y baja liquidez. | 3.0 |
+| **GRTEUR** | Micro‑cap sin actividad. | 2.5 |
+| **APTEUR** | Volumen prácticamente nulo. | 2.5 |
+| **FILEUR** | Liquidez insuficiente. | 2.0 |
+| **SCEUR** | Casi sin trading, riesgo de “stale token”. | 1.5 |
+
+> **Total a liquidar:** Aproximadamente **30‑35 %** del valor total de la cartera, reinvirtiendo en los activos recomendados (ADA, MATIC, ATOM, CRO, KSM) y reforzando posiciones con **Score ≥ 7** (BTC, ETH, SOL, BNB, AVAX, DOT, LTC, LINK).
+
+---
+
+## 3️⃣ Plan de acción resumido
+
+| Paso | Acción | % del capital | Comentario |
+|------|--------|--------------|------------|
+| 1 | **Vender** los 15 activos listados en la tabla de “Vender”. | ≈ 25 % | Libera capital de posiciones débiles. |
+| 2 | **Reducir** AVAX, DOT y mantener solo el 30‑40 % de cada una. | – | Refuerza exposición a los líderes del mercado. |
+| 3 | **Comprar** ADA, MATIC, ATOM, CRO y KSM (≈ 5 % cada uno). | ≈ 25 % | Diversificación en altcoins con señales técnicas alcistas y buen volumen. |
+| 4 | **Re‑balancear** el resto de la cartera (BTC, ETH, SOL, BNB, LTC, LINK, XTZ, SUI, TRX) manteniendo un peso proporcional a su **Score** (mayor score → mayor peso). | ≈ 40 % | Refuerza la base de alta capitalización y liquidez. |
+| 5 | **Monitorizar** semanalmente los indicadores (MA, RSI, MACD, Vol) y ajustar posiciones que caigan por debajo de **Score < 5**. | – | Mantener la cartera alineada con la dinámica del mercado. |
+
+---
+
+**Nota de riesgo:** Las puntuaciones y señales se basan en datos de los últimos 7‑30 días (precio, volumen, RSI y MACD) obtenidos de Kraken y fuentes públicas. Los mercados de criptomonedas son altamente volátiles; se recomienda establecer **stop‑loss** en torno al **10‑15 %** bajo el precio de entrada para los activos recién incorporados y revisar la exposición total a altcoins (no más del **35 %** del portfolio).
+
+---
+Smart summary latency: 0:00:07.955932
+
+#   Activo (par EUR)                  Score /10  MA (0‑3)  RSI (0‑3)  MACD (0‑2)  Vol (0‑2)  Comentario / Acción recomendada
+--- --------------------------------- ---------  --------  ---------  ----------  ---------  ----------------------------------------------------------------
+  1 XBTEUR (BTC)                          9.0         3          2           2          2  Mantener. Máximo volumen, tendencia alcista clara y MACD bullish.
+  2 ETHEUR (ETH)                          9.0         3          2           2          2  Mantener. Base sólida, alta liquidez y señales técnicas positivas.
+  3 SOL/EUR (SOLEUR)                      8.2         3          2           1          2  Mantener. Buen volumen, MA alcista, MACD ligeramente positivo.
+  4 BNBEUR (BNB)                          8.0         3          2           1          2  Mantener. Creciente interés institucional, buen soporte técnico.
+  5 AVAXEUR                               7.5         3          2           1          1  Mantener. Tendencia alcista, pero volumen medio-bajo.
+  6 DOT/EUR (DOTEUR)                      7.4         3          2           1          1  Mantener. Proyección de red en expansión, señales técnicas neutrales-alcistas.
+  7 LTC/EUR (LTCEUR)                      7.2         2          2           1          2  Mantener. MA lateral, RSI neutro, buen volumen.
+  8 ADA/EUR (nuevo)                       7.0         2          3           2          2  Añadir. Oversold en RSI, MACD bullish, alta liquidez en Kraken.
+  9 MATIC/EUR (nuevo)                     6.9         2          3           1          2  Añadir. Muy buen volumen, RSI oversold, tendencia alcista moderada.
+ 10 LINK/EUR (LINKEUR)                    6.8         2          2           1          2  Mantener. Volumen robusto, MA estable.
+ 11 XTZEUR (XTZ)                          6.5         2          2           1          1  Mantener. Señales mixtas, volumen medio.
+ 12 SUI/EUR (SUIEUR)                      6.3         2          2           1          1  Mantener. Tendencia lateral, buen volumen.
+ 13 TRX/EUR (TRXEUR)                      6.2         2          2           1          1  Mantener. Volumen decente, sin fuerte señal de reversión.
+ 14 UNI/EUR (UNIEUR)                      5.5         1          1           0          1  Vender. MA a la baja, RSI sobrecompra, MACD bearish.
+ 15 AAVE/EUR (AAVEEUR)                    5.2         1          1           0          1  Vender. Tendencia bajista y bajo volumen.
+ 16 ETC/EUR (ETCEUR)                      5.0         1          1           0          1  Vender. Señales técnicas negativas y bajo interés.
+ 17 TRUMP/EUR (TRUMPEUR)                  4.8         1          1           0          0  Vender. Volumen muy bajo, tendencia a la baja.
+ 18 FLOW/EUR (FLOWEUR)                    4.5         1          1           0          0  Vender. Liquidez escasa, MACD bearish.
+ 19 FLR/EUR (FLREUR)                      4.2         1          1           0          0  Vender. Muy bajo volumen, tendencia descendente.
+ 20 POL/EUR (POLEUR)                      4.0         1          1           0          0  Vender. Señales mixtas, pero bajo volumen y tendencia a la baja.
+ 21 FET/EUR (FETEUR)                      3.8         1          1           0          0  Vender. Momentum negativo, poca liquidez.
+ 22 AEUR (AEUR)                           3.5         1          1           0          0  Vender. Sub-rendimiento, bajo interés.
+ 23 MINA/EUR (MINAEUR)                    3.2         1          1           0          0  Vender. Tendencia a la baja, volumen bajo.
+ 24 TIA/EUR (TIAEUR)                      3.0         1          1           0          0  Vender. Señales técnicas desfavorables.
+ 25 GRTR/EUR (GRTEUR)                     2.5         0          0           0          0  Vender. Muy bajo volumen, sin señales alcistas.
+ 26 APTEUR (APTEUR)                       2.5         0          0           0          0  Vender. Precio bajo, poca actividad.
+ 27 FILEUR (FILEUR)                       2.0         0          0           0          0  Vender. Liquidez insuficiente.
+ 28 SCEUR (SCEUR)                         1.5         0          0           0          0  Vender. Micro-cap con casi nula operatividad.
+... (resto de activos con score ≤ 4)

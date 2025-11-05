@@ -233,7 +233,7 @@ asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR']
 for asset_name in asset_names:
     latest_date = yesterday - timedelta(days=600)
     fix_asset_name = get_fix_pair_name(asset_name, FIX_X_PAIR_NAMES)
-    df_prices = read_prices_from_local_file(asset_name=fix_asset_name)
+    df_prices, _ = read_prices_from_local_file(asset_name=fix_asset_name)
     if not df_prices.empty:
         latest_date = df_prices.DATE.iloc[-1]
 
@@ -250,7 +250,6 @@ for asset_name in asset_names:
             df_prices = df_prices.drop_duplicates(subset=['DATE'])
 
             df_prices.to_csv(f'{PRICES_DIR}{fix_asset_name}_DAILY_WITH_VOLUME.csv', index=False)
-
 
     df_trades_asset = df_trades[df_trades.ASSET == asset_name]
     df_asset_pos = get_asset_positions(
@@ -330,7 +329,7 @@ df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 2950.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 3000.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

@@ -25,7 +25,7 @@ FEES_PERCENTAGE = 0.01
 
 pairs_info = []
 for asset_name in ASSET_NAMES:
-    df_prices = read_prices_from_local_file(asset_name=asset_name)
+    df_prices, _ = read_prices_from_local_file(asset_name=asset_name)
     if df_prices.empty:
         print(f'No prices found for {asset_name}')
         continue

@@ -37,15 +37,17 @@ def get_smart_summary(positions: list, death_assets: list):
         Especialmente los siguientes activos: {death_assets}
         Haz un Ranking de mis posiciones evaluando de 0 a 10 según tu mejor criterio e indicame el criterio usado.
         Podrías usar medias móviles, RSI (sobreventa) + MACD (cruce alcista) + volumen alto para confirmar señales.
-        La salida debe una tabla tabulada correctamente (IMPORTANTE tabula las columnas correctamente para leerlo bien por pantalla) con el ranking ordenado de mayor a menor puntuación o score (añade también las puntuaciones de cada indicador) y las recomendaciones en un formato entendible.
+        La salida debe ser una tabla tabulada correctamente (IMPORTANTE tabula las columnas correctamente para leerlo bien por pantalla) con el ranking ordenado de mayor a menor puntuación o score (añade también las puntuaciones de cada indicador) y las recomendaciones en un formato entendible.
         Muestrame el ranking completo y la columna del score debe estar junto al nombre del activo.
-        Te paso un ejemplo de tabla de ranking para la correcta tabulación:
+        Te paso un ejemplo de tabla de ranking para la tabulación correcta:
 
 #    Activo (par EUR)                             Score /10   MA (0‑3)   RSI (0‑3)   MACD (0‑2)   Vol (0‑2)   Comentario / Acción recomendada
 --- -------------------------------------------- ----------- ---------- ----------- ------------ ----------- -----------------------------------------------------------------------------------------
 1   XBTEUR (BTC)                                     9.0         3          2           2            2           Mantener. Lidera mercado, alta liquidez y señales alcistas.
 2   ETHEUR (ETH)                                     9.0         3          2           2            2           Mantener. Base sólida, buen volumen y MACD positivo.
 
+
+IMPORTANTE: Recuerda tabular correctamente que siempre te equivocas en la tabulación
     """  # noqa: E501, RUF001
 
     # response = client.chat.completions.create(

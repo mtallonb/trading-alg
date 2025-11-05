@@ -172,7 +172,7 @@ for key, value in balance['result'].items():
                 assets_dict[asset_name_clean].autostaked_shares = float(value)
 
 
-# ----------FILL PRICES-------------------------------------------------------------------
+# ----------FILL PRICES and VOLUMES-------------------------------------------------------------------
 name_list = list(assets_dict.keys())
 concatenate_names = ','.join(name_list)
 # Watch-out is returning all assets with the latest price
@@ -186,7 +186,7 @@ for name, ticker_info in tickers_info['result'].items():
     if asset:
         asset.fill_ticker_info(ticker_info)
     if LOAD_ALL_CLOSE_PRICES:
-        df_prices = read_prices_from_local_file(asset_name=fixed_pair_name)
+        df_prices, df_volumes = read_prices_from_local_file(asset_name=fixed_pair_name)
         if not df_prices.empty:
             asset.close_prices = df_prices
             latest_price_date = df_prices.DATE.iloc[-1]
