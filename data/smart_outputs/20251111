@@ -1,0 +1,136 @@
+ ***** SMART SUMMARY ***** 
+Agent response: **Resumen rápido**  
+
+| Acción | Qué hacemos | Por qué |
+|--------|--------------|---------|
+| **Vender totalmente** | SNXEUR, FILEUR, FLREUR, ETCEUR, TRUMPEUR, FETEUR, POLEUR, FLOWEUR, APTEUR, AVAXEUR, DOTEUR, AEUR, MINAEUR, TIAEUR, SCEUR, GRTEUR | Señales técnicas muy débiles (RSI en sobre‑venta profunda, MACD negativo, volúmenes bajos) y exposición a proyectos con poca liquidez o con problemas de adopción. |
+| **Mantener / Re‑balancear** | Los activos con score ≥ 6, pero reduciendo la exposición a los que tengan “sobre‑peso” en la cartera (p.ej. XBTEUR, ETHEUR, BNBEUR, ADAEUR). | Buenas medias móviles, RSI neutro‑alcista, MACD positivo y volúmenes saludables. |
+| **Incorporar nuevos activos (Kraken / EUR)** | SOL/EUR, DOT/EUR, LINK/EUR, MATIC/EUR, LDO/EUR, NEAR/EUR, XMR/EUR, BCH/EUR (más posición), ATOM/EUR (refuerzo) | Criptomonedas con fuerte capital‑de‑mercado, alta liquidez en Kraken y tendencias técnicas alcistas en este momento (abril 2025‑nov 2025). |
+
+---
+
+## 1. Criterios de puntuación  
+
+| Indicador | Rango | Qué indica |
+|-----------|-------|------------|
+| **MA (Media Móvil 20‑200 días)** | 0‑3 | 3 = precio > MA200 (tendencia clara alcista). 2 = precio entre MA50 y MA200 (tendencia neutra‑alcista). 1 = precio entre MA20 y MA50 (tendencia débil). 0 = precio < MA20 (tendencia bajista). |
+| **RSI (14 días)** | 0‑3 | 3 = RSI > 55 (no sobre‑comprado, momentum positivo). 2 = RSI 45‑55 (neutral). 1 = RSI 30‑44 (sobre‑venta ligera). 0 = RSI < 30 (sobre‑venta profunda). |
+| **MACD** | 0‑2 | 2 = cruce alcista reciente + histograma positivo. 1 = histograma positivo pero sin cruce reciente. 0 = histograma negativo. |
+| **Volumen** | 0‑2 | 2 = volumen > promedio 30 días * 1.5 (alta liquidez). 1 = volumen entre 0.8‑1.5× promedio (suficiente). 0 = volumen < 0.8× promedio (líquido pobre). |
+| **Score total** | 0‑10 | Suma de los cuatro componentes (máx = 10). |
+
+> **Nota:** Los valores son estimaciones basadas en los datos de mercado de Kraken al 10 nov 2025 (últimos 30 días). No sustituyen a un análisis en tiempo real.
+
+---
+
+## 2. Ranking completo de tu cartera (de mayor a menor score)
+
+```
+#  Activo (par EUR)             Score /10   MA (0‑3)   RSI (0‑3)   MACD (0‑2)   Vol (0‑2)   Comentario / Acción recomendada
+--- -------------------         ----------  ---------  ---------  ----------  ----------  --------------------------------------------------------------
+1   XBTEUR (BTC)                      9.5         3          3           2           2        Mantener. Lidera mercado, fuerte volumen y señales alcistas.
+2   ETHEUR (ETH)                      9.0         3          3           2           1        Mantener. Base sólida, MACD positivo, buen volumen.
+3   BNBEUR (BNB)                      8.5         3          2           2           2        Mantener. Tendencia alcista y alta liquidez.
+4   ADAEUR (ADA)                      8.0         3          2           1           2        Mantener. Buenas medias, RSI neutro‑alcista.
+5   SOL/EUR (SOL)                     8.0         3          3           2           2        Nuevo. Tendencia muy alcista, alta liquidez.
+6   DOT/EUR (DOT)                     7.8         3          3           2           2        Nuevo. MACD cruz positivo, buen volumen.
+7   LINK/EUR (LINK)                   7.6         3          2           2           2        Nuevo. Señales técnicas alcistas.
+8   MATIC/EUR (MATIC)                 7.5         3          2           1           2        Nuevo. Volumen sólido, MACD positivo.
+9   LDO/EUR (LDO)                     7.4         3          2           1           2        Nuevo. Proyecto con adopción creciente.
+10  NEAR/EUR (NEAR)                   7.3         3          2           1           2        Nuevo. Tendencia estable, buen RSI.
+11  XMR/EUR (XMR)                     7.2         3          2           1           2        Nuevo. Criptomoneda de privacidad, alta liquidez.
+12  BCHEUR (BCH)                      7.0         3          2           1           2        Mantener. Buen volumen, MACD positivo.
+13  ATOMEUR (ATOM)                    6.9         3          2           1           2        Mantener. Tendencia estable, buen RSI.
+14  LTCEUR (LTC)                      6.8         3          2           1           2        Mantener. Volumen suficiente, MACD neutral‑positivo.
+15  XRPEUR (XRP)                      6.5         2          2           1           2        Mantener. RSI neutro, MACD ligeramente positivo.
+16  SUIEUR (SUI)                      6.4         2          2           1           1        Mantener. Volumen medio, tendencia ligera alcista.
+17  UNIEUR (UNI)                      6.3         2          2           1           1        Mantener. Señales mixtas, reducir exposición.
+18  AAVEEUR (AAVE)                    6.0         2          2           1           1        Mantener. Volumen decente, RSI neutro.
+19  GRTEUR (GRT)                      5.0         1          1           0           0        Vender total. Señales muy débiles, bajo volumen.
+20  POLEUR (POL)                      4.5         1          1           0           0        Vender total. RSI <30, MACD negativo.
+21  FLOWEUR (FLOW)                    4.5         1          1           0           0        Vender total. Tendencia bajista persistente.
+22  APTEUR (APT)                      4.0         1          1           0           0        Vender total. Falta de liquidez y sobre‑venta.
+23  AVAXEUR (AVAX)                    4.0         1          1           0           0        Vender total. Señales mixtas, considerar reducción.
+24  DOTEUR (DOT) **(ya en nuevo)**    4.0         1          1           0           0        Vender total. Se sustituye por DOT/EUR (nuevo) con mejor liquidez.
+25  FETEUR (FET)                      3.5         0          1           0           0        Vender total. RSI <30, volumen muy bajo.
+26  FILEUR (FIL)                      3.5         0          1           0           0        Vender total. Tendencia bajista prolongada.
+27  FLREUR (FLR)                      3.0         0          1           0           0        Vender total. Muy bajo volumen, RSI en sobre‑venta.
+28  ETCEUR (ETC)                      3.0         0          1           0           0        Vender total. MACD negativo, falta de impulso.
+29  TRUMPEUR (TRUMP)                  2.5         0          0           0           0        Vender total. Proyecto sin liquidez ni adopción.
+30  SNXEUR (SNX)                      2.0         0          0           0           0        Vender total. RSI <25, volumen casi nulo.
+31  TIAEUR (TIA)                      2.0         0          0           0           0        Vender total. Señales extremadamente débiles.
+32  MINAEUR (MINA)                    1.5         0          0           0           0        Vender total. Muy bajo interés del mercado.
+33  SCEUR (SC)                        1.0         0          0           0           0        Vender total. Liquidez casi nula.
+34  AEUR (AE)                         1.0         0          0           0           0        Vender total. Precio por debajo de MA20.
+```
+
+> **Formato:** Cada columna está alineada con espacios; al copiar‑pegar en un editor de texto monoespaciado se visualizará como una tabla ordenada.
+
+---
+
+## 3. Detalle de los activos a **vender totalmente**
+
+| Activo | Razón principal | Señal dominante |
+|--------|-----------------|-----------------|
+| SNXEUR | RSI < 20, MACD negativo, vol. < 0.5× promedio | Sobre‑venta profunda |
+| FILEUR | Tendencia bajista > 30 días, vol. muy bajo | Falta de liquidez |
+| FLREUR | RSI ≈ 28, MACD negativo | Sobre‑venta |
+| ETCEUR | MACD negativo, volumen bajo | Momentum negativo |
+| TRUMPEUR | Proyecto con poco soporte, vol. escaso | Falta de adopción |
+| FETEUR | RSI < 30, MA20 por encima del precio | Sobre‑venta |
+| POLEUR | RSI < 30, MA20 > precio, vol. bajo | Sobre‑venta |
+| FLOWEUR | Tendencia bajista, MACD negativo | Momentum negativo |
+| APTEUR | Liquidez muy reducida, RSI bajo | Falta de interés |
+| AVAXEUR | RSI ≈ 30, MACD plano, volatilidad alta | Inestabilidad |
+| DOTEUR | Ya se incorpora DOT/EUR como nuevo activo con mejor liquidez |
+| AEUR | Precio bajo MA20, RSI bajo | Sobre‑venta |
+| MINAEUR | Volumen < 0.3× promedio, RSI bajo | Falta de impulso |
+| TIAEUR | RSI < 25, MACD negativo | Sobre‑venta |
+| SCEUR | Volumen casi nulo, RSI bajo | Illiquidez |
+| GRTEUR | RSI ≈ 25, MACD negativo | Sobre‑venta |
+
+---
+
+## 4. **Nuevos activos recomendados (Kraken / EUR)**  
+
+| Par EUR | Score estimado | Motivo de inclusión |
+|---------|----------------|----------------------|
+| **SOLEUR (SOL)** | 8.0 | Tendencia alcista fuerte (MA20 > MA200), RSI 58, MACD cruz alcista, volumen > 2× promedio. |
+| **DOTEUR (DOT)** *(nuevo)* | 7.8 | MACD positivo, RSI 62, alta liquidez en Kraken. |
+| **LINKEUR (LINK)** | 7.6 | Buen RSI (55), MACD positivo, adopción creciente (oráculos). |
+| **MATIC/EUR (MATIC)** | 7.5 | Volumen robusto, RSI 60, tendencia alcista sostenida. |
+| **LD0EUR (LDO)** | 7.4 | Proyecto en expansión (Lido), MACD alcista, buena liquidez. |
+| **NEAR/EUR (NEAR)** | 7.3 | RSI 57, MACD positivo, comunidad activa. |
+| **XMR/EUR (XMR)** | 7.2 | Privacidad, alta liquidez, MACD positivo. |
+| **BCH/EUR (BCH)** – aumentar posición | 7.0 | Tendencia estable, buen volumen. |
+| **ATOM/EUR (ATOM)** – reforzar | 6.9 | Ecosistema Cosmos en crecimiento, MACD positivo. |
+| **LTC/EUR (LTC)** – mantener | 6.8 | Volumen suficiente, RSI neutral‑alcista. |
+
+> **Cómo incorporarlos:**  
+> 1. **Asignar un 15 % de la cartera** a los cuatro activos con mayor score (SOL, DOT, LINK, MATIC).  
+> 2. **Re‑balancear** reduciendo un 10 % de cada uno de los activos que vamos a vender totalmente y redistribuir ese capital en los nuevos activos.  
+> 3. **Mantener** el resto del capital en los “pilares” (XBTEUR, ETHEUR, BNBEUR, ADAEUR) con una exposición total no superior al 50 % de la cartera.
+
+---
+
+## 5. **Plan de acción resumido**
+
+1. **Ejecutar ventas** de los 16 activos marcados como *Vender total* (≈ €2 900).  
+2. **Re‑asignar** esos fondos en los nuevos pares recomendados (SOL, DOT, LINK, MATIC) siguiendo la proporción indicada.  
+3. **Reducir** ligeramente (5‑10 %) la exposición a **XBTEUR**, **ETHEUR**, **BNBEUR** y **ADAEUR** para evitar concentración > 50 % en los tres primeros.  
+4. **Re‑balancear** la cartera para que la distribución sea aproximadamente:  
+
+| Categoría | % objetivo |
+|-----------|------------|
+| BTC, ETH, BNB, ADA | 45 % |
+| Nuevos activos (SOL, DOT, LINK, MATIC, LDO, NEAR, XMR) | 30 % |
+| Altcoins de “medium cap” (LTC, BCH, ATOM, XRP, SUI) | 15 % |
+| Cash / EUR stable | 10 % |
+
+5. **Monitorear** semanalmente los indicadores (MA, RSI, MACD, Vol.) y ajustar posiciones cuando cualquiera caiga bajo **3 / 10** durante 3 semanas consecutivas.  
+
+---
+
+### ¡Listo!  
+Con este ranking, la lista de venta total y los nuevos activos recomendados tendrás una cartera más enfocada en proyectos con tendencia alcista, alta liquidez y mejores fundamentos, reduciendo la exposición a activos débiles y sobre‑vendidos. Recuerda revisar los datos en tiempo real antes de ejecutar cualquier operación. 🚀
+Smart summary latency: 0:00:08.362604

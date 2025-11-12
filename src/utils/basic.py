@@ -153,7 +153,7 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
         df = df.drop_duplicates(subset=['DATE'])
         df.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
-    df_prices = df[['DATE', 'PRICE']]
+    df_prices = df[['DATE', 'PRICE', 'VOL']]
     df['VOL_EUR'] = df.VOL * df.PRICE
     df_volumes = df[['DATE', 'VOL_EUR']]
     return df_prices, df_volumes
@@ -270,7 +270,7 @@ def compute_ranking(df):
     """
     df input COLUMNS: [
         'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES', 'X_TRADES',
-        'AVG_200', 'AVG_50', 'AVG_10'
+        'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10',
         ]
     """
 
@@ -279,24 +279,40 @@ def compute_ranking(df):
     df['PS'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
     df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
     df['BS_P'] = df['BS_P'].replace([np.inf, -np.inf], 0)
-    df['TREND_DIST'] = 3 * df.CURR_PRICE - df.AVG_200 - df.AVG_50 - df.AVG_10
-    df['TREND_DIST_ABS'] = (
-        (df.CURR_PRICE - df.AVG_200).abs() + (df.CURR_PRICE - df.AVG_50).abs() + (df.CURR_PRICE - df.AVG_10).abs()
-    )
+    # Compute TREND
+    df['TREND_DIST'] = 3 * df.CURR_PRICE - df.AVG_PRICE_200 - df.AVG_PRICE_50 - df.AVG_PRICE_10
+    df['TREND_DIST_ABS'] = (df.CURR_PRICE - df.AVG_PRICE_200).abs() + (df.CURR_PRICE - df.AVG_PRICE_50).abs() + (df.CURR_PRICE - df.AVG_PRICE_10).abs()  # fmt: skip # noqa
     df['TREND'] = df.TREND_DIST / df.TREND_DIST_ABS
     df['TREND'] = df['TREND'].replace([np.inf, -np.inf], 0)
+    # Compute TREND_VOL
+    df['VOL_DIST'] = 2 * df.AVG_VOL_10 - df.AVG_VOL_200 - df.AVG_VOL_50
+    df['VOL_DIST_ABS'] = (df.AVG_VOL_10 - df.AVG_VOL_200).abs() + (df.AVG_VOL_10 - df.AVG_VOL_50).abs()
+    df['VOL'] = df.VOL_DIST / df.VOL_DIST_ABS
+    df['VOL'] = df['VOL'].replace([np.inf, -np.inf], 0)
 
+    df.loc[df.VOL < 0, 'VOL'] = 0
     df.loc[df.TREND < 0, 'TREND'] = 0
     df.loc[df.PB <= -2, 'PB'] = -2.0
     df.loc[df.PS <= -2, 'PS'] = -2.0
     df.loc[df.MARGIN_P > 6 * df.MARGIN_A.mean(), 'MARGIN_P'] = 6 * df.MARGIN_A.mean()
+    df['TREND_VOL'] = df.TREND * df.VOL
 
     # ------NORMALIZATION--------
     COLS_TO_NORM = ['PB', 'PS', 'BS_P', 'S_TRADES', 'MARGIN_P', 'X_TRADES']
     df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
     # ---------------------------
 
-    df['RANKING'] = df['PB'] + df['PS'] + df['BS_P'] + df['S_TRADES'] + df['MARGIN_P'] + df['X_TRADES'] + df['TREND']
+    df['RANKING'] = (
+        df['PB']
+        + df['PS']
+        + df['BS_P']
+        + df['S_TRADES']
+        + df['MARGIN_P']
+        + df['X_TRADES']
+        # + df['TREND']
+        # + df['VOL']
+        + df['TREND_VOL']
+    )
 
     idx_avg_s_zeros = df['AVG_S'] == 0.0
     df.loc[idx_avg_s_zeros, 'RANKING'] = np.nan
@@ -307,16 +323,10 @@ def compute_ranking(df):
     df['RANKING'] = df['RANKING'] - df['RANKING'].min()
     df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
 
-    # # Lista de columnas a redondear
-    # cols_to_round = [ 'RANKING', 'TREND', 'MARGIN_P', 'PB', 'PS', 'BS_P', 'S_TRADES', 'X_TRADES', 'AVG_B', 'AVG_S', 'AVG_200', 'AVG_50', 'AVG_10', 'MARGIN_A', 'TREND_DIST', 'TREND_DIST_ABS', ]  # fmt: skip # noqa
-    # # Asegurar que las columnas son numéricas y luego redondearlas a 1 decimal
-    # for col in cols_to_round:
-    #     df[col] = pd.to_numeric(df[col], errors='coerce').round(1)
-
     df.sort_values(by=['RANKING'], inplace=True, ignore_index=True, ascending=False)
-    ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'PB', 'PS', 'BS_P', 'TREND']]  # fmt: skip # noqa
-    details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'AVG_200', 'AVG_50', 'AVG_10', 'TREND_DIST', 'TREND_DIST_ABS']]  # fmt: skip # noqa
-    # details_df = details_df.style.format({'CURR_PRICE': '{:.5f}'})
+    ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'PB', 'PS', 'BS_P', 'TREND', 'VOL', 'TREND_VOL']]  # fmt: skip # noqa
+    details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'TREND', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10','VOL']]  # fmt: skip # noqa
+
     return ranking_df, details_df
 
 

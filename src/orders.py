@@ -7,9 +7,11 @@
 # Ejecutar las pérdidas si hay mucha ganancia este año
 # Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Mostrar si esta bloqueado el que esta a punto de vender
+# DEFAULT_SESSIONS = [10, 50, 200]
 
-# Mejorar el calculo de ganancias en LIFO quizás se podria hacer con Pandas y pasarle la estrategia LIFO o FIFO
-# La métrica de Volumen podria servir para puntuaciones de ranking. Mayor volumen mejor puntuación si tendencia alcista.
+# RENAMING OF ASSETS:
+# MATICEUR -> POLEUR
+# EOSEUR -> AEUR
 
 
 from datetime import datetime, timedelta, timezone
@@ -48,10 +50,12 @@ BUY_LIMIT_AMOUNT = (
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 USE_ORDER_THR = False
+SHOW_SMART_SUMMARY = False
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
 LAST_ORDERS = 10
+DEFAULT_SESSIONS = [10, 50, 200]
 EXCLUDE_PAIR_NAMES = [
     'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
     'MATICEUR', 'EOSEUR',
@@ -75,7 +79,6 @@ PAIR_TO_FORCE_INFO = []  # ['ADAEUR', 'SOLEUR']
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
 PRINT_PERCENTAGE_TO_EXECUTE_ORDERS = True
-SHOW_SMART_SUMMARY = False
 
 AUTO_CANCEL_BUY_ORDER = True
 AUTO_BUY_ORDER = False
@@ -177,8 +180,6 @@ name_list = list(assets_dict.keys())
 concatenate_names = ','.join(name_list)
 # Watch-out is returning all assets with the latest price
 tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
-# for key, val in DUAL_ASSETS_NAME.items():
-#     tickers_info['result'][key] = tickers_info['result'].pop(val)
 
 for name, ticker_info in tickers_info['result'].items():
     fixed_pair_name = get_fix_pair_name(name, FIX_X_PAIR_NAMES)
@@ -190,13 +191,18 @@ for name, ticker_info in tickers_info['result'].items():
         if not df_prices.empty:
             asset.close_prices = df_prices
             latest_price_date = df_prices.DATE.iloc[-1]
-            # latest_price_date = (
-            #     from_str_to_date(day=latest_price_date) if isinstance(latest_price_date, str) else latest_price_date
-            # )
             if latest_price_date < yesterday:
                 print(f'Local PRICES of asset {fixed_pair_name} not updated since: {latest_price_date}')
         else:
             print(f'None prices found for asset: {fixed_pair_name}')
+
+        if not df_volumes.empty:
+            asset.close_volumes = df_volumes
+            latest_volume_date = df_volumes.DATE.iloc[-1]
+            if latest_volume_date < yesterday:
+                print(f'Local VOLUMES of asset {fixed_pair_name} not updated since: {latest_volume_date}')
+        else:
+            print(f'None volumes found for asset: {fixed_pair_name}')
 
 # ----------FILL STACKING INFO-------------------------------------------------------------------
 staked_assets = kapi.query_private('Earn/Allocations', data={'hide_zero_allocations': 'true'})
@@ -394,7 +400,7 @@ if PRINT_LAST_TRADES:
 elapsed_time_last_trades = datetime.now(timezone.utc) - trades_time_start
 
 # ----------FILL LAST TRADES-------------------------------------------------------------------
-print('\n*****PAIR NAMES BY LATEST TRADE:*****')
+# print('\n*****PAIR NAMES BY LATEST TRADE:*****')
 # Sort dict by last trade
 sorted_pair_names_list_latest = sorted(assets_dict.items(), key=lambda x: x[1].latest_trade_date, reverse=False)
 
@@ -413,22 +419,24 @@ for _, asset in sorted_pair_names_list_latest:
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
         buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
         margin_amount = asset.margin_amount
-        if asset.close_prices is None:
-            expected_sells_200 = None
-            avg_sessions_200 = None
-            avg_sessions_50 = None
-            avg_sessions_10 = None
-            print(f"MISSING PRICES FOR ASSET: {asset.name}")
-        else:
+        expected_sells_200 = avg_sessions_200 = avg_sessions_50 = avg_sessions_10 = None
+        avg_volumes_200 = avg_volumes_50 = avg_volumes_10 = None
+        if not asset.close_prices.empty:
             expected_sells_200 = count_sells_in_range(
                 close_prices=asset.close_prices,
                 days=200,
                 buy_perc=BUY_PERCENTAGE,
                 sell_perc=SELL_PERCENTAGE,
             )
-            avg_sessions_200 = asset.avg_sessions(days=200)
-            avg_sessions_50 = asset.avg_sessions(days=50)
-            avg_sessions_10 = asset.avg_sessions(days=10)
+            avg_sessions_200 = asset.avg_session_price(days=200)
+            avg_sessions_50 = asset.avg_session_price(days=50)
+            avg_sessions_10 = asset.avg_session_price(days=10)
+
+        if not asset.close_volumes.empty:
+            avg_volumes_200 = asset.avg_session_volume(days=200)
+            avg_volumes_50 = asset.avg_session_volume(days=50)
+            avg_volumes_10 = asset.avg_session_volume(days=10)
+
         # This list will be loaded to a DataFrame see ranking_cols
         assets_by_last_trade.append(
             [
@@ -445,6 +453,9 @@ for _, asset in sorted_pair_names_list_latest:
                 my_round(avg_sessions_200),
                 my_round(avg_sessions_50),
                 my_round(avg_sessions_10),
+                my_round(avg_volumes_200),
+                my_round(avg_volumes_50),
+                my_round(avg_volumes_10),
             ],
         )
 
@@ -461,9 +472,12 @@ ranking_cols = [
     'MARGIN_A',
     'S_TRADES',
     'X_TRADES',
-    'AVG_200',
-    'AVG_50',
-    'AVG_10',
+    'AVG_PRICE_200',
+    'AVG_PRICE_50',
+    'AVG_PRICE_10',
+    'AVG_VOL_200',
+    'AVG_VOL_50',
+    'AVG_VOL_10',
 ]
 df = pd.DataFrame(assets_by_last_trade, columns=ranking_cols)
 ranking_df, detailed_ranking_df = compute_ranking(df)
@@ -479,6 +493,9 @@ print(
 
 pd.options.display.float_format = '{:.1f}'.format
 print(ranking_df.to_string(index=False))
+ranking_df_trending = ranking_df[ranking_df.TREND >= 0.2]
+print('\n*****PAIR NAMES with TREND >= 0.2*****')
+print(ranking_df_trending.to_string(index=False))
 print('\n*****PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount - buys_amount.')
 pd.options.display.float_format = PANDAS_FLOAT_FORMAT
 print(detailed_ranking_df.to_string(index=False))

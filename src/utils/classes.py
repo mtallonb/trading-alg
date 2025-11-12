@@ -13,7 +13,7 @@ OP_SELL = 'sell'
 
 
 class Order:
-    def __init__(self, txid, order_type, shares, price):
+    def __init__(self, txid: str, order_type: str, shares: float, price: float):
         self.txid = txid
         self.order_type = order_type
         self.shares = shares
@@ -31,7 +31,14 @@ class Order:
 
 
 class Trade:
-    def __init__(self, trade_type, shares, price, amount=0.0, execution_datetime=None):
+    def __init__(
+        self,
+        trade_type: str,
+        shares: float,
+        price: float,
+        amount: float = 0.0,
+        execution_datetime: datetime | None = None,
+    ):
         self.trade_type = trade_type
         self.shares = shares
         self.price = price
@@ -88,7 +95,9 @@ class Asset:
     currency: Currency = None
 
     # Dataframe with columns DATE and PRICE
-    close_prices: DataFrame = None
+    close_prices: DataFrame | None = None
+    # Dataframe with columns DATE and VOL_EUR
+    close_volumes: DataFrame | None = None
 
     price: float = 0.0
     shares: float = 0.0  # Spot shares
@@ -170,12 +179,19 @@ class Asset:
     def margin_amount(self) -> float:
         return self.trades_sell_amount + self.balance - self.trades_buy_amount
 
-    def avg_sessions(self, days: int) -> float:
+    def avg_session_price(self, days: int) -> float:
         if self.close_prices is None:
             return 0.0
         latest_price = self.close_prices.DATE.iloc[-1]
         session_start = latest_price - timedelta(days=days)
         return self.close_prices[self.close_prices.DATE >= session_start].PRICE.mean()
+
+    def avg_session_volume(self, days: int) -> float:
+        if self.close_volumes is None:
+            return 0.0
+        latest_volume = self.close_volumes.DATE.iloc[-1]
+        session_start = latest_volume - timedelta(days=days)
+        return self.close_volumes[self.close_volumes.DATE >= session_start].VOL_EUR.mean()
 
     def get_ranking_message(self) -> str:
         from utils.basic import BCOLORS, my_round
@@ -353,7 +369,8 @@ class Asset:
         AVG buy price {my_round(self.last_buys_avg_price)}, 
         Accum buy count|amount: {self.last_buys_count}|{amount_msg},
         Optionally price to set (half perc / {gain_perc / 2}): {optional_price_msg},
-        Sessions AVG (200)(50)(10): {my_round(self.avg_sessions(days=200))}|{my_round(self.avg_sessions(days=50))}|{my_round(self.avg_sessions(days=10))}
+        Sessions AVG (200)(50)(10): {my_round(self.avg_session_price(days=200))}| {my_round(self.avg_session_price(days=50))}| {my_round(self.avg_session_price(days=10))}
+        Volumes AVG (200)(50)(10): {my_round(self.avg_session_volume(days=200))}| {my_round(self.avg_session_volume(days=50))}| {my_round(self.avg_session_volume(days=10))}
         """  # noqa
 
         if self.is_staking:
