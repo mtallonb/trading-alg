@@ -344,7 +344,7 @@ class Asset:
             return f'{BCOLORS.WARNING}{my_round(self.avg_buys)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
 
     def print_buy_message(self, gain_perc):
-        from utils.basic import BCOLORS, my_round
+        from utils.basic import BCOLORS, my_round, smart_round
 
         latest_trade = self.trades[0]
         last_price = latest_trade.price
@@ -369,8 +369,8 @@ class Asset:
         AVG buy price {my_round(self.last_buys_avg_price)}, 
         Accum buy count|amount: {self.last_buys_count}|{amount_msg},
         Optionally price to set (half perc / {gain_perc / 2}): {optional_price_msg},
-        Sessions AVG (200)(50)(10): {my_round(self.avg_session_price(days=200))}| {my_round(self.avg_session_price(days=50))}| {my_round(self.avg_session_price(days=10))}
-        Volumes AVG (200)(50)(10): {my_round(self.avg_session_volume(days=200))}| {my_round(self.avg_session_volume(days=50))}| {my_round(self.avg_session_volume(days=10))}
+        Prices AVG (200)(50)(10): {smart_round(self.avg_session_price(days=200))}| {smart_round(self.avg_session_price(days=50))}| {smart_round(self.avg_session_price(days=10))}
+        Volumes AVG (200)(50)(10): {smart_round(self.avg_session_volume(days=200))}| {smart_round(self.avg_session_volume(days=50))}| {smart_round(self.avg_session_volume(days=10))}
         """  # noqa
 
         if self.is_staking:

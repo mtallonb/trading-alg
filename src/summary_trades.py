@@ -19,6 +19,7 @@ from utils.basic import (
     get_paginated_response_from_kraken,
     my_round,
     read_trades_csv,
+    smart_round,
 )
 from utils.classes import CSVTrade
 
@@ -327,10 +328,9 @@ total_sell_amount = sum([sell.amount for sell in sell_trades])
 total_fees = sum([trade.fee for trade in buy_trades + sell_trades])
 
 print('===== BUY/SELLS SUMMARY =====')
-print(f'total buys: {my_round(total_buy_amount)}')
-print(f'total sells: {my_round(total_sell_amount)}')
-print(f'sells - buys: {my_round(total_sell_amount - total_buy_amount)}')
-# print(f'Computed cash: {my_round(D(7091) + total_sell_amount - total_buy_amount) - total_fees}')
+print(f'total buys: {smart_round(number=total_buy_amount)}')
+print(f'total sells: {smart_round(number=total_sell_amount)}')
+print(f'sells - buys: {smart_round(number=(total_sell_amount - total_buy_amount))}')
 
 print('\n ===== SUMMARY =====')
 print(f'total gain loss (traded assets): {my_round(total_gain_loss)}')

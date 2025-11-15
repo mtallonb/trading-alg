@@ -7,6 +7,7 @@ from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import numpy as np
 import pandas as pd
@@ -223,7 +224,7 @@ def load_from_csv(filename, assets_dict, fix_x_pair_names):
     with csv_file:
         default_header = ['pair', 'time', 'type', 'ordertype', 'price', 'cost', 'fee', 'vol']
         csv_reader = DictReader(iterdecode(csv_file, 'utf-8'), fieldnames=default_header)
-        # Pass the header
+        # Skip the header
         next(csv_reader, None)
 
         for asset_csv in csv_reader:
@@ -324,7 +325,8 @@ def compute_ranking(df):
     df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
 
     df.sort_values(by=['RANKING'], inplace=True, ignore_index=True, ascending=False)
-    ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'PB', 'PS', 'BS_P', 'TREND', 'VOL', 'TREND_VOL']]  # fmt: skip # noqa
+    df.rename({'PB': 'P_BUY', 'PS': 'P_SELL'}, axis=1, inplace=True)
+    ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'P_BUY', 'P_SELL', 'BS_P', 'TREND', 'VOL', 'TREND_VOL']]  # fmt: skip # noqa
     details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'TREND', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10','VOL']]  # fmt: skip # noqa
 
     return ranking_df, details_df
@@ -477,3 +479,56 @@ def get_paginated_response_from_kraken(
             return records
 
     return records
+
+
+def smart_round(number: float | int | Decimal | None) -> str:
+    """
+    Intelligently rounds a number for display.
+    - Accepts int, float, and Decimal robustly.
+    - Uses suffixes K (thousands), M (millions), B (billions).
+    - For small numbers (< 1), displays the first significant decimals.
+    - For intermediate numbers, uses 2 decimal places by default.
+
+    Args:
+        number: The number to format.
+
+    Returns:
+        The formatted number as a string.
+    """
+    if number is None:
+        return "N/A"
+
+    try:
+        # Safely convert to Decimal to maintain float precision
+        # and handle all numeric types uniformly.
+        num = Decimal(str(number))
+    except Exception:
+        # If it cannot be converted, it's not a valid number. Return the original.
+        return str(number)
+
+    if num.is_zero():
+        return "0"
+
+    # Handle the sign
+    sign = "-" if num < 0 else ""
+    num = abs(num)
+
+    if num >= 1_000_000_000:
+        formatted_num = f"{num / Decimal('1E9'):.2f}B"
+    elif num >= 1_000_000:
+        formatted_num = f"{num / Decimal('1E6'):.2f}M"
+    elif num >= 1_000:
+        formatted_num = f"{num / Decimal('1E3'):.2f}K"
+    elif num < 1:
+        if num > Decimal('1E-12'):  # Avoid errors with extremely small numbers
+            # Use Decimal's log10 for precision
+            log_val = num.log10()
+            # to_integral_value is the equivalent of floor() for Decimal
+            decimals = -int(log_val.to_integral_value(rounding='ROUND_FLOOR')) + 1
+            formatted_num = f"{num:.{decimals}f}"
+        else:
+            formatted_num = "0"  # Treat as zero if extremely small
+    else:  # Numbers between 1 and 999.99...
+        formatted_num = f"{num:.2f}"
+
+    return sign + formatted_num

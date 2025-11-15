@@ -13,7 +13,6 @@
 # MATICEUR -> POLEUR
 # EOSEUR -> AEUR
 
-
 from datetime import datetime, timedelta, timezone
 
 import krakenex
