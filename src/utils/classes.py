@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal as D
 from random import randint
+from textwrap import dedent
 from typing import List
 
 from pandas import DataFrame
@@ -157,7 +158,7 @@ class Asset:
 
     @property
     def balance(self) -> float:
-        return self.shares * self.price + self.stacked_balance
+        return self.spot_balance + self.stacked_balance
 
     @property
     def stacked_balance(self) -> float:
@@ -324,24 +325,26 @@ class Asset:
         return (margin_amount > buy_limit_amount), margin_amount
 
     def print_staking_info(self):
-        from utils.basic import my_round
+        from utils.basic import smart_round
 
-        return f"""
+        msg = f"""
         ***** staking info *****
-        Shares (incl. autostaked shares): {my_round(self.staked_shares)}| Balance: {my_round(self.stacked_balance)}| Total balance (staked+spot): {my_round(self.balance)},
-        AutoStaked shares: {my_round(self.autostaked_shares)}| AutoStaked balance: {my_round(self.autostacked_balance)},
-        Manual stacked shares: {my_round(self.manual_stacked_shares)}| Manual stacked balance: {my_round(self.manual_stacked_balance)},
+        Shares (incl. autostaked shares): {smart_round(self.staked_shares)}| Balance: {smart_round(self.stacked_balance)}| Total balance (staked+spot): {smart_round(self.balance)},
+        AutoStaked shares: {smart_round(self.autostaked_shares)}| AutoStaked balance: {smart_round(self.autostacked_balance)},
+        Manual stacked shares: {smart_round(self.manual_stacked_shares)}| Manual stacked balance: {smart_round(self.manual_stacked_balance)},
         """  # noqa: E501
 
+        return dedent(msg)
+
     def get_buy_avg_msg(self) -> str:
-        from utils.basic import BCOLORS, my_round, percentage
+        from utils.basic import BCOLORS, my_round, percentage, smart_round
 
         perc = -my_round(percentage(self.avg_buys, self.price))
 
         if self.avg_buys < self.price:
-            return f'{BCOLORS.OKGREEN}{my_round(self.avg_buys)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
+            return f'{BCOLORS.OKGREEN}{smart_round(self.avg_buys)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
         else:
-            return f'{BCOLORS.WARNING}{my_round(self.avg_buys)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
+            return f'{BCOLORS.WARNING}{smart_round(self.avg_buys)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
 
     def print_buy_message(self, gain_perc):
         from utils.basic import BCOLORS, my_round, smart_round
@@ -355,24 +358,25 @@ class Asset:
         amount_msg = BCOLORS.WARNING + str(my_round(self.last_buys_shares * self.last_buys_avg_price)) + BCOLORS.ENDC
 
         message = f"""
-        Missing buy: {self.name}| Price to set: {my_round(next_buy_price)}| {self.get_ranking_message()},
-        Curr. Price: {my_round(self.price)}| latest trade price: {my_round(last_price)},
-        Spot + Autostaking. Shares: {my_round(self.shares + self.autostaked_shares)}| Spot + Autostaking. Balance: {my_round(self.spot_balance + self.autostacked_balance)},
-        Latest trade: Amount: {my_round(latest_trade.amount)}| Vol: {my_round(latest_trade.shares)}| Exec date: {latest_trade.execution_datetime.date()},
-        ALL buys: Avg price: {self.get_buy_avg_msg()}| Amount: {my_round(self.trades_buy_amount)},
-        ALL sells amount: {my_round(self.trades_sell_amount)},
-        Margin amount(Sells-Buys): {my_round(self.margin_amount)},
-        Accum. sell vol: {my_round(self.last_sells_shares)},
-        AVG sell price {my_round(self.last_sells_avg_price)}, 
-        Accum. sell amount: {my_round(self.last_sells_shares * self.last_sells_avg_price)},
-        Accum. buy vol: {my_round(self.last_buys_shares)}, 
-        AVG buy price {my_round(self.last_buys_avg_price)}, 
-        Accum buy count|amount: {self.last_buys_count}|{amount_msg},
-        Optionally price to set (half perc / {gain_perc / 2}): {optional_price_msg},
-        Prices AVG (200)(50)(10): {smart_round(self.avg_session_price(days=200))}| {smart_round(self.avg_session_price(days=50))}| {smart_round(self.avg_session_price(days=10))}
-        Volumes AVG (200)(50)(10): {smart_round(self.avg_session_volume(days=200))}| {smart_round(self.avg_session_volume(days=50))}| {smart_round(self.avg_session_volume(days=10))}
-        """  # noqa
+            Missing buy: {self.name}| Price to set: {smart_round(next_buy_price)}| {self.get_ranking_message()},
+            Curr. Price: {smart_round(self.price)}| latest trade price: {smart_round(last_price)},
+            Spot + Autostaking. Shares: {smart_round(self.shares + self.autostaked_shares)}| Spot + Autostaking. Balance: {smart_round(self.spot_balance + self.autostacked_balance)},
+            Latest trade: Amount: {smart_round(latest_trade.amount)}| Vol: {smart_round(latest_trade.shares)}| Exec date: {latest_trade.execution_datetime.date()},
+            ALL buys: Avg price: {self.get_buy_avg_msg()}| Amount: {smart_round(self.trades_buy_amount)},
+            ALL sells amount: {smart_round(self.trades_sell_amount)},
+            Margin amount(Sells-Buys): {smart_round(self.margin_amount)},
+            Accum. sell vol: {smart_round(self.last_sells_shares)},
+            AVG sell price {smart_round(self.last_sells_avg_price)},
+            Accum. sell amount: {smart_round(self.last_sells_shares * self.last_sells_avg_price)},
+            Accum. buy vol: {smart_round(self.last_buys_shares)},
+            AVG buy price {smart_round(self.last_buys_avg_price)},
+            Accum buy count|amount: {self.last_buys_count}|{amount_msg},
+            Optionally price to set (half perc / {gain_perc / 2}): {optional_price_msg},
+            Prices AVG (200)(50)(10): {smart_round(self.avg_session_price(days=200))}| {smart_round(self.avg_session_price(days=50))}| {smart_round(self.avg_session_price(days=10))}
+            Volumes AVG (200)(50)(10): {smart_round(self.avg_session_volume(days=200))}| {smart_round(self.avg_session_volume(days=50))}| {smart_round(self.avg_session_volume(days=10))}
+            """  # noqa: E501
 
+        message = dedent(message)
         if self.is_staking:
             message += self.print_staking_info()
         return (BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
@@ -397,17 +401,17 @@ class Asset:
             )
 
     def get_sell_avg_msg(self) -> str:
-        from utils.basic import BCOLORS, my_round, percentage
+        from utils.basic import BCOLORS, percentage, smart_round
 
-        perc = my_round(percentage(self.price, self.avg_sells))
+        perc = smart_round(percentage(self.price, self.avg_sells))
 
         if self.avg_sells > self.price:
-            return f'{BCOLORS.OKGREEN}{my_round(self.avg_sells)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
+            return f'{BCOLORS.OKGREEN}{smart_round(self.avg_sells)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
         else:
-            return f'{BCOLORS.WARNING}{my_round(self.avg_sells)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
+            return f'{BCOLORS.WARNING}{smart_round(self.avg_sells)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
 
     def print_sell_message(self, gain_perc, minimum_amount):
-        from utils.basic import BCOLORS, my_round
+        from utils.basic import BCOLORS, smart_round
 
         latest_trade = self.trades[0]
         last_price = latest_trade.price
@@ -422,23 +426,24 @@ class Asset:
             if max_close_price_after_trade:
                 suggested_buy_price = max_close_price_after_trade * (1 - gain_perc)
 
-        sell_amount = my_round(self.last_sells_shares * self.last_sells_avg_price)
+        sell_amount = smart_round(self.last_sells_shares * self.last_sells_avg_price)
 
         message = f"""
-        Missing sell: {self.name}| price to set: {my_round(next_price)}| {self.get_ranking_message()}, 
-        Curr. price: {my_round(self.price)}| latest trade price: {my_round(last_price)},
-        Spot + Autostaking. Shares: {my_round(self.shares + self.autostaked_shares)}| Spot + Autostaking. Balance: {my_round(self.spot_balance + self.autostacked_balance)},
-        Latest trade amount: {my_round(latest_trade.amount)}| latest trade vol: {my_round(latest_trade.shares)},
+        Missing sell: {self.name}| price to set: {smart_round(next_price)}| {self.get_ranking_message()},
+        Curr. price: {smart_round(self.price)}| latest trade price: {smart_round(last_price)},
+        Spot + Autostaking. Shares: {smart_round(self.shares + self.autostaked_shares)}| Spot + Autostaking. Balance: {smart_round(self.spot_balance + self.autostacked_balance)},
+        Latest trade amount: {smart_round(latest_trade.amount)}| latest trade vol: {smart_round(latest_trade.shares)},
         Execution date: {latest_trade.execution_datetime.date()},
         ALL sells  Avg price: {self.get_sell_avg_msg()},
-        Accum. buy vol: {my_round(self.last_buys_shares)}, 
-        AVG buy price {my_round(self.last_buys_avg_price)}, 
-        Accum. buy amount: {my_round(self.last_buys_shares * self.last_buys_avg_price)},
-        Suggested buy price to set based on max after last trade: {my_round(suggested_buy_price)},
-        Accum. sell vol: {my_round(self.last_sells_shares)}, 
-        AVG sell price {my_round(self.last_sells_avg_price)}, 
-        Accum sell count|Amount: {self.last_sells_count}|{sell_amount}
+        Accum. buy vol: {smart_round(self.last_buys_shares)},
+        AVG buy price {smart_round(self.last_buys_avg_price)},
+        Accum. buy amount: {smart_round(self.last_buys_shares * self.last_buys_avg_price)},
+        Suggested buy price to set based on max after last trade: {smart_round(suggested_buy_price)},
+        Accum. sell vol: {smart_round(self.last_sells_shares)},
+        AVG sell price {smart_round(self.last_sells_avg_price)},
+        Accum sell count|Amount: {self.last_sells_count}|{smart_round(sell_amount)}
         """  # noqa
+        message = dedent(message)
         if self.is_staking:
             message += self.print_staking_info()
         return BCOLORS.BOLD + message + BCOLORS.ENDC
@@ -610,11 +615,13 @@ class Experiment:
 
 
 class CSVTrade:
-    related_buys = []
-    accumulated_buy_amount = 0
-
     def __init__(self, asset_name: str, completed: str, type: str, price: str, cost: str, fee: str, vol: str):
         from utils.basic import DATETIME_FORMAT
+
+        # --- FIX: Initialize as instance attributes ---
+        self.related_buys: List[CSVTrade] = []
+        self.accumulated_buy_amount: D = D(0)
+        # -------------------------------------------
 
         self.asset_name = asset_name
         self.completed = datetime.strptime(completed, DATETIME_FORMAT)

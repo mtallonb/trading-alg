@@ -5,13 +5,16 @@
 # Dinero invertido en los asset muertos
 # Compensar ganancias con las perdidas de las muertas.
 # Ejecutar las pérdidas si hay mucha ganancia este año
-# Incorporar assets al backtest para ver cuales son los mejores y entrar en estos.
 # Mostrar si esta bloqueado el que esta a punto de vender
 # DEFAULT_SESSIONS = [10, 50, 200]
+# Add accumulated B/S on LIST percentage to execute
 
 # RENAMING OF ASSETS:
 # MATICEUR -> POLEUR
 # EOSEUR -> AEUR
+
+# DELISTING:
+# LUNA, LUNA2, ETHW,
 
 from datetime import datetime, timedelta, timezone
 
@@ -90,6 +93,8 @@ GET_FULL_TRADE_HISTORY = True
 LOAD_ALL_CLOSE_PRICES = True
 TRADE_FILE = './data/trades_2025.csv'
 KEY_FILE = './data/keys/kraken.key'
+
+TREND_THR = 0.2
 
 # configure api
 kapi = krakenex.API()
@@ -229,19 +234,6 @@ name_list = [ele[0] for ele in sorted_pair_names_list_balance]
 open_orders_time_start = datetime.now(timezone.utc)
 orders = []
 print('\n *****OPEN ORDERS READ*****')
-# order_pages = get_paginated_response_from_kraken(
-#     kapi,
-#     endpoint='OpenOrders',
-#     dict_key='open',
-#     params={'trades': 'false'},
-#     pages=PAGES,
-#     records_per_page=RECORDS_PER_PAGE,
-# )
-# if not order_pages:
-#     print(BCOLORS.WARNING + 'No Orders Found' + BCOLORS.ENDC)
-
-# for order_page in order_pages:
-# for txid, order_dict in order_page.items:
 
 for txid, order_dict in open_orders.get('result').get('open').items():
     order_detail = order_dict['descr']
@@ -269,37 +261,13 @@ for txid, order_dict in open_orders.get('result').get('open').items():
 
     # This array is used exclusively for Pandas stats
     orders.append(
-        {'asset': pair_name, 'order_type': order.order_type, 'price': price, 'current_price': asset.price},
+        {
+            'asset': pair_name,
+            'order_type': order.order_type,
+            'price': price,
+            'current_price': asset.price,
+        },
     )
-
-if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
-    df = pd.DataFrame(orders)
-    df['percentage'] = 100 * (df['price'] - df['current_price']) / df['current_price']
-    df['percentage_abs'] = abs(df['percentage'])
-    df = df.reindex(df.percentage.abs().sort_values().index)
-
-    df_closer = df[df['percentage_abs'] <= 10].drop(columns=['percentage_abs'])
-    df_middle = df[(df['percentage_abs'] > 10) & (df['percentage_abs'] <= 100)].drop(columns=['percentage_abs'])
-    df_last = df[df['percentage_abs'] > 100].drop(columns=['percentage_abs'])
-
-    print(f'\n***** ({df_closer.shape[0]}) < 10% *****\n')
-    if not df_closer.empty:
-        print(df_closer.to_string(index=False))
-    else:
-        print('EMPTY')
-
-    print(f'\n***** ({df_middle.shape[0]}) > 10% *****\n')
-    if not df_middle.empty:
-        print(df_middle.to_string(index=False))
-    else:
-        print('EMPTY')
-
-    print(f'\n***** ({df_last.shape[0]}) > 100% ****\n')
-    if not df_last.empty:
-        print(df_last.to_string(index=False))
-    else:
-        print('EMPTY')
-
 
 elapsed_time_open_orders = datetime.now(timezone.utc) - open_orders_time_start
 
@@ -398,14 +366,14 @@ if PRINT_LAST_TRADES:
 
 elapsed_time_last_trades = datetime.now(timezone.utc) - trades_time_start
 
-# ----------FILL LAST TRADES-------------------------------------------------------------------
+# ----------FILL CALCULATIONS FROM LAST TRADES-------------------------------------------------------------------
 # print('\n*****PAIR NAMES BY LATEST TRADE:*****')
 # Sort dict by last trade
-sorted_pair_names_list_latest = sorted(assets_dict.items(), key=lambda x: x[1].latest_trade_date, reverse=False)
+# sorted_pair_names_list_latest = sorted(assets_dict.items(), key=lambda x: x[1].latest_trade_date, reverse=False)
 
 assets_by_last_trade = []
 count_sell_trades = 0
-for _, asset in sorted_pair_names_list_latest:
+for _, asset in assets_dict.items():
     if not asset.trades:
         continue
 
@@ -492,8 +460,8 @@ print(
 
 pd.options.display.float_format = '{:.1f}'.format
 print(ranking_df.to_string(index=False))
-ranking_df_trending = ranking_df[ranking_df.TREND >= 0.2]
-print('\n*****PAIR NAMES with TREND >= 0.2*****')
+ranking_df_trending = ranking_df[ranking_df.TREND >= TREND_THR]
+print(f'\n*****PAIR NAMES with TREND >= {TREND_THR} *****')
 print(ranking_df_trending.to_string(index=False))
 print('\n*****PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount - buys_amount.')
 pd.options.display.float_format = PANDAS_FLOAT_FORMAT
@@ -503,7 +471,45 @@ live_asset_names = list(ranking_df[ranking_df.IBS == 1].NAME)
 death_asset_names = list(ranking_df[ranking_df.IBS == 0].NAME)
 print(f'\n*** LIVE ASSET NAMES ({len(live_asset_names)}): {live_asset_names}')
 print(f'\n*** DEATH ASSET NAMES ({len(death_asset_names)}): {death_asset_names}')
-# -------------------------------------------------------------------------------------------------
+
+if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
+    for order in orders:
+        asset = assets_dict.get(order['asset'])
+        if not asset:
+            print(f'Missing asset from order with asset name {order["asset"]}')
+        else:
+            order['accum_b'] = asset.last_buys_count
+            order['accum_s'] = asset.last_sells_count
+
+    df = pd.DataFrame(orders)
+    df.columns = df.columns.str.upper()
+    df['PERCENTAGE'] = 100 * (df['PRICE'] - df['CURRENT_PRICE']) / df['CURRENT_PRICE']
+    df['PERCENTAGE_ABS'] = abs(df['PERCENTAGE'])
+    df = df.reindex(df.PERCENTAGE.abs().sort_values().index)
+
+    df_closer = df[df['PERCENTAGE_ABS'] <= 10].drop(columns=['PERCENTAGE_ABS'])
+    df_middle = df[(df['PERCENTAGE_ABS'] > 10) & (df['PERCENTAGE_ABS'] <= 100)].drop(columns=['PERCENTAGE_ABS'])
+    df_last = df[df['PERCENTAGE_ABS'] > 100].drop(columns=['PERCENTAGE_ABS'])
+
+    print(f'\n***** ({df_closer.shape[0]}) < 10% *****\n')
+    if not df_closer.empty:
+        print(df_closer.to_string(index=False))
+    else:
+        print('EMPTY')
+
+    print(f'\n***** ({df_middle.shape[0]}) > 10% *****\n')
+    if not df_middle.empty:
+        print(df_middle.to_string(index=False))
+    else:
+        print('EMPTY')
+
+    print(f'\n***** ({df_last.shape[0]}) > 100% ****\n')
+    if not df_last.empty:
+        print(df_last.to_string(index=False))
+    else:
+        print('EMPTY')
+
+# -----------SUMMARY INITIALIZATION----------------------------------------------------------------
 count_valid_asset = 0
 count_remaining_buys = 0
 count_missing_buys = 0

@@ -276,8 +276,8 @@ def compute_ranking(df):
     """
 
     df['MARGIN_P'] = df.MARGIN_A
-    df['PB'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
-    df['PS'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
+    df['P_BUY'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
+    df['P_SELL'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
     df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
     df['BS_P'] = df['BS_P'].replace([np.inf, -np.inf], 0)
     # Compute TREND
@@ -293,19 +293,19 @@ def compute_ranking(df):
 
     df.loc[df.VOL < 0, 'VOL'] = 0
     df.loc[df.TREND < 0, 'TREND'] = 0
-    df.loc[df.PB <= -2, 'PB'] = -2.0
-    df.loc[df.PS <= -2, 'PS'] = -2.0
+    df.loc[df.P_BUY <= -2, 'P_BUY'] = -2.0
+    df.loc[df.P_SELL <= -2, 'P_SELL'] = -2.0
     df.loc[df.MARGIN_P > 6 * df.MARGIN_A.mean(), 'MARGIN_P'] = 6 * df.MARGIN_A.mean()
     df['TREND_VOL'] = df.TREND * df.VOL
 
     # ------NORMALIZATION--------
-    COLS_TO_NORM = ['PB', 'PS', 'BS_P', 'S_TRADES', 'MARGIN_P', 'X_TRADES']
+    COLS_TO_NORM = ['P_BUY', 'P_SELL', 'BS_P', 'S_TRADES', 'MARGIN_P', 'X_TRADES']
     df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
     # ---------------------------
 
     df['RANKING'] = (
-        df['PB']
-        + df['PS']
+        df['P_BUY']
+        + df['P_SELL']
         + df['BS_P']
         + df['S_TRADES']
         + df['MARGIN_P']
@@ -325,7 +325,6 @@ def compute_ranking(df):
     df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
 
     df.sort_values(by=['RANKING'], inplace=True, ignore_index=True, ascending=False)
-    df.rename({'PB': 'P_BUY', 'PS': 'P_SELL'}, axis=1, inplace=True)
     ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'P_BUY', 'P_SELL', 'BS_P', 'TREND', 'VOL', 'TREND_VOL']]  # fmt: skip # noqa
     details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'TREND', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10','VOL']]  # fmt: skip # noqa
 
