@@ -53,6 +53,7 @@ BUY_LIMIT_AMOUNT = (
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 USE_ORDER_THR = False
 SHOW_SMART_SUMMARY = False
+IA_AGENT = "groq" # ['groq', 'gemini', 'openai']
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
@@ -666,8 +667,8 @@ if SHOW_SMART_SUMMARY:
     print('\n ***** SMART SUMMARY ***** ')
     smart_summary_time_start = datetime.now(timezone.utc)
     positions = [asset.to_dict() for asset in assets_dict.values()]
-    agent_response = get_smart_summary(positions=positions, death_assets=death_asset_names)
-    print(f'Agent response: {agent_response}')
+    agent_response = get_smart_summary(positions=positions, death_assets=death_asset_names, ia_agent=IA_AGENT)
+    print(f'Agent response: \n {agent_response}')
     elapsed_time_smart_summary = datetime.now(timezone.utc) - smart_summary_time_start
     print(f'Smart summary latency: {elapsed_time_smart_summary}')
 

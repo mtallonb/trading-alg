@@ -333,19 +333,19 @@ print(f'total sells: {smart_round(number=total_sell_amount)}')
 print(f'sells - buys: {smart_round(number=(total_sell_amount - total_buy_amount))}')
 
 print('\n ===== SUMMARY =====')
-print(f'total gain loss (traded assets): {my_round(total_gain_loss)}')
-print(f'G/L FIFO({year}): {my_round(gain_loss_year)}')
-print(f'G/L LIFO ({year}): {my_round(gain_loss_total_year_lifo)}')
-print(f'G/L Sell amount ({year}): {my_round(gain_loss_sell_amount_total_year)}')
-print(f'fees ({year}) | total fees: {my_round(year_fees)} / {my_round(total_fees)}')
+print(f'total gain loss (traded assets): {smart_round(total_gain_loss)}')
+print(f'G/L FIFO({year}): {smart_round(gain_loss_year)}')
+print(f'G/L LIFO ({year}): {smart_round(gain_loss_total_year_lifo)}')
+print(f'G/L Sell amount ({year}): {smart_round(gain_loss_sell_amount_total_year)}')
+print(f'fees ({year}) | total fees: {smart_round(year_fees)} / {smart_round(total_fees)}')
 
 pair_gains.sort(reverse=True, key=lambda x: x['gl'])
 
 
 def print_pair_row(pair: dict) -> None:
     print(
-        f'{pair["fix_name"]:{10}} {my_round(pair["gl"]):{10}} {my_round(pair["gl_year_fifo"]):{10}}'
-        f'{my_round(pair["gl_year_lifo"]):{10}} {my_round(pair["gl_sell_amount"]):{10}}',
+        f'{pair["fix_name"]:{10}} {smart_round(pair["gl"]):{10}} {smart_round(pair["gl_year_fifo"]):{10}}'
+        f'{smart_round(pair["gl_year_lifo"]):{10}} {smart_round(pair["gl_sell_amount"]):{10}}',
     )
 
 
