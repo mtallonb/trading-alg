@@ -53,7 +53,7 @@ BUY_LIMIT_AMOUNT = (
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 USE_ORDER_THR = False
 SHOW_SMART_SUMMARY = False
-IA_AGENT = "groq" # ['groq', 'gemini', 'openai']
+IA_AGENT = "groq"  # ['groq', 'gemini', 'openai']
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
