@@ -15,7 +15,7 @@ req_data = {'trades': 'false'}
 
 ASSET_NAMES = ['XBTEUR', 'ETHEUR', 'ADAEUR', 'TRXEUR', 'SOLEUR', 'MINAEUR']
 ENTRY_POINTS = 20
-SESSIONS = 300
+SESSIONS = 600
 BUY_PERCENTAGE = SELL_PERCENTAGE = 0.15  # Risk percentage to sell/buy 20%
 MINIMUM_BUY_AMOUNT = 70
 SELL_HOLD_PERC = 0.9  # 1 means we sell all, 0.5 we preserve 0.5 of the gain

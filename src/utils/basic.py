@@ -505,6 +505,12 @@ def smart_round(number: float | int | Decimal | None) -> str:
         # If it cannot be converted, it's not a valid number. Return the original.
         return str(number)
 
+    # Handle NaN and Infinity explicitly before comparisons
+    if num.is_nan():
+        return "NaN"
+    if num.is_infinite():
+        return "Infinity" if num > 0 else "-Infinity"
+
     if num.is_zero():
         return "0"
 

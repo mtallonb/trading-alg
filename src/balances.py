@@ -167,7 +167,7 @@ def year_gain_perc(
     df_wd: pd.DataFrame,
     df_balances_avg: pd.DataFrame,
     year: int,
-    unrealised: float,
+    realised: float,
     verbose: bool = VERBOSE,
 ) -> float:
     df_deposits.DATE = pd.to_datetime(df_deposits.DATE)
@@ -187,7 +187,7 @@ def year_gain_perc(
             f'\n***YEAR: {year}| balance_0: {my_round(balance_0)}| balance_365: {my_round(balance_365)}| mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
             f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)} %.',
         )
-        print(f'Unrealised gain (perc): {my_round(100 * unrealised / mean_balance)} %.\n')
+        print(f'Realised gain (perc): {my_round(100 * realised / mean_balance)} %.\n')
     return gain
 
 
@@ -329,14 +329,14 @@ df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 3230.0]
+gains_by_year = [246.0, 1154.7, 8533.0, 2421.2, 2700.0, 6000.0, 3250.0]
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,
         df_wd=df_wd,
         df_balances_avg=df_avg_balances_per_day,
         year=year,
-        unrealised=gains_by_year[idx],
+        realised=gains_by_year[idx],
     )
 
 # print(df_positions[df_positions.DATE.dt.date == date(2021, 5, 19)].to_string())

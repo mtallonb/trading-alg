@@ -47,6 +47,11 @@ def get_smart_summary(positions: list, death_assets: list, ia_agent: str = 'groq
 def _generate_prompt(positions: list, death_assets: list) -> str:
     """Generates the prompt for the financial advisor AI."""
 
+    """
+    Meter todos los trades e indicarle cuando salir de los muertos. Voy a abrir una posición de compra o venta 
+    de acuerdo a la volatilidad en tal activo te paso mi ranking. Critica mi ranking.
+    """
+
     prompt = f"""
         You are an expert financial advisor specializing in cryptocurrencies.
         Based on these current positions:
