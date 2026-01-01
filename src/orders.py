@@ -92,7 +92,7 @@ SHOW_COUNT_BUYS = False
 
 GET_FULL_TRADE_HISTORY = True
 LOAD_ALL_CLOSE_PRICES = True
-TRADE_FILE = './data/trades_2025.csv'
+TRADE_FILE = './data/trades_2026.csv'
 KEY_FILE = './data/keys/kraken.key'
 
 TREND_THR = 0.2

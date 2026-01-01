@@ -23,7 +23,7 @@ from utils.basic import (
 )
 from utils.classes import CSVTrade
 
-year = 2025
+year = 2026
 
 VERBOSE = True
 CSV_READ = False
