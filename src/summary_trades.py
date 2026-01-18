@@ -239,7 +239,6 @@ for trade_page in trade_pages:
     for trade_detail in trade_page.values():
         closetime_str = time.strftime(DATETIME_FORMAT, time.gmtime(trade_detail['time']))
         if datetime.strptime(closetime_str, DATETIME_FORMAT) > latest_trade_csv.completed:
-            # fix_name = REPLACE_NAMES[name] if name in REPLACE_NAMES.keys() else name
             trade = CSVTrade(
                 asset_name=trade_detail['pair'],
                 completed=closetime_str,
@@ -302,7 +301,8 @@ for asset_name in sell_pairs_in_year:
     sell_trades_asset_year_amount = [
         sell.amount for sell in sell_trades if sell.asset_name == asset_name and sell.completed.year == year
     ]
-    sell_amount_asset_year = sum(sell_trades_asset_year_amount) * D('0.2')
+    # 1/6 of sell amount is not exactly 20% must be 16.6%
+    sell_amount_asset_year = sum(sell_trades_asset_year_amount) * D('0.166')
 
     if is_position_closed:
         sell_amount_asset_year = gain_loss_year_asset_fifo
