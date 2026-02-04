@@ -70,7 +70,7 @@ def _generate_prompt(positions: list, death_assets: list) -> str:
         2   ETHEUR (ETH)                                     9.0         3          2           2            2           Hold. Solid foundation, good volume, and positive MACD.
 
         IMPORTANT: Remember to tabulate the output correctly.
-        LEGEND: ETCEUR comes from Ethereum Classic, POLEUR comes from  Matic, AEUR is EOS, DOTEUR is Polkadot
+        LEGEND: ETCEUR comes from Ethereum Classic, POLEUR comes from  Matic, AEUR is EOS, DOTEUR is Polkadot, XBT is Bitcoin (BTC) and XDG is Dogecoin.
     """  # noqa: E501
     return dedent(prompt)
 

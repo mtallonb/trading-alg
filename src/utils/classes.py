@@ -11,6 +11,7 @@ from pandas import DataFrame
 
 OP_BUY = 'buy'
 OP_SELL = 'sell'
+MAPPING_NAMES = {'XBTEUR': 'BTCEUR', 'XDGEUR': 'DOGEUR'}
 
 
 class Order:
@@ -137,7 +138,7 @@ class Asset:
 
     def to_dict(self):
         return {
-            'name': self.name,
+            'name': self.output_name,
             'original_name': self.original_name,
             'price': self.price,
             # 'shares': self.shares,
@@ -179,6 +180,10 @@ class Asset:
     @property
     def margin_amount(self) -> float:
         return self.trades_sell_amount + self.balance - self.trades_buy_amount
+
+    @property
+    def output_name(self):
+        return MAPPING_NAMES.get(self.name, self.name)
 
     def avg_session_price(self, days: int) -> float:
         if self.close_prices is None:

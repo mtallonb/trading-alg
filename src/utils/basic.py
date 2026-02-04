@@ -23,7 +23,7 @@ DECIMALS = 3
 LOCAL_TZ = pytz.timezone('Europe/Madrid')
 
 # fix pair names
-FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']
+FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']  # 'XBTEUR', 'XDGEUR'
 AUTOSTAKING_SUFFIXES = ('.FEUR',)
 STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR', *AUTOSTAKING_SUFFIXES)
 
@@ -494,6 +494,7 @@ def smart_round(number: float | int | Decimal | None) -> str:
     Returns:
         The formatted number as a string.
     """
+
     if number is None:
         return "N/A"
 

@@ -41,7 +41,7 @@ from utils.basic import (
     read_prices_from_local_file,
     remove_staking_suffix,
 )
-from utils.classes import OP_BUY, OP_SELL, Asset, Order, Trade
+from utils.classes import MAPPING_NAMES, OP_BUY, OP_SELL, Asset, Order, Trade
 
 # -----ALG PARAMS------------------------------------------------------------------------------------------------------
 BUY_LIMIT = 4  # Number of consecutive buy trades
@@ -77,7 +77,7 @@ MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 # 'FLOWEUR', 'AAVEEUR', 'XTZEUR', 'ADAEUR', 'AVAXEUR', 'ALGOEUR', 'MATICEUR', 'SUIEUR', 'TRUMPEUR']
 PAIR_TO_LAST_TRADES = []
 
-PAIR_TO_FORCE_INFO = []  # ['ADAEUR', 'SOLEUR']
+PAIR_TO_FORCE_INFO = ['XBTEUR']  # ['ADAEUR', 'SOLEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -357,11 +357,11 @@ for key in keys_to_delete:
 if PRINT_LAST_TRADES:
     for asset_name in PAIR_TO_LAST_TRADES:
         asset = assets_dict.get(asset_name)
-        print(f'\n**** Open orders for asset: {asset_name}.')
+        print(f'\n**** Open orders for asset: {asset.output_name}.')
         for order in asset.orders[:LAST_ORDERS]:
             print(f'\n {order} ')
 
-        print('\n**** Trades for asset: {}.'.format(asset_name))
+        print('\n**** Trades for asset: {}.'.format(asset.output_name))
         for trade in asset.trades[:LAST_ORDERS]:
             print(f'\n {trade}')
 
@@ -458,7 +458,10 @@ print(
     '\n*****PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
     'S_TRADES and X_TRADES: Sell trades and Expected Sell trades on 200 sessions)*****',
 )
-
+# ranking_df['NAME'] = ranking_df['NAME'].replace(MAPPING_NAMES)
+ranking_df.loc[:, 'NAME'] = ranking_df['NAME'].replace(MAPPING_NAMES)
+# detailed_ranking_df['NAME'] = detailed_ranking_df['NAME'].replace(MAPPING_NAMES)
+detailed_ranking_df.loc[:, 'NAME'] = detailed_ranking_df['NAME'].replace(MAPPING_NAMES)
 pd.options.display.float_format = '{:.1f}'.format
 print(ranking_df.to_string(index=False))
 ranking_df_trending = ranking_df[ranking_df.TREND >= TREND_THR]
@@ -484,7 +487,9 @@ if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
 
     df = pd.DataFrame(orders)
     df.columns = df.columns.str.upper()
-    df['PERCENTAGE'] = 100 * (df['PRICE'] - df['CURRENT_PRICE']) / df['CURRENT_PRICE']
+    df['ACCUM_B'] = df['ACCUM_B'].fillna(0).astype(int)
+    df['ACCUM_S'] = df['ACCUM_S'].fillna(0).astype(int)
+    df['PERCENTAGE'] = (100 * (df['PRICE'] - df['CURRENT_PRICE']) / df['CURRENT_PRICE']).round(1)
     df['PERCENTAGE_ABS'] = abs(df['PERCENTAGE'])
     df = df.reindex(df.PERCENTAGE.abs().sort_values().index)
 
@@ -523,7 +528,7 @@ if PRINT_ORDERS_SUMMARY:
     print('\n *****ORDERS TO CREATE*****')
 
     for _, asset in sorted_pair_names_list_balance:
-        asset_name = asset.name
+        asset_name = asset.output_name
         if not asset.trades:
             continue
 
@@ -536,7 +541,7 @@ if PRINT_ORDERS_SUMMARY:
         buy_limit_reached = asset.check_buys_limit(BUY_LIMIT, MINIMUM_BUY_AMOUNT * BUY_LIMIT, last_buy_amount)
         buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
 
-        if asset_name not in ASSETS_TO_EXCLUDE_AMOUNT and remaining_buys:
+        if asset.name not in ASSETS_TO_EXCLUDE_AMOUNT and remaining_buys:
             count_all_remaining_buys += remaining_buys
             if asset.orders_buy_amount:
                 print('BUY order already set. Subtracting 1.') if SHOW_COUNT_BUYS else None
@@ -607,8 +612,8 @@ if PRINT_ORDERS_SUMMARY:
         if asset.orders_sell_count >= 2:
             print(BCOLORS.OKCYAN + 'Sell order duplicated for asset: {}'.format(asset_name) + BCOLORS.ENDC)
 
-        if not asset.orders_buy_amount or asset_name in PAIR_TO_FORCE_INFO:
-            if not buy_limit_reached or PRINT_BUYS_WARN_CONSECUTIVE or asset_name in PAIR_TO_FORCE_INFO:
+        if not asset.orders_buy_amount or asset.name in PAIR_TO_FORCE_INFO:
+            if not buy_limit_reached or PRINT_BUYS_WARN_CONSECUTIVE or asset.name in PAIR_TO_FORCE_INFO:
                 print(asset.print_buy_message(BUY_PERCENTAGE))
 
                 if AUTO_BUY_ORDER:
@@ -625,13 +630,13 @@ if PRINT_ORDERS_SUMMARY:
                     asset.orders_buy_amount,
                     buy_limit_reached,
                     buy_limit_amount_reached,
-                    asset_name in ASSETS_TO_EXCLUDE_AMOUNT,
+                    asset.name in ASSETS_TO_EXCLUDE_AMOUNT,
                 ],
             ):
                 count_remaining_buys += remaining_buys
                 count_missing_buys += 1
 
-        if not asset.orders_sell_amount or asset_name in PAIR_TO_FORCE_INFO:
+        if not asset.orders_sell_amount or asset.name in PAIR_TO_FORCE_INFO:
             print(asset.print_sell_message(SELL_PERCENTAGE, MINIMUM_BUY_AMOUNT))
 
             if AUTO_SELL_ORDER:
