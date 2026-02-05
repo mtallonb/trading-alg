@@ -102,7 +102,7 @@ def get_asset_positions(
 
 
 def clean_flows_df(df_flow: pd.DataFrame) -> pd.DataFrame:
-    df_flow.drop(['ACLASS', 'REFID', 'TYPE', 'SUBTYPE'], axis=1, inplace=True)
+    df_flow.drop(['ACLASS', 'TYPE', 'SUBTYPE'], axis=1, inplace=True)
     df_flow.rename({'TIME': 'DATE', 'BALANCE': 'SHARES'}, axis=1, inplace=True)
     df_flow = df_flow[df_flow.ASSET == 'ZEUR']
     df_flow.DATE = pd.to_datetime(df_flow.DATE).dt.date
@@ -143,6 +143,7 @@ def update_get_flow_file(flow_type: str):
     )
     df_new_flows = pd.DataFrame([rec for page in new_flow_pages for rec in page.values()])
     df_new_flows.columns = [x.upper() for x in df_new_flows.columns]
+    df_new_flows.drop(['REFID'], axis=1, inplace=True)
     df_new_flows.TIME = pd.to_datetime(df_new_flows.TIME, unit='s')
     df_new_flows = df_new_flows[df_new_flows.TIME > latest_flow_datetime]
     if not df_new_flows.empty:
