@@ -18,6 +18,7 @@ from utils.basic import (
     get_fix_pair_name,
     get_paginated_response_from_kraken,
     my_round,
+    print_table,
     read_trades_csv,
     smart_round,
 )
@@ -339,25 +340,27 @@ print(f'G/L LIFO ({year}): {smart_round(gain_loss_total_year_lifo)}')
 print(f'G/L Sell amount ({year}): {smart_round(gain_loss_sell_amount_total_year)}')
 print(f'fees ({year}) | total fees: {smart_round(year_fees)} / {smart_round(total_fees)}')
 
+pair_columns = [
+    ("fix_name", "PAIR"),
+    ("gl", "G/L TOTAL"),
+    ("gl_year_fifo", "FIFO"),
+    ("gl_year_lifo", "LIFO"),
+    ("gl_sell_amount", "SELL AMT"),
+]
+
 pair_gains.sort(reverse=True, key=lambda x: x['gl'])
-
-
-def print_pair_row(pair: dict) -> None:
-    print(
-        f'{pair["fix_name"]:{10}} {smart_round(pair["gl"]):{10}} {smart_round(pair["gl_year_fifo"]):{10}}'
-        f'{smart_round(pair["gl_year_lifo"]):{10}} {smart_round(pair["gl_sell_amount"]):{10}}',
-    )
-
-
-print('\n== G/L PAIRS (TOTAL ACCUM|YEAR FIFO|YEAR LIFO|SELL AMOUNT) ==')
-for pair in pair_gains:
-    print_pair_row(pair)
+print_table(
+    data=pair_gains,
+    columns=pair_columns,
+    title="G/L PAIRS (SORTED BY G/L TOTAL)",
+)
 
 pair_gains.sort(reverse=True, key=lambda x: x['gl_year_lifo'])
-
-print('\n== G/L PAIRS SORT BY LIFO (3rd COLUMN) ==')
-for pair in pair_gains:
-    print_pair_row(pair)
+print_table(
+    data=pair_gains,
+    columns=pair_columns,
+    title="G/L PAIRS (SORTED BY LIFO)",
+)
 
 # Append trades to CSV
 append_trades_to_csv(filename, trades_to_append_to_csv_asc)

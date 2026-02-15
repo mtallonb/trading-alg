@@ -3,26 +3,23 @@
 
 from random import randint
 
-from utils.basic import count_sells_in_range, my_round, read_prices_from_local_file
+from utils.basic import count_sells_in_range, my_round, print_table, read_prices_from_local_file, smart_round
 
 # Para las semillas usar un rango de dias igual en todas las
 # ejecuciones por ejemplo 200 sesiones
 # habrá que empezar dejando ese número de sesiones en la última
 
-# prepare request
-# req_data = {'docalcs': 'true'}
-req_data = {'trades': 'false'}
 
 ASSET_NAMES = ['XBTEUR', 'ETHEUR', 'ADAEUR', 'TRXEUR', 'SOLEUR', 'MINAEUR']
 ENTRY_POINTS = 20
-SESSIONS = 600
+SESSIONS = 500
 BUY_PERCENTAGE = SELL_PERCENTAGE = 0.15  # Risk percentage to sell/buy 20%
-MINIMUM_BUY_AMOUNT = 70
-SELL_HOLD_PERC = 0.9  # 1 means we sell all, 0.5 we preserve 0.5 of the gain
+MINIMUM_BUY_AMOUNT = 75
+SELL_HOLD_PERC = 0.95  # 1 means we sell all, 0.5 we preserve 0.5 of the gain
 CONSECUTIVE_TRADES_LIMIT = 4
-FEES_PERCENTAGE = 0.01
+FEES_PERCENTAGE = 0.015
 
-
+table_columns = [('name', 'NAME'), ('avg_sells', 'AVG_SELLS'), ('gain_amount', 'GAIN'), ('fee_amount', 'FEE')]
 pairs_info = []
 for asset_name in ASSET_NAMES:
     df_prices, _ = read_prices_from_local_file(asset_name=asset_name)
@@ -49,20 +46,17 @@ for asset_name in ASSET_NAMES:
     avg_sells = my_round(total_sells / ENTRY_POINTS)
     gain_amount = my_round(avg_sells * MINIMUM_BUY_AMOUNT * SELL_PERCENTAGE)
     fee_amount = my_round(avg_sells * MINIMUM_BUY_AMOUNT * (1 + SELL_PERCENTAGE) * FEES_PERCENTAGE)
-    print(f'AVG sells for asset: {asset_name}|{avg_sells}|{gain_amount}')
+    print(f'AVG sells for asset: {asset_name}|{avg_sells}|{gain_amount}\n')
     pairs_info.append(
         {'name': asset_name, 'avg_sells': avg_sells, 'gain_amount': gain_amount, 'fee_amount': fee_amount},
     )
     # Sort by avg_sells descending
 
 sorted_asset = sorted(pairs_info, key=lambda x: x['avg_sells'], reverse=True)
-total_amount = 0
-print("NAME -> AVG_SELLS -> GAIN_AMOUNT -> FEE_AMOUNT")
-for ele in sorted_asset:
-    print(f"{ele['name']} -> {ele['avg_sells']} -> {ele['gain_amount']} -> {ele['fee_amount']}")
-    total_amount += ele['gain_amount'] - ele['fee_amount']
 
-print(f'TOTAL AMOUNT: {total_amount}')
+print_table(data=sorted_asset, columns=table_columns)
+total_amount = sum(ele['gain_amount'] - ele['fee_amount'] for ele in sorted_asset)
+print(f"'TOTAL NET AMOUNT:' {smart_round(number=total_amount)}")
 
 
 # stats_list = []

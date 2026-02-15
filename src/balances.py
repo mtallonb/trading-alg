@@ -14,7 +14,9 @@ from utils.basic import (
     get_new_prices,
     get_paginated_response_from_kraken,
     my_round,
+    print_table,
     read_prices_from_local_file,
+    smart_round,
     timestamp_df_to_date_df,
 )
 
@@ -177,11 +179,31 @@ def year_gain_perc(
     gain_numerator = balance_365 - balance_0 + flows
     gain = 100 * gain_numerator / mean_balance
     if verbose:
-        print(
-            f'\n***YEAR: {year}| balance_0: {my_round(balance_0)}| balance_365: {my_round(balance_365)}| mean_balance: {my_round(mean_balance)} \n'  # noqa: E501
-            f'flows: {my_round(flows)}| gain_numerator: {my_round(gain_numerator)}| gain: {my_round(gain)} %.',
+        table_data = [
+            {
+                "balance_0": smart_round(number=balance_0),
+                "balance_365": smart_round(number=balance_365),
+                "mean_balance": smart_round(number=mean_balance),
+                "flows": smart_round(number=flows),
+                "gain": smart_round(number=gain),
+                "realised_perc": smart_round(number=(100 * realised / mean_balance)) if mean_balance != 0 else 0,
+            },
+        ]
+
+        # 2. Define the columns mapping (key, display_label)
+        table_columns = [
+            ("balance_0", "START BALANCE"),
+            ("balance_365", "END BALANCE"),
+            ("mean_balance", "MEAN BALANCE"),
+            ("flows", "FLOWS"),
+            ("gain", "GAIN (%)"),
+            ("realised_perc", "REALISED GAIN (%)"),
+        ]
+        print_table(
+            data=table_data,
+            columns=table_columns,
+            title=f"YEAR: {year}",
         )
-        print(f'Realised gain (perc): {my_round(100 * realised / mean_balance)} %.\n')
     return gain
 
 
@@ -323,7 +345,8 @@ df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
-gains_by_year = [237.9, 1116.6, 8251.4, 2341.3, 2610.9, 5802.0, 3142.75, 240.0]
+gains_by_year = [237.9, 1116.6, 8251.4, 2341.3, 2610.9, 5802.0, 3142.75, 302.0]
+print('\n ***** GAINS BY YEAR ***** ')
 for idx, year in enumerate(years):
     gain = year_gain_perc(
         df_deposits=df_deposits,

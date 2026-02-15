@@ -203,9 +203,9 @@ class Asset:
         from utils.basic import BCOLORS, my_round
 
         if self.ranking > 5:
-            return f'RANKING: {BCOLORS.OKGREEN}{my_round(self.ranking)}{BCOLORS.ENDC}'
+            return f'{BCOLORS.OKGREEN}{my_round(value=self.ranking, decimal_places=1)}{BCOLORS.ENDC}'
         else:
-            return f'RANKING: {BCOLORS.WARNING}{my_round(self.ranking)}{BCOLORS.ENDC}'
+            return f'{BCOLORS.WARNING}{my_round(value=self.ranking, decimal_places=1)}{BCOLORS.ENDC}'
 
     def oldest_order(self, type: str | None = None) -> Order | None:
         if type is None:
@@ -344,12 +344,12 @@ class Asset:
     def get_buy_avg_msg(self) -> str:
         from utils.basic import BCOLORS, my_round, percentage, smart_round
 
-        perc = -my_round(percentage(self.avg_buys, self.price))
+        perc = -my_round(value=percentage(self.avg_buys, self.price), decimal_places=1)
 
         if self.avg_buys < self.price:
-            return f'{BCOLORS.OKGREEN}{smart_round(self.avg_buys)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
+            return f'{BCOLORS.OKGREEN}{smart_round(self.avg_buys)!s} | {perc!s} %{BCOLORS.ENDC}'
         else:
-            return f'{BCOLORS.WARNING}{smart_round(self.avg_buys)!s} Perc: {perc!s} %{BCOLORS.ENDC}'
+            return f'{BCOLORS.WARNING}{smart_round(self.avg_buys)!s} | {perc!s} %{BCOLORS.ENDC}'
 
     def print_buy_message(self, gain_perc):
         from utils.basic import BCOLORS, my_round, smart_round
@@ -361,9 +361,116 @@ class Asset:
 
         optional_price_msg = BCOLORS.OKGREEN + str(my_round(next_buy_price_half)) + BCOLORS.ENDC
         amount_msg = BCOLORS.WARNING + str(my_round(self.last_buys_shares * self.last_buys_avg_price)) + BCOLORS.ENDC
+        message = f""" Missing BUY on ASSET: {self.name} \n"""
+        (BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
+
+        market_data = [
+            {
+                "next_buy": smart_round(number=next_buy_price),
+                "opt_price": optional_price_msg,
+                "curr_price": smart_round(number=self.price),
+                "last_price": smart_round(number=last_price),
+                "ranking": self.get_ranking_message(),
+            },
+        ]
+        market_cols = [
+            ("next_buy", "Next Buy Price", "^"),
+            ("curr_price", "Curr. Price", "^"),
+            ("last_price", "Last Trade Price", "^"),
+            ("ranking", "Ranking", "^"),
+            ("opt_price", f"Price at: {smart_round(gain_perc / 2)} (%)", "^"),
+        ]
+
+        sells_data = [
+            {
+                "acc_sell_vol": smart_round(number=self.last_sells_shares),
+                "avg_sell": smart_round(number=self.last_sells_avg_price),
+                "acc_sell_amount": smart_round(number=self.last_sells_shares * self.last_sells_avg_price),
+            },
+        ]
+        sells_cols = [
+            ("acc_sell_vol", "Acc. Vol", "^"),
+            ("avg_sell", "Avg Price", "^"),
+            ("acc_sell_amount", "Acc. Amt", "^"),
+        ]
+
+        buys_data = [
+            {
+                "acc_buy_count": self.last_buys_count,
+                "acc_buy_amount": smart_round(number=amount_msg),
+                "acc_buy_vol": smart_round(number=self.last_buys_shares),
+                "avg_buy": smart_round(number=self.last_buys_avg_price),
+            },
+        ]
+        buys_cols = [
+            ("acc_buy_count", "Acc. Count", "^"),
+            ("acc_buy_amount", "Acc. Amt", "^"),
+            ("acc_buy_vol", "Acc. Vol", "^"),
+            ("avg_buy", "Avg Price", "^"),
+        ]
+
+        margin_data = [
+            {
+                "balance": smart_round(self.spot_balance + self.autostacked_balance),
+                "shares": smart_round(self.shares + self.autostaked_shares),
+                "buy_avg": self.get_buy_avg_msg(),
+                "sell_avg": smart_round(number=self.avg_sells),
+                "buy_amount": smart_round(number=self.trades_buy_amount),
+                "sell_amount": smart_round(number=self.trades_sell_amount),
+                "margin": smart_round(number=self.margin_amount),
+            },
+        ]
+        margin_cols = [
+            ("balance", "Balance (spot+auto)", "^"),
+            ("shares", "Shares (spot+auto)", "^"),
+            ("buy_avg", "All buys Avg", "^"),
+            ("sell_avg", "All sells Avg", "^"),
+            ("buy_amount", "Buys Amount", "^"),
+            ("sell_amount", "Sells Amount", "^"),
+            ("margin", "Margin (S-B)", "^"),
+        ]
+
+        last_trade_data = [
+            {
+                "last_trade_amt": smart_round(number=latest_trade.amount),
+                "last_trade_vol": smart_round(number=latest_trade.shares),
+                "last_price": smart_round(number=latest_trade.price),
+                "last_date": latest_trade.execution_datetime.date(),
+            },
+        ]
+        last_trade_cols = [
+            ("last_price", "Last Price", "^"),
+            ("last_trade_vol", "Last Vol", "^"),
+            ("last_trade_amt", "Last Amt", "^"),
+            ("last_date", "Date", "<"),
+        ]
+
+        sessions_data = [
+            {
+                "sessions_prices": f"{smart_round(self.avg_session_price(days=200))}"
+                f" | {smart_round(self.avg_session_price(days=50))}"
+                f" | {smart_round(self.avg_session_price(days=10))}",
+                "sessions_vol": f"{smart_round(self.avg_session_volume(days=200))}"
+                f" | {smart_round(self.avg_session_volume(days=50))}"
+                f" | {smart_round(self.avg_session_volume(days=10))}",
+            },
+        ]
+
+        sessions_cols = [
+            ("sessions_prices", "Avg Sessions Price", "^"),
+            ("sessions_vol", "Avg Sessions Vol", "^"),
+        ]
+        from utils.basic import print_table
+
+        print_table(market_data, market_cols, title=f"MARKET STATUS FOR ASSET: {self.name}")
+        print_table(sells_data, sells_cols, title="ACCUMULATED SELLS STATUS (RATE)") if self.last_sells_shares > 0 else None  # fmt: skip # noqa
+        print_table(buys_data, buys_cols, title="ACCUMULATED BUYS STATUS (RATE)")
+        print_table(margin_data, margin_cols, title="MARGIN STATUS")
+        print_table(last_trade_data, last_trade_cols, title="LAST TRADE HISTORY")
+        print_table(sessions_data, sessions_cols, title="Sessions (200)(50)(10)")
 
         message = f"""
-            Missing buy: {self.name}| Price to set: {smart_round(next_buy_price)}| {self.get_ranking_message()},
+            Missing buy: {self.name}| Price to set: {smart_round(next_buy_price)}| RANKING: {self.get_ranking_message()},
             Curr. Price: {smart_round(self.price)}| latest trade price: {smart_round(last_price)},
             Spot + Autostaking. Shares: {smart_round(self.shares + self.autostaked_shares)}| Spot + Autostaking. Balance: {smart_round(self.spot_balance + self.autostacked_balance)},
             Latest trade: Amount: {smart_round(latest_trade.amount)}| Vol: {smart_round(latest_trade.shares)}| Exec date: {latest_trade.execution_datetime.date()},
@@ -384,7 +491,7 @@ class Asset:
         message = dedent(message)
         if self.is_staking:
             message += self.print_staking_info()
-        return (BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
+        print(BCOLORS.BOLD + message + BCOLORS.ENDC) if self.price <= next_buy_price else message
 
     def print_set_order_message(self, order_type: str, order_percentage: float, minimum_order_amount: float) -> None:
         from utils.basic import BCOLORS, my_round

@@ -38,6 +38,7 @@ from utils.basic import (
     load_from_csv,
     my_round,
     percentage,
+    print_smart_df,
     read_prices_from_local_file,
     remove_staking_suffix,
 )
@@ -68,6 +69,7 @@ ASSETS_TO_EXCLUDE_AMOUNT = [
     'SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR', 'APENFTEUR',
     'MATICEUR',
 ]  # fmt: off
+
 MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 # DUAL_ASSETS_NAME = {'MATICEUR': 'POLEUR'}
 
@@ -449,27 +451,25 @@ ranking_cols = [
 ]
 df = pd.DataFrame(assets_by_last_trade, columns=ranking_cols)
 ranking_df, detailed_ranking_df = compute_ranking(df)
-# Print RANKING sorted by latest trade
-# print(df.to_string(index=False))
+
 for record in ranking_df[['NAME', 'RANKING']].to_dict('records'):
     assets_dict[record['NAME']].ranking = record['RANKING']
 
-print(
-    '\n*****PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
-    'S_TRADES and X_TRADES: Sell trades and Expected Sell trades on 200 sessions)*****',
+table_title = (
+    'PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
+    'S_TRADES and X_TRADES: Sell trades and Expected Sell trades on 200 sessions'
 )
-# ranking_df['NAME'] = ranking_df['NAME'].replace(MAPPING_NAMES)
 ranking_df.loc[:, 'NAME'] = ranking_df['NAME'].replace(MAPPING_NAMES)
-# detailed_ranking_df['NAME'] = detailed_ranking_df['NAME'].replace(MAPPING_NAMES)
-detailed_ranking_df.loc[:, 'NAME'] = detailed_ranking_df['NAME'].replace(MAPPING_NAMES)
-pd.options.display.float_format = '{:.1f}'.format
-print(ranking_df.to_string(index=False))
+print_smart_df(df=ranking_df, exclude_columns=['IBS', 'BLR'], title=table_title)
+
 ranking_df_trending = ranking_df[ranking_df.TREND >= TREND_THR]
-print(f'\n*****PAIR NAMES with TREND >= {TREND_THR} *****')
-print(ranking_df_trending.to_string(index=False))
-print('\n*****PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount - buys_amount.')
-pd.options.display.float_format = PANDAS_FLOAT_FORMAT
-print(detailed_ranking_df.to_string(index=False))
+table_title = f'PAIR NAMES with TREND >= {TREND_THR}'
+print_smart_df(df=ranking_df_trending, title=table_title)
+
+table_title = 'PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount - buys_amount.'
+detailed_ranking_df.loc[:, 'NAME'] = detailed_ranking_df['NAME'].replace(MAPPING_NAMES)
+print_smart_df(df=detailed_ranking_df, title=table_title)
+
 # -------------------------------------------------------------------------------------------------
 live_asset_names = list(ranking_df[ranking_df.IBS == 1].NAME)
 death_asset_names = list(ranking_df[ranking_df.IBS == 0].NAME)
@@ -497,22 +497,25 @@ if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
     df_middle = df[(df['PERCENTAGE_ABS'] > 10) & (df['PERCENTAGE_ABS'] <= 100)].drop(columns=['PERCENTAGE_ABS'])
     df_last = df[df['PERCENTAGE_ABS'] > 100].drop(columns=['PERCENTAGE_ABS'])
 
-    print(f'\n***** ({df_closer.shape[0]}) < 10% *****\n')
+    table_title = f'({df_closer.shape[0]}) < 10%'
     if not df_closer.empty:
-        print(df_closer.to_string(index=False))
+        print_smart_df(df=df_closer, exclude_columns=['ACCUM_B', 'ACCUM_S'], title=table_title)
     else:
+        print(table_title)
         print('EMPTY')
 
-    print(f'\n***** ({df_middle.shape[0]}) > 10% *****\n')
+    table_title = f'({df_middle.shape[0]}) > 10%'
     if not df_middle.empty:
-        print(df_middle.to_string(index=False))
+        print_smart_df(df=df_middle, exclude_columns=['ACCUM_B', 'ACCUM_S'], title=table_title)
     else:
+        print(table_title)
         print('EMPTY')
 
-    print(f'\n***** ({df_last.shape[0]}) > 100% ****\n')
+    table_title = f'({df_last.shape[0]}) > 100%'
     if not df_last.empty:
-        print(df_last.to_string(index=False))
+        print_smart_df(df=df_last, exclude_columns=['ACCUM_B', 'ACCUM_S'], title=table_title)
     else:
+        print(table_title)
         print('EMPTY')
 
 # -----------SUMMARY INITIALIZATION----------------------------------------------------------------
@@ -614,7 +617,7 @@ if PRINT_ORDERS_SUMMARY:
 
         if not asset.orders_buy_amount or asset.name in PAIR_TO_FORCE_INFO:
             if not buy_limit_reached or PRINT_BUYS_WARN_CONSECUTIVE or asset.name in PAIR_TO_FORCE_INFO:
-                print(asset.print_buy_message(BUY_PERCENTAGE))
+                asset.print_buy_message(gain_perc=BUY_PERCENTAGE)
 
                 if AUTO_BUY_ORDER:
                     asset.print_set_order_message(
