@@ -345,7 +345,7 @@ df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
-gains_by_year = [237.9, 1116.6, 8251.4, 2341.3, 2610.9, 5802.0, 3142.75, 302.0]
+gains_by_year = [237.9, 1116.6, 8251.4, 2341.3, 2610.9, 5802.0, 3142.75, 317.0]
 print('\n ***** GAINS BY YEAR ***** ')
 for idx, year in enumerate(years):
     gain = year_gain_perc(

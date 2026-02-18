@@ -350,7 +350,8 @@ pair_columns = [
 
 pair_gains.sort(reverse=True, key=lambda x: x['gl'])
 print_table(
-    data=pair_gains,
+    data=deepcopy(pair_gains),
+    apply_smart_round=True,
     columns=pair_columns,
     title="G/L PAIRS (SORTED BY G/L TOTAL)",
 )
@@ -358,6 +359,7 @@ print_table(
 pair_gains.sort(reverse=True, key=lambda x: x['gl_year_lifo'])
 print_table(
     data=pair_gains,
+    apply_smart_round=True,
     columns=pair_columns,
     title="G/L PAIRS (SORTED BY LIFO)",
 )

@@ -41,6 +41,7 @@ from utils.basic import (
     print_smart_df,
     read_prices_from_local_file,
     remove_staking_suffix,
+    smart_round,
 )
 from utils.classes import MAPPING_NAMES, OP_BUY, OP_SELL, Asset, Order, Trade
 
@@ -173,13 +174,13 @@ for key, value in balance['result'].items():
         if not is_staked(key_name):
             assets_dict[key_name].shares = float(value)
 
-        if is_auto_staked(key_name):
-            asset_name_clean = f'{remove_staking_suffix(key_name)}EUR'
-            if not assets_dict.get(asset_name_clean, False):
-                print(f'Cannot fill autostaking balance for pair: {key_name} and clean pair: {asset_name_clean}')
-                continue
-            else:
-                assets_dict[asset_name_clean].autostaked_shares = float(value)
+        # if is_auto_staked(key_name):
+        #     asset_name_clean = f'{remove_staking_suffix(key_name)}EUR'
+        #     if not assets_dict.get(asset_name_clean, False):
+        #         print(f'Cannot fill autostaking balance for pair: {key_name} and clean pair: {asset_name_clean}')
+        #         continue
+            # else:
+            #     assets_dict[asset_name_clean].autostaked_shares = float(value)
 
 
 # ----------FILL PRICES and VOLUMES-------------------------------------------------------------------
@@ -223,6 +224,11 @@ for staking_info in staked_assets['result']['items']:
     asset = assets_dict.get(name)
     if asset:
         asset.fill_staking_info(staking_info)
+
+# # Fix correct amount of manual staking shares:
+# for name, asset in assets_dict.items():
+#     if asset.is_staking and asset.staked_shares > 0 and asset.shares > 0:
+#         asset.staked_shares -= asset.shares
 
 elapsed_time_initialization = datetime.now(timezone.utc) - initialization_time_start
 
@@ -463,8 +469,11 @@ ranking_df.loc[:, 'NAME'] = ranking_df['NAME'].replace(MAPPING_NAMES)
 print_smart_df(df=ranking_df, exclude_columns=['IBS', 'BLR'], title=table_title)
 
 ranking_df_trending = ranking_df[ranking_df.TREND >= TREND_THR]
-table_title = f'PAIR NAMES with TREND >= {TREND_THR}'
-print_smart_df(df=ranking_df_trending, title=table_title)
+if ranking_df_trending.empty:
+    print(f'*** NO TRENDING PAIRS WITH TREND >= {TREND_THR} ***')
+else:
+    table_title = f'PAIR NAMES with TREND >= {TREND_THR}'
+    print_smart_df(df=ranking_df_trending, title=table_title)
 
 table_title = 'PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount - buys_amount.'
 detailed_ranking_df.loc[:, 'NAME'] = detailed_ranking_df['NAME'].replace(MAPPING_NAMES)
@@ -640,7 +649,7 @@ if PRINT_ORDERS_SUMMARY:
                 count_missing_buys += 1
 
         if not asset.orders_sell_amount or asset.name in PAIR_TO_FORCE_INFO:
-            print(asset.print_sell_message(SELL_PERCENTAGE, MINIMUM_BUY_AMOUNT))
+            asset.print_sell_message(SELL_PERCENTAGE, MINIMUM_BUY_AMOUNT)
 
             if AUTO_SELL_ORDER:
                 asset.print_set_order_message(
@@ -657,16 +666,16 @@ if PRINT_ORDERS_SUMMARY:
     cash_needed = count_remaining_buys * MINIMUM_BUY_AMOUNT
     all_cash_needed = count_all_remaining_buys * MINIMUM_BUY_AMOUNT
     print(
-        f'Total Sell amount: {my_round(sells_amount)}.\n'
-        f'Total Buys amount: {my_round(buys_amount)}.\n'
-        f'Remaining Cash (EUR): {my_round(cash_eur - buys_amount)}.\n'
+        f'Total Sell amount: {smart_round(sells_amount)}.\n'
+        f'Total Buys amount: {smart_round(buys_amount)}.\n'
+        f'Remaining Cash (EUR): {smart_round(cash_eur - buys_amount)}.\n'
         f'Count missing buys: {count_missing_buys}.\n'
-        f'Needed cash missing buys: {cash_needed_missing_buy}.\n'
+        f'Needed cash missing buys: {smart_round(cash_needed_missing_buy)}.\n'
         f'Count remaining buys: {count_remaining_buys}.\n'
-        f'Needed cash: {cash_needed}.\n'
+        f'Needed cash: {smart_round(cash_needed)}.\n'
         f'Count ALL remaining buys (worst case): {count_all_remaining_buys}.\n'
-        f'ALL Needed cash (excluding existing buy orders): {all_cash_needed}.\n'
-        f'Staked cash: {my_round(staked_eur)}',
+        f'ALL Needed cash (excluding existing buy orders): {smart_round(all_cash_needed)}.\n'
+        f'Staked cash: {smart_round(staked_eur)}',
     )
 
 elapsed_time_since_begining = datetime.now(timezone.utc) - processing_time_start

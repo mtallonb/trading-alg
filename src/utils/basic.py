@@ -624,13 +624,20 @@ def get_visual_len(text: str) -> int:
     return len(ansi_escape.sub('', str(text)))
 
 
-def print_table(data: list[dict], columns: list[tuple], title: str = "REPORT", auto_adjust: bool = True):
+def print_table(
+    data: list[dict],
+    columns: list[tuple],
+    apply_smart_round: bool = False,
+    title: str = "REPORT",
+    auto_adjust: bool = True,
+):
     """
     Renders a formatted CLI table with support for ANSI colors and dynamic alignment.
 
     Args:
         data (list[dict]): Row data.
         columns (list[tuple]): (key, label, [alignment]).
+        smart_round (bool): Enable smart rounding.
         title (str): Table title.
         auto_adjust (bool): Dynamic width calculation.
 
@@ -647,6 +654,11 @@ def print_table(data: list[dict], columns: list[tuple], title: str = "REPORT", a
 
     col_widths = {}
     col_aligns = {}
+
+    if apply_smart_round:
+        for item in data:
+            for col in columns:
+                item[col[0]] = smart_round(item.get(col[0], ""))
 
     # 1. Initialize configurations
     for col in columns:
