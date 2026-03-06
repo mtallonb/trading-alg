@@ -33,14 +33,14 @@ from utils.basic import (
     get_fix_pair_name,
     get_paginated_response_from_kraken,
     get_price_shares_from_order,
-    is_auto_staked,
     is_staked,
     load_from_csv,
     my_round,
     percentage,
     print_smart_df,
+    print_smart_df_multicolor,
+    print_table,
     read_prices_from_local_file,
-    remove_staking_suffix,
     smart_round,
 )
 from utils.classes import MAPPING_NAMES, OP_BUY, OP_SELL, Asset, Order, Trade
@@ -53,9 +53,9 @@ BUY_LIMIT_AMOUNT = (
     BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
 )  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
-USE_ORDER_THR = False
+USE_ORDER_THR = False  # Use ORDER_THR to cancel orders
+IA_AGENT = "gemini"  # ['groq', 'gemini', 'openai']
 SHOW_SMART_SUMMARY = False
-IA_AGENT = "groq"  # ['groq', 'gemini', 'openai']
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50
@@ -170,17 +170,10 @@ for key, value in balance['result'].items():
     if not is_staked(key_name) and key_name not in EXCLUDE_PAIR_NAMES and not assets_dict.get(key_name, False):
         print(f'Missing balance for pair: {key_name}')
         continue
+
     if key_name not in EXCLUDE_PAIR_NAMES:
         if not is_staked(key_name):
             assets_dict[key_name].shares = float(value)
-
-        # if is_auto_staked(key_name):
-        #     asset_name_clean = f'{remove_staking_suffix(key_name)}EUR'
-        #     if not assets_dict.get(asset_name_clean, False):
-        #         print(f'Cannot fill autostaking balance for pair: {key_name} and clean pair: {asset_name_clean}')
-        #         continue
-            # else:
-            #     assets_dict[asset_name_clean].autostaked_shares = float(value)
 
 
 # ----------FILL PRICES and VOLUMES-------------------------------------------------------------------
@@ -224,11 +217,6 @@ for staking_info in staked_assets['result']['items']:
     asset = assets_dict.get(name)
     if asset:
         asset.fill_staking_info(staking_info)
-
-# # Fix correct amount of manual staking shares:
-# for name, asset in assets_dict.items():
-#     if asset.is_staking and asset.staked_shares > 0 and asset.shares > 0:
-#         asset.staked_shares -= asset.shares
 
 elapsed_time_initialization = datetime.now(timezone.utc) - initialization_time_start
 
@@ -345,7 +333,6 @@ for trade_page in trade_pages:
         )
         break
 
-
 # Oldest trade read
 if asset_name and trade:
     print(BCOLORS.OKGREEN + f"Oldest trade date read for {asset_name}: {trade}" + BCOLORS.ENDC)
@@ -376,10 +363,6 @@ if PRINT_LAST_TRADES:
 elapsed_time_last_trades = datetime.now(timezone.utc) - trades_time_start
 
 # ----------FILL CALCULATIONS FROM LAST TRADES-------------------------------------------------------------------
-# print('\n*****PAIR NAMES BY LATEST TRADE:*****')
-# Sort dict by last trade
-# sorted_pair_names_list_latest = sorted(assets_dict.items(), key=lambda x: x[1].latest_trade_date, reverse=False)
-
 assets_by_last_trade = []
 count_sell_trades = 0
 for _, asset in assets_dict.items():
@@ -486,6 +469,8 @@ print(f'\n*** LIVE ASSET NAMES ({len(live_asset_names)}): {live_asset_names}')
 print(f'\n*** DEATH ASSET NAMES ({len(death_asset_names)}): {death_asset_names}')
 
 if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
+    rules = [{'column': 'ACCUM_B', 'op': '>=', 'threshold': BUY_LIMIT, 'color': BCOLORS.WARNING}]
+
     for order in orders:
         asset = assets_dict.get(order['asset'])
         if not asset:
@@ -508,14 +493,24 @@ if PRINT_PERCENTAGE_TO_EXECUTE_ORDERS:
 
     table_title = f'({df_closer.shape[0]}) < 10%'
     if not df_closer.empty:
-        print_smart_df(df=df_closer, exclude_columns=['ACCUM_B', 'ACCUM_S'], title=table_title)
+        print_smart_df_multicolor(
+            df=df_closer,
+            exclude_columns=['ACCUM_B', 'ACCUM_S'],
+            title=table_title,
+            highlight_rules=rules,
+        )
     else:
         print(table_title)
         print('EMPTY')
 
     table_title = f'({df_middle.shape[0]}) > 10%'
     if not df_middle.empty:
-        print_smart_df(df=df_middle, exclude_columns=['ACCUM_B', 'ACCUM_S'], title=table_title)
+        print_smart_df_multicolor(
+            df=df_middle,
+            exclude_columns=['ACCUM_B', 'ACCUM_S'],
+            title=table_title,
+            highlight_rules=rules,
+        )
     else:
         print(table_title)
         print('EMPTY')
@@ -625,7 +620,11 @@ if PRINT_ORDERS_SUMMARY:
             print(BCOLORS.OKCYAN + 'Sell order duplicated for asset: {}'.format(asset_name) + BCOLORS.ENDC)
 
         if not asset.orders_buy_amount or asset.name in PAIR_TO_FORCE_INFO:
-            if not buy_limit_reached or PRINT_BUYS_WARN_CONSECUTIVE or asset.name in PAIR_TO_FORCE_INFO:
+            if (
+                (not buy_limit_reached and not buy_limit_amount_reached)
+                or PRINT_BUYS_WARN_CONSECUTIVE
+                or asset.name in PAIR_TO_FORCE_INFO
+            ):
                 asset.print_buy_message(gain_perc=BUY_PERCENTAGE)
 
                 if AUTO_BUY_ORDER:
@@ -658,25 +657,46 @@ if PRINT_ORDERS_SUMMARY:
                     minimum_order_amount=MINIMUM_BUY_AMOUNT,
                 )
 
-        print('\n')
-
     elapsed_time_orders_summary = datetime.now(timezone.utc) - orders_summary_time_start
-    print('\n ***** SUMMARY ***** ')
+
+    # Common column configuration using multiline headers for better fit
+    # Format: (key, label, alignment)
+    cols_config = [
+        ("desc", "Description", "<"),
+        ("val", "Value", ">"),
+    ]
+
+    # --- TABLE 1: TRADING ACTIVITY ---
+    trading_activity_data = [
+        {"desc": "Total Sell amount", "val": smart_round(sells_amount)},
+        {"desc": "Total Buys amount", "val": smart_round(buys_amount)},
+    ]
+    print_table(trading_activity_data, cols_config, title="1. TRADING ACTIVITY")
+
+    # --- TABLE 2: CASH STATUS ---
+    remaining_val = smart_round(cash_eur - buys_amount)
+    highlighted_cash = BCOLORS.WARNING + f"{remaining_val}" + BCOLORS.ENDC
+
+    cash_status_data = [
+        {"desc": "Remaining Cash (EUR)", "val": highlighted_cash},
+        {"desc": "Staked cash", "val": smart_round(staked_eur)},
+    ]
+    print_table(cash_status_data, cols_config, title="2. CASH STATUS")
+
+    # --- TABLE 3: FUTURE PROJECTIONS ---
     cash_needed_missing_buy = count_missing_buys * MINIMUM_BUY_AMOUNT
     cash_needed = count_remaining_buys * MINIMUM_BUY_AMOUNT
     all_cash_needed = count_all_remaining_buys * MINIMUM_BUY_AMOUNT
-    print(
-        f'Total Sell amount: {smart_round(sells_amount)}.\n'
-        f'Total Buys amount: {smart_round(buys_amount)}.\n'
-        f'Remaining Cash (EUR): {smart_round(cash_eur - buys_amount)}.\n'
-        f'Count missing buys: {count_missing_buys}.\n'
-        f'Needed cash missing buys: {smart_round(cash_needed_missing_buy)}.\n'
-        f'Count remaining buys: {count_remaining_buys}.\n'
-        f'Needed cash: {smart_round(cash_needed)}.\n'
-        f'Count ALL remaining buys (worst case): {count_all_remaining_buys}.\n'
-        f'ALL Needed cash (excluding existing buy orders): {smart_round(all_cash_needed)}.\n'
-        f'Staked cash: {smart_round(staked_eur)}',
-    )
+    # We provide raw values for counts and rounded values for currency
+    projections_data = [
+        {"desc": "Count missing buys", "val": count_missing_buys},
+        {"desc": "Needed cash (missing)", "val": smart_round(cash_needed_missing_buy)},
+        {"desc": "Count remaining buys", "val": count_remaining_buys},
+        {"desc": "Needed cash (remaining)", "val": smart_round(cash_needed)},
+        {"desc": "Count ALL remaining buys", "val": count_all_remaining_buys},
+        {"desc": "ALL Needed (Worst Case)", "val": smart_round(all_cash_needed)},
+    ]
+    print_table(projections_data, cols_config, title="3. FUTURE PROJECTIONS")
 
 elapsed_time_since_begining = datetime.now(timezone.utc) - processing_time_start
 

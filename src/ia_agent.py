@@ -112,21 +112,35 @@ def _call_openai_api(prompt: str) -> str | None:
 
 
 def _call_gemini_api(prompt: str) -> str | None:
-    """Calls the Google Gemini API and returns the response content."""
+    """Calls the Google Gemini API using the new GenAI SDK."""
 
+    # 1. Obtener la API KEY
     api_key = _read_api_key('./data/keys/gemini_api.key')
     if not api_key:
         return "Gemini API key not found."
 
     try:
+        # 2. Inicializar el cliente (Nuevo estándar)
+        # El cliente maneja la configuración internamente
         client = genai.Client(api_key=api_key)
-        model = 'gemini-2.5-flash'
-        print("Sending prompt to Gemini...")
+
+        # 3. Definir el modelo exacto
+        # Si 'gemini-3-flash' da 404, prueba con 'gemini-2.0-flash'
+        # para descartar problemas de disponibilidad regional.
+        # model_id = 'gemini-3-flash'
+        model_id = 'gemini-2.5-flash'
+
+        print(f"Sending prompt to {model_id} via New SDK...")
+
+        # 4. Llamada de generación de contenido
         response = client.models.generate_content(
-            model=model,
+            model=model_id,
             contents=prompt,
         )
+
+        # Acceder al texto de la respuesta
         return response.text
+
     except Exception as e:
         return f"An error occurred while calling the Gemini API: {e}"
 

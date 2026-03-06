@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import operator
 import re
 import time
 
@@ -541,82 +542,6 @@ def smart_round(number: float | int | Decimal | None) -> str:
     return sign + formatted_num
 
 
-# def print_table(data: list[dict], columns: list[tuple], title: str = "REPORT", auto_adjust: bool = True):
-#     """
-#     Renders a formatted CLI table. Optimized to avoid redundant iterations when auto_adjust is False.
-#     Parameters:
-#     - data: A list of dictionaries containing the data to be displayed in the table.
-#     - columns: A list of tuples, where each tuple contains a key and label for a column in the table.
-#         Addtionally the alignment can be specified as the third element with the default being "^" (centered).
-#         But we can use <, >, ^ for left, right, and center alignment.
-#     - title: The title of the table (default: "REPORT").
-#     - auto_adjust: A boolean indicating whether to automatically adjust column widths (default: True).
-
-#     Example:
-#     data = [{"key1": "Value 1", "key2": "Value 2", "key3": "Value 3"}]
-#     columns = [("key1", "Column 1"), ("key2", "Column 2", "<"), ("key3", "Column 3", ">")]
-#     print_table(data, columns, "Report Title", auto_adjust=False)
-#     """
-
-#     DEFAULT_ALIGN = "^"
-
-#     if not data:
-#         print(f"\n--- {title} ---\nNo data available.")
-#         return
-
-#     col_widths = {}
-#     col_aligns = {}
-
-#     # 1. Initialize alignments and widths
-#     for col in columns:
-#         col_key, label = col[0], col[1]
-#         col_aligns[col_key] = col[2] if len(col) > 2 else DEFAULT_ALIGN
-
-#         # If auto_adjust is False, we set the width immediately and move on
-#         if not auto_adjust:
-#             col_widths[col_key] = TABLE_COL_WIDTH
-#         else:
-#             # If True, we start with the header length as the minimum width
-#             col_widths[col_key] = len(label)
-
-#     # 2. Only run the measurement loop if auto_adjust is True
-#     if auto_adjust:
-#         for item in data:
-#             for col_key in col_widths.keys():
-#                 val = item.get(col_key, "")
-#                 # Determine string length after formatting
-#                 f_val = str(smart_round(val)) if isinstance(val, (int, float, Decimal)) else str(val)
-#                 if len(f_val) > col_widths[col_key]:
-#                     col_widths[col_key] = len(f_val)
-
-#         # Add padding to all calculated widths
-#         for key in col_widths:
-#             col_widths[key] += 2
-
-#     # 3. Render Header
-#     header_parts = [f"{col[1]:{col_aligns[col[0]]}{col_widths[col[0]]}}" for col in columns]
-#     header_line = " | ".join(header_parts)
-
-#     print(f"\n--- {title} ---")
-#     print(header_line)
-#     print("-" * len(header_line))
-
-#     # 4. Render Rows
-#     for item in data:
-#         row_values = []
-#         for col in columns:
-#             col_key = col[0]
-#             val = item.get(col_key, "")
-
-#             display_val = smart_round(val) if isinstance(val, (int, float, Decimal)) else str(val)
-#             row_values.append(f"{display_val:{col_aligns[col_key]}{col_widths[col_key]}}")
-
-#         print(" | ".join(row_values))
-
-
-#     print("-" * len(header_line))
-
-
 def get_visual_len(text: str) -> int:
     """Calculates the real visible length of a string, ignoring ANSI color codes."""
     # Regex to match ANSI escape sequences
@@ -632,97 +557,108 @@ def print_table(
     auto_adjust: bool = True,
 ):
     """
-    Renders a formatted CLI table with support for ANSI colors and dynamic alignment.
+    Renders a professional CLI table with multiline header support and ANSI color awareness.
 
     Args:
-        data (list[dict]): Row data.
+        data (list[dict]): Row data. Example: [{"id": 1, "val": "\033[92m10.5\033[0m"}]
         columns (list[tuple]): (key, label, [alignment]).
-        smart_round (bool): Enable smart rounding.
-        title (str): Table title.
-        auto_adjust (bool): Dynamic width calculation.
+            Label can contain '\\n'. Alignment: '<', '>', '^'.
+        apply_smart_round (bool): Applies smart_round() to values if True.
+        title (str): Table title centered at the top.
+        auto_adjust (bool): Dynamic width calculation based on content.
 
     Example:
-        >>> green_val = f"\033[92m{10.5}\033[0m"
-        >>> data = [{"val": green_val}]
-        >>> cols = [("val", "Price", ">")]
-        >>> print_table(data, cols)
+        >>> cols = [("id", "ID", "<"), ("val", "Price\\n(USD)", ">")]
+        >>> data = [{"id": "01", "val": "50.5"}]
+        >>> print_table(data, cols, title="MARKET")
     """
 
     if not data:
         print(f"\n--- {title} ---\nNo data available.")
         return
 
+    # 1. Configuration & Width Initialization
     col_widths = {}
     col_aligns = {}
+    header_lines_map = {}
+    max_header_height = 0
 
-    if apply_smart_round:
-        for item in data:
-            for col in columns:
-                item[col[0]] = smart_round(item.get(col[0], ""))
-
-    # 1. Initialize configurations
-    for col in columns:
-        col_key, label = col[0], col[1]
-        col_aligns[col_key] = col[2] if len(col) > 2 else TABLE_ALIGN
-
-        # Initial width is the length of the label
-        col_widths[col_key] = len(label) if auto_adjust else TABLE_COL_WIDTH
-
-    # 2. Dynamic width measurement (Color-aware)
-    if auto_adjust:
-        for item in data:
-            for col_key in col_widths.keys():
-                val = item.get(col_key, "")
-                # Use the helper to measure only visible characters
-                v_len = get_visual_len(val)
-                if v_len > col_widths[col_key]:
-                    col_widths[col_key] = v_len
-
-        # Add horizontal padding
-        for key in col_widths:
-            col_widths[key] += 2
-
-    # 3. Prepare Header
-    header_parts = []
     for col in columns:
         key, label = col[0], col[1]
-        # Standard formatting works for header as it usually has no colors
-        header_parts.append(f"{label:{col_aligns[key]}{col_widths[key]}}")
+        align = col[2] if len(col) > 2 else "<"
+        col_aligns[key] = align
 
-    header_line = " | ".join(header_parts)
-    table_width = len(header_line)
+        # Multiline header processing
+        lines = str(label).split('\n')
+        header_lines_map[key] = lines
+        max_header_height = max(max_header_height, len(lines))
 
-    # 4. Render Table
-    print(f"\n{title.center(table_width, '-')}")
-    print(header_line)
-    print("-" * table_width)
+        # Base width from header
+        col_widths[key] = max(len(line) for line in lines) if auto_adjust else 20
 
+    # 2. Single-pass Data Processing (Rounding + Width Calculation)
     for item in data:
-        row_values = []
+        for key in col_widths:
+            # Safety check: if key doesn't exist, use empty string
+            raw_val = item.get(key, "")
+
+            if apply_smart_round:
+                # Update item directly with rounded value
+                item[key] = smart_round(raw_val)
+
+            val_str = str(item.get(key, ""))
+            v_len = get_visual_len(val_str)
+            if auto_adjust and v_len > col_widths[key]:
+                col_widths[key] = v_len
+
+    # Add horizontal padding
+    for key in col_widths:
+        col_widths[key] += 2
+
+    # Total layout width for separators
+    total_width = sum(col_widths.values()) + (3 * (len(columns) - 1))
+
+    # 3. RENDER PHASE
+    # Title
+    print(f"\n{title.center(total_width, '-')}")
+
+    # Headers
+    for i in range(max_header_height):
+        header_row = []
         for col in columns:
-            col_key = col[0]
-            val = str(item.get(col_key, ""))
+            key = col[0]
+            lines = header_lines_map[key]
+            content = lines[i] if i < len(lines) else ""
+            header_row.append(f"{content:{col_aligns[key]}{col_widths[key]}}")
+        print(" | ".join(header_row))
 
-            # MANUAL PADDING for color strings
-            # Since f-strings fail to align strings with hidden ANSI codes,
-            # we calculate the padding manually.
+    print("-" * total_width)
+
+    # Rows
+    for item in data:
+        row_cells = []
+        for col in columns:
+            key = col[0]
+            # Validation: Handle missing keys gracefully
+            val = str(item.get(key, "---"))
+
             v_len = get_visual_len(val)
-            padding = col_widths[col_key] - v_len
+            pad_size = col_widths[key] - v_len
+            align = col_aligns[key]
 
-            if col_aligns[col_key] == "<":  # Left
-                cell = val + (" " * padding)
-            elif col_aligns[col_key] == ">":  # Right
-                cell = (" " * padding) + val
-            else:  # Center
-                left_pad = padding // 2
-                right_pad = padding - left_pad
-                cell = (" " * left_pad) + val + (" " * right_pad)
+            # Manual padding for ANSI string support
+            if align == ">":
+                cell = (" " * pad_size) + val
+            elif align == "^":
+                l_pad = pad_size // 2
+                cell = (" " * l_pad) + val + (" " * (pad_size - l_pad))
+            else:
+                cell = val + (" " * pad_size)
+            row_cells.append(cell)
 
-            row_values.append(cell)
+        print(" | ".join(row_cells))
 
-        print(" | ".join(row_values))
-
-    print("-" * table_width)
+    print("-" * total_width)
 
 
 def print_smart_df(df: pd.DataFrame, exclude_columns: list[str] = [], title: str = "REPORT"):
@@ -751,3 +687,82 @@ def print_smart_df(df: pd.DataFrame, exclude_columns: list[str] = [], title: str
     print("-" * table_width)  # Header separator
     print(df_string)
     print("-" * table_width + "\n")  # Footer separator
+
+
+def print_smart_df_multicolor(
+    df: pd.DataFrame,
+    exclude_columns: list[str] = [],
+    title: str = "REPORT",
+    highlight_rules: list[dict] | None = None,
+):
+    """
+    Prints a formatted DataFrame with correct alignment and ANSI highlighting.
+
+    Example:
+        >>> rules = [{'column': 'ACCUM_B', 'op': '>', 'threshold': 5, 'color': '\033[42;30m'}]
+        >>> print_smart_df_multicolor(df, highlight_rules=rules)
+    """
+
+    ops = {
+        '>': operator.gt,
+        '<': operator.lt,
+        '>=': operator.ge,
+        '<=': operator.le,
+        '==': operator.eq,
+        '!=': operator.ne,
+    }
+
+    printable_df = df.copy()
+
+    # 1. Numeric formatting
+    numeric_cols = printable_df.select_dtypes(include=['number']).columns
+    cols_to_format = [col for col in numeric_cols if col not in exclude_columns]
+    if cols_to_format:
+        printable_df[cols_to_format] = printable_df[cols_to_format].round(2)
+
+    # 2. Get the table as a list of strings WITHOUT color first (to keep alignment)
+    # index=False ensures we don't have the row numbers shifting things
+    table_lines = printable_df.to_string(index=False).splitlines()
+
+    if not table_lines:
+        print(f"\n{title}\nEMPTY\n")
+        return
+
+    header = table_lines[0]
+    data_lines = table_lines[1:]
+    table_width = len(header)
+
+    # 3. Apply colors to the data lines based on the original DataFrame logic
+    colored_lines = []
+    for i, line in enumerate(data_lines):
+        styled_line = line
+        if highlight_rules:
+            # Get the original row to check conditions
+            original_row = printable_df.iloc[i]
+
+            for rule in highlight_rules:
+                col = rule.get('column')
+                op_sym = rule.get('op')
+                threshold = rule.get('threshold')
+                ansi_code = rule.get('color')
+
+                if col in original_row and op_sym in ops and ansi_code:
+                    if ops[op_sym](original_row[col], threshold):
+                        # Wrap the ALREADY PADDED line with the ANSI code
+                        styled_line = f"{ansi_code}{line}{BCOLORS.ENDC}"
+                        break  # Only the first matching rule is applied
+
+        colored_lines.append(styled_line)
+
+    # 4. Final output with centered title
+    print(f"\n{title.center(table_width)}")
+    print("-" * table_width)
+    print(header)  # Header is never colored in this logic
+    print("-" * table_width)
+    for cl in colored_lines:
+        print(cl)
+    print("-" * table_width + "\n")
+
+
+def print_separator():
+    print("\n" + "-" * 100 + "\n")
