@@ -33,14 +33,12 @@ from utils.basic import (
     get_fix_pair_name,
     get_paginated_response_from_kraken,
     get_price_shares_from_order,
-    is_auto_staked,
     is_staked,
     load_from_csv,
     my_round,
     percentage,
     print_smart_df,
     read_prices_from_local_file,
-    remove_staking_suffix,
     smart_round,
 )
 from utils.classes import MAPPING_NAMES, OP_BUY, OP_SELL, Asset, Order, Trade
@@ -179,8 +177,8 @@ for key, value in balance['result'].items():
         #     if not assets_dict.get(asset_name_clean, False):
         #         print(f'Cannot fill autostaking balance for pair: {key_name} and clean pair: {asset_name_clean}')
         #         continue
-            # else:
-            #     assets_dict[asset_name_clean].autostaked_shares = float(value)
+        # else:
+        #     assets_dict[asset_name_clean].autostaked_shares = float(value)
 
 
 # ----------FILL PRICES and VOLUMES-------------------------------------------------------------------
