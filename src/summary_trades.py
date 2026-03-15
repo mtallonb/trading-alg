@@ -334,11 +334,11 @@ print(f'total sells: {smart_round(number=total_sell_amount)}')
 print(f'sells - buys: {smart_round(number=(total_sell_amount - total_buy_amount))}')
 
 print('\n ===== SUMMARY =====')
+print(f'fees ({year}) | total fees: {smart_round(year_fees)} / {smart_round(total_fees)}')
 print(f'total gain loss (traded assets): {smart_round(total_gain_loss)}')
 print(f'G/L FIFO({year}): {smart_round(gain_loss_year)}')
 print(f'G/L LIFO ({year}): {smart_round(gain_loss_total_year_lifo)}')
 print(f'G/L Sell amount ({year}): {smart_round(gain_loss_sell_amount_total_year)}')
-print(f'fees ({year}) | total fees: {smart_round(year_fees)} / {smart_round(total_fees)}')
 
 pair_columns = [
     ("fix_name", "PAIR"),
