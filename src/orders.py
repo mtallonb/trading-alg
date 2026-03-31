@@ -80,7 +80,7 @@ MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 # 'FLOWEUR', 'AAVEEUR', 'XTZEUR', 'ADAEUR', 'AVAXEUR', 'ALGOEUR', 'MATICEUR', 'SUIEUR', 'TRUMPEUR']
 PAIR_TO_LAST_TRADES = []
 
-PAIR_TO_FORCE_INFO = ['XBTEUR', 'ETHEUR']  # ['ADAEUR', 'SOLEUR']
+PAIR_TO_FORCE_INFO = ['XBTEUR']  # ['ADAEUR', 'SOLEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -625,7 +625,7 @@ if PRINT_ORDERS_SUMMARY:
                 or PRINT_BUYS_WARN_CONSECUTIVE
                 or asset.name in PAIR_TO_FORCE_INFO
             ):
-                asset.print_buy_message(gain_perc=BUY_PERCENTAGE)
+                asset.print_buy_message(gain_perc=BUY_PERCENTAGE, minimum_buy_amount=MINIMUM_BUY_AMOUNT)
 
                 if AUTO_BUY_ORDER:
                     asset.print_set_order_message(

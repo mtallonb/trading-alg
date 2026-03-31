@@ -360,7 +360,7 @@ class Asset:
         else:
             return f'{BCOLORS.WARNING}{smart_round(self.avg_buys)!s} | {perc!s} %{BCOLORS.ENDC}'
 
-    def print_buy_message(self, gain_perc):
+    def print_buy_message(self, gain_perc: float, minimum_buy_amount: float):
         from utils.basic import BCOLORS, print_separator, print_table, smart_round
 
         latest_trade = self.trades[0]
@@ -375,6 +375,10 @@ class Asset:
         margin_msg = BCOLORS.OKGREEN + str(smart_round(number=self.margin_amount)) + BCOLORS.ENDC
         if self.margin_amount < 0:
             margin_msg = BCOLORS.WARNING + str(smart_round(number=self.margin_amount)) + BCOLORS.ENDC
+
+        balance_msg = BCOLORS.OKGREEN + str(smart_round(number=self.balance)) + BCOLORS.ENDC
+        if self.balance < minimum_buy_amount:
+            balance_msg = BCOLORS.WARNING + str(smart_round(number=self.balance)) + BCOLORS.ENDC
 
         print_separator()
         message = f"""------------------------------ Missing BUY on ASSET: {self.name} ----------------------------"""
@@ -432,7 +436,7 @@ class Asset:
 
         margin_data = [
             {
-                "balance": smart_round(self.balance),
+                "balance": balance_msg,
                 "shares": smart_round(self.shares + self.staked_shares),
                 "buy_avg": self.get_buy_avg_msg(),
                 "sell_avg": smart_round(number=self.avg_sells),
@@ -534,6 +538,10 @@ class Asset:
             if max_close_price_after_trade:
                 suggested_buy_price = max_close_price_after_trade * (1 - gain_perc)
 
+        balance_msg = BCOLORS.OKGREEN + str(smart_round(number=self.balance)) + BCOLORS.ENDC
+        if self.balance < minimum_amount:
+            balance_msg = BCOLORS.WARNING + str(smart_round(number=self.balance)) + BCOLORS.ENDC
+
         print_separator()
         message = f"""----------------------------- Missing SELL on ASSET: {self.name} ----------------------------"""
         print(BCOLORS.BOLD + message + BCOLORS.ENDC)
@@ -591,7 +599,7 @@ class Asset:
                 "shares": smart_round(self.shares),
                 "buy_avg": self.get_buy_avg_msg(),
                 "sell_avg": smart_round(number=self.avg_sells),
-                "balance": smart_round(self.balance),
+                "balance": balance_msg,
                 "sell_amount": smart_round(number=self.trades_sell_amount),
                 "buy_amount": smart_round(number=self.trades_buy_amount),
                 "margin": smart_round(number=self.margin_amount),

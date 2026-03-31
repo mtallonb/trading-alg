@@ -1,0 +1,123 @@
+ ***** SMART SUMMARY ***** 
+Sending prompt to gemini-2.5-flash via New SDK...
+Agent response: 
+ As your expert crypto financial advisor, I've thoroughly analyzed your current positions. Please note that the technical indicator scores are *simulated* based on general market knowledge, recent trends, and the inherent characteristics of each coin, as I do not have access to real-time charting data.
+
+Here are my recommendations:
+
+---
+
+### **1. New Asset Recommendations (Kraken EUR Pairs)**
+
+Based on market trends, innovation, and strong fundamentals, here are some assets not currently in your portfolio that could provide diversification and growth opportunities:
+
+*   **Injective (INJEUUR)**:
+    *   **Analysis**: Injective is a blockchain optimized for DeFi applications, providing a robust infrastructure for decentralized exchanges, derivatives, and lending protocols. It offers fast transaction speeds and low fees. Its ecosystem is growing, and it's well-positioned to capitalize on the increasing demand for advanced DeFi solutions. It has shown strong performance in recent market cycles.
+*   **Arbitrum (ARBEUR)**:
+    *   **Analysis**: Arbitrum is a leading Layer 2 scaling solution for Ethereum, significantly improving transaction speed and reducing costs while maintaining Ethereum's security. With the continued congestion on Ethereum mainnet, L2s like Arbitrum are critical for ecosystem growth. It has a large and active developer community and a thriving dApp ecosystem.
+*   **Pyth Network (PYTHEUR)**:
+    *   **Analysis**: Pyth Network is a first-party oracle solution that delivers real-time market data to various blockchains. Oracles are fundamental infrastructure for DeFi, enabling smart contracts to interact with off-chain data. Pyth's innovative pull-model and high-quality data providers make it a strong contender in the oracle space, especially with the growth of decentralized applications requiring accurate and timely price feeds.
+
+---
+
+### **2. Positions to Sell Completely**
+
+I recommend selling the following positions to free up capital for stronger performers and new opportunities, particularly focusing on the assets identified as underperforming.
+
+*   **DOGEUR (DOGE)**: Highly speculative meme coin with limited fundamental utility. Its price is primarily driven by social media sentiment rather than technological advancements or adoption.
+*   **LINKEUR (LINK)**: While Chainlink is a foundational project, it has been listed as an underperformer in your portfolio context. This suggests a potential opportunity cost if the capital is locked in a position that isn't keeping pace with the broader market or other top-tier assets. Reallocate to assets with stronger short-to-medium term catalysts.
+*   **XLMEUR (XLM)**: Stellar Lumens is an older project designed for cross-border payments. While it has a use case, its growth has been modest compared to newer, more innovative projects. Its market momentum has significantly waned.
+*   **DASHEUR (DASH)**: Another older privacy-focused cryptocurrency that has largely fallen out of favor. Its technical development and community engagement have not kept pace with the broader crypto market.
+*   **SNXEUR (SNX)**: Synthetix is a prominent DeFi protocol for synthetic assets. While innovative, its performance can be highly cyclical and susceptible to broader DeFi market sentiment. If it's underperforming, it's better to exit and look for stronger DeFi plays.
+*   **FETEUR (FET)**: Fetch.ai is an AI-focused project. While AI is a strong narrative, if this position is underperforming, it indicates either poor entry or that other AI projects might offer better upside.
+*   **SUIEUR (SUI)**: A newer Layer 1 blockchain. While promising, many new L1s struggle to gain significant traction and may enter extended periods of consolidation or decline after initial hype. If it's underperforming, it's not demonstrating the expected growth.
+*   **ALGOEUR (ALGO)**: Algorand is a technically sound blockchain, but it has consistently struggled with adoption and price performance in recent years. There are better-performing L1 alternatives.
+*   **APTEUR (APT)**: Aptos, another newer Layer 1, similar to SUI. It faces intense competition and if underperforming, suggests capital could be better deployed elsewhere.
+*   **DOTEUR (DOT)**: Polkadot is a major project known for its interoperability. However, its price action has been underwhelming compared to other large-cap alternatives. The parachain auction model has not generated the expected consistent price appreciation.
+*   **FLOWEUR (FLOW)**: Designed for NFTs and gaming, Flow has faced stiff competition and has largely underperformed in the current market cycle. The NFT market has also seen significant volatility.
+*   **POLEUR (MATIC)**: Polygon (MATIC) is a crucial scaling solution for Ethereum, but like LINK and AVAX, if it's identified as underperforming in your portfolio, it suggests there are more immediate growth opportunities elsewhere.
+*   **FILEUR (FIL)**: Filecoin, a decentralized storage network. While it has utility, its tokenomics and market performance have been challenging for investors. Your small balance makes it less impactful.
+*   **FLREUR (FLR)**: Flare Network, designed to bring smart contract capabilities to non-smart contract tokens. It's a newer project still establishing itself, and underperformance could indicate a prolonged period of volatility or stagnation.
+*   **AVAXEUR (AVAX)**: Avalanche is a strong Layer 1, but if underperforming for you, it's worth re-evaluating its allocation. Similar to LINK and MATIC, it might be due for a rotation into more active performers.
+*   **SCEUR (SC)**: Siacoin, an older decentralized storage project. It has very low value and limited upside potential compared to newer alternatives.
+*   **ETCEUR (ETC)**: Ethereum Classic, a legacy chain, offers little innovation or growth potential compared to Ethereum itself or other L1s.
+*   **TRUMPEUR (TRUMP)**: A highly speculative, politically-themed meme coin. Extremely volatile and driven purely by hype, posing very high risk.
+*   **TIAEUR (TIA)**: While Celestia is a promising modular blockchain, its inclusion in the "underperforming" list suggests a recent correction or consolidation. If you're looking to optimize capital, it might be better to re-enter after clearer bullish signals.
+*   **MINAEUR (MINA)**: Mina Protocol, a lightweight blockchain. Despite its innovative technology, market adoption and price performance have been inconsistent.
+*   **AEUR (EOS)**: EOS, an older L1, has struggled immensely to regain its former glory. It has lost significant market share and developer interest.
+*   **GRTEUR (GRT)**: The Graph is a critical indexing protocol for blockchain data. While essential, its token performance can be tied to the broader market and ecosystem growth. Your small balance could be better utilized in higher-conviction assets.
+
+---
+
+### **3. Ranked Portfolio (Expert Judgment)**
+
+**Criteria for Scoring (Total /10):**
+
+*   **MA (Moving Averages) (0-3)**: Evaluates the asset's price trend relative to key moving averages.
+    *   3: Strong Bullish (Price well above key MAs, MAs trending up, golden cross)
+    *   2: Moderately Bullish (Price above MAs, MAs flat or slightly up)
+    *   1: Neutral/Weak Bearish (Price around MAs, MAs flattening or crossing down)
+    *   0: Strong Bearish (Price below key MAs, MAs trending down, death cross)
+*   **RSI (Relative Strength Index) (0-3)**: Assesses momentum and potential overbought/oversold conditions.
+    *   3: Healthy/Bullish (RSI 50-70 or rising from oversold)
+    *   2: Neutral (RSI 40-50, flat)
+    *   1: Slightly Overbought/Oversold (RSI 70-80 or 20-30, but trend still weak)
+    *   0: Heavily Overbought (>80, strong reversal risk) or Heavily Oversold (<20, strong weakness, no bounce yet)
+*   **MACD (Moving Average Convergence Divergence) (0-2)**: Indicates trend direction and momentum shifts.
+    *   2: Bullish Crossover (MACD line above signal line, histogram rising)
+    *   1: Neutral/Consolidating (MACD line flat or histogram decreasing but positive)
+    *   0: Bearish Crossover (MACD line below signal line, histogram falling)
+*   **Vol (Volume) (0-2)**: Reflects market interest and liquidity, confirming price movements.
+    *   2: High Volume (Confirming price action, excellent liquidity)
+    *   1: Moderate Volume (Average liquidity)
+    *   0: Low Volume (Lack of interest, price action not confirmed)
+
+---
+
+```
+#    Asset (EUR pair)                             Score /10   MA (0-3)   RSI (0-3)   MACD (0-2)   Vol (0-2)   Comment / Recommended Action
+--- -------------------------------------------- ----------- ---------- ----------- ------------ ----------- -----------------------------------------------------------------------------------------
+1   BTCEUR (BTC)                                     10          3          3           2            2           Core holding. Market leader, strong fundamentals & technicals. Accumulate on dips.
+2   ETHEUR (ETH)                                     10          3          3           2            2           Core holding. Foundation of web3, strong ecosystem. Accumulate on dips.
+3   SOLEUR (SOL)                                     9           3          2           2            2           High-performance L1. Strong momentum and ecosystem growth. Hold.
+4   BNBEUR (BNB)                                     8           2          2           2            2           Exchange token, strong ecosystem, good utility. Hold.
+5   XRPEUR (XRP)                                     7           2          2           2            1           Payments focus, regulatory clarity developing. Hold.
+6   UNIEUR (UNI)                                     7           2          2           1            2           Leading DEX, critical DeFi infrastructure. Hold.
+7   ADAEUR (ADA)                                     7           2          2           1            2           Robust L1 with active development. Hold.
+8   LTCEUR (LTC)                                     6           2          1           2            1           Digital Silver. Stable performance. Hold.
+9   ATOMEUR (ATOM)                                   6           2          1           1            2           Cosmos ecosystem, inter-blockchain communication. Hold.
+10  BCHEUR (BCH)                                     6           2          1           1            2           Bitcoin fork, transactional focus. Hold.
+11  AAVEEUR (AAVE)                                   5           1          2           1            1           Top lending protocol in DeFi. Hold.
+12  RENDEREUR (RENDER)                               5           1          2           1            1           Decentralized GPU rendering. Strong narrative. Hold.
+13  XTZEUR (XTZ)                                     4           1          1           1            1           Older L1, still active but slow growth. Consider reallocating if better options arise.
+14  TRXEUR (TRX)                                     4           1          1           1            1           Focus on dApps & stablecoins, stable ecosystem. Hold.
+15  HYPEEUR                                          3           1          1           1            0           Very niche, low liquidity. Reallocate.
+16  LINKEUR (LINK)                                   2           0          1           1            0           *Sell completely.* Identified as underperforming in your portfolio.
+17  AVAXEUR (AVAX)                                   2           0          1           1            0           *Sell completely.* Identified as underperforming in your portfolio.
+18  DOTEUR (DOT)                                     2           0          1           1            0           *Sell completely.* Underperforming relative to other L1s/L2s.
+19  FETEUR (FET)                                     2           0          1           1            0           *Sell completely.* Underperforming AI asset, better options available.
+20  SUIEUR (SUI)                                     2           0          1           1            0           *Sell completely.* Newer L1, struggling to gain traction.
+21  TIAEUR (TIA)                                     2           0          1           1            0           *Sell completely.* Modular blockchain, currently underperforming.
+22  APTEUR (APT)                                     1           0          0           1            0           *Sell completely.* Newer L1, lack of sustained momentum.
+23  DOGEUR (DOGE)                                    1           0          0           1            0           *Sell completely.* Highly speculative meme coin.
+24  TRUMPEUR (TRUMP)                                 1           0          0           1            0           *Sell completely.* High-risk, purely speculative meme coin.
+25  GRTEUR (GRT)                                     1           0          0           1            0           *Sell completely.* Key infrastructure but small balance, better to reallocate.
+26  MINAEUR (MINA)                                   1           0          0           1            0           *Sell completely.* Lightweight blockchain, inconsistent performance.
+27  ALGOEUR (ALGO)                                   0           0          0           0            0           *Sell completely.* Consistent underperformer, reallocate capital.
+28  AEUR (EOS)                                       0           0          0           0            0           *Sell completely.* Older L1, lost significant market relevance.
+29  BATEUR (BAT)                                     0           0          0           0            0           *Sell completely.* Browser token, very limited growth.
+30  DASHEUR (DASH)                                   0           0          0           0            0           *Sell completely.* Older coin, fallen out of favor.
+31  ETCEUR (ETC)                                     0           0          0           0            0           *Sell completely.* Legacy chain with minimal innovation.
+32  FILEUR (FIL)                                     0           0          0           0            0           *Sell completely.* Storage network, complex tokenomics, poor performance.
+33  FLREUR (FLR)                                     0           0          0           0            0           *Sell completely.* Newer project still finding footing, underperforming.
+34  FLOWEUR (FLOW)                                   0           0          0           0            0           *Sell completely.* Gaming/NFT L1, significant underperformance.
+35  POLEUR (MATIC)                                   0           0          0           0            0           *Sell completely.* Underperforming in your portfolio, better L2 options emerging.
+36  SCEUR (SC)                                       0           0          0           0            0           *Sell completely.* Older storage project, very low value, negligible upside.
+37  SNXEUR (SNX)                                     0           0          0           0            0           *Sell completely.* DeFi protocol, underperforming, better to exit.
+38  XLMEUR (XLM)                                     0           0          0           0            0           *Sell completely.* Older payment coin, lack of momentum.
+```
+
+---
+
+This strategy aims to consolidate your holdings into high-conviction assets, eliminate underperformers, and strategically add exposure to promising new projects in the evolving crypto landscape. Remember to always conduct your own research and consider your risk tolerance before making investment decisions.
+Smart summary latency: 0:00:40.339946
