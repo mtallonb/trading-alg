@@ -1,6 +1,6 @@
 import krakenex
 
-from my_examples.backends.base import BaseBrokerBackend
+from backends.base import BaseBrokerBackend
 
 req_data = {'trades': 'false'}
 
