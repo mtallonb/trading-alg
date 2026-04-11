@@ -8,6 +8,9 @@
 # Mostrar si esta bloqueado el que esta a punto de vender
 # DEFAULT_SESSIONS = [10, 50, 200]
 # Add accumulated B/S on LIST percentage to execute
+# Meter todos los trades e indicarle cuando salir de los muertos. Voy a abrir una posición de compra o venta
+# de acuerdo a la volatilidad en tal activo te paso mi ranking. Critica mi ranking.
+
 
 # RENAMING OF ASSETS:
 # MATICEUR -> POLEUR
@@ -55,7 +58,7 @@ BUY_LIMIT_AMOUNT = (
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 USE_ORDER_THR = False  # Use ORDER_THR to cancel orders
 IA_AGENT = "gemini"  # ['groq', 'gemini', 'openai']
-SHOW_SMART_SUMMARY = False
+SHOW_SMART_SUMMARY = True
 # ----------------------------------------------------------------------------------------------------------------------
 PAGES = 20  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50

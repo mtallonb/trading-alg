@@ -1,19 +1,14 @@
-# import os
-
-# from dotenv import load_dotenv
-
 from textwrap import dedent
 
 import requests
 
 from google import genai
+from groq import Groq
 
-VALIDS_AGENTS = ['groq', 'gemini', 'openai']
-
-# load_dotenv()
+VALID_AGENTS = ['groq', 'gemini', 'openai']
 
 
-def get_smart_summary(positions: list, death_assets: list, ia_agent: str = 'groq') -> str | None:
+def get_smart_summary(positions: list, death_assets: list, ia_agent: str = 'groq') -> str:
     """
     Generates a financial summary using the specified AI model.
 
@@ -33,12 +28,10 @@ def get_smart_summary(positions: list, death_assets: list, ia_agent: str = 'groq
         'openai': _call_openai_api,
     }
 
-    api_function = api_calls.get(ia_agent)
+    if ia_agent not in VALID_AGENTS:
+        return f"Error: IA agent '{ia_agent}' is not supported. Available agents are: {VALID_AGENTS}"
 
-    if api_function:
-        return api_function(prompt=prompt)
-    else:
-        return f"Error: IA agent '{ia_agent}' is not supported. Available agents are: {list(api_calls.keys())}"
+    return api_calls[ia_agent](prompt=prompt)
 
 
 # ----------------- Internal functions --------------------------------
@@ -47,46 +40,59 @@ def get_smart_summary(positions: list, death_assets: list, ia_agent: str = 'groq
 def _generate_prompt(positions: list, death_assets: list) -> str:
     """Generates the prompt for the financial advisor AI."""
 
-    """
-    Meter todos los trades e indicarle cuando salir de los muertos. Voy a abrir una posición de compra o venta
-    de acuerdo a la volatilidad en tal activo te paso mi ranking. Critica mi ranking.
-    """
-
     prompt = f"""
-        You are an expert financial advisor specializing in cryptocurrencies.
-        Based on these current positions:
-        {positions}
+    SYSTEM ROLE:
+    You are a Senior Crypto Quantitative Analyst and Financial Advisor. Your expertise covers technical analysis, market sentiment, and Kraken exchange listings.
 
-        1.  **Generate Recommendations**: Recommend new assets to add to my portfolio. These assets must not be in my current positions. Provide clear and concise analysis for each recommendation. They must be available on Kraken and denominated in EUR.
-        2.  **Identify Sells**: Indicate which positions should be sold completely, paying special attention to the following underperforming assets: {death_assets}.
-        3.  **Rank My Portfolio**: Create a ranking of my current positions, evaluating them from 0 to 10 based on your expert judgment. Explain the criteria used for the score. You should use technical indicators like Moving Averages, RSI (oversold), MACD (bullish crossover), and high volume to confirm signals.
-        4.  **Format the Output**: The output must be a correctly tabulated table. It is VERY IMPORTANT to tabulate the columns correctly for proper screen display. The ranking should be sorted from highest to lowest score. The score column must be next to the asset name.
+    INPUT DATA:
+    - Current Portfolio Positions: {positions}
+    - Critical Underperforming Assets (Priority Sells): {death_assets}
+    - Currency Denomination: EUR
+    - Exchange: Kraken
 
-        Here is an example of the required ranking table format:
+    TASK INSTRUCTIONS:
+    1.  **Portfolio Ranking & Scoring**:
+        Evaluate each current position from 0 to 10. The score MUST be the sum of these technical components:
+        - Moving Averages (MA) [0-3 pts]: Trend alignment.
+        - RSI [0-3 pts]: Relative strength (oversold conditions preferred).
+        - MACD [0-2 pts]: Bullish/Bearish crossovers.
+        - Volume [0-2 pts]: Liquidity and signal confirmation.
+        Explain your specific criteria for the final score.
 
-        #    Asset (EUR pair)                             Score /10   MA (0-3)   RSI (0-3)   MACD (0-2)   Vol (0-2)   Comment / Recommended Action
-        --- -------------------------------------------- ----------- ---------- ----------- ------------ ----------- -----------------------------------------------------------------------------------------
-        1   XBTEUR (BTC)                                     9.0         3          2           2            2           Hold. Market leader, high liquidity, and bullish signals.
-        2   ETHEUR (ETH)                                     9.0         3          2           2            2           Hold. Solid foundation, good volume, and positive MACD.
+    2.  **Strategic Recommendations**:
+        Suggest 1-3 new assets available on Kraken (EUR pairs) NOT currently in the portfolio. Provide a concise 1-sentence bullish thesis for each based on current market trends.
 
-        IMPORTANT: Remember to tabulate the output correctly.
-        LEGEND: ETCEUR comes from Ethereum Classic, POLEUR comes from  Matic, AEUR is EOS, DOTEUR is Polkadot, XBT is Bitcoin (BTC) and XDG is Dogecoin.
+    3.  **Sell/Exit Strategy**:
+        Identify which assets to liquidate. Focus heavily on {death_assets}. Provide a brief reason for each exit.
+
+    4.  **Formatting Requirements**:
+        - Use a Markdown code block for the table to ensure fixed-width alignment.
+        - Sort the table by Score in descending order.
+        - Map names correctly: XBT=Bitcoin, XDG=Dogecoin, POL=Polygon, AEUR=EOS, DOT=Polkadot.
+
+    REQUIRED TABLE FORMAT EXAMPLE:
+    ```
+    #   Asset (EUR)      Score/10   MA(3)  RSI(3)  MACD(2)  Vol(2)   Action & Expert Comment
+    --- ---------------- ---------- ------ ------- -------- -------- ---------------------------------------
+    1   XBTEUR (BTC)     9.5        3.0    2.5     2.0      2.0      Strong Hold. Dominance increasing...
+    ```
+
+    IMPORTANT: Ensure the table is perfectly aligned. If an asset is in {death_assets}, its score should reflect its underperformance.
     """  # noqa: E501
     return dedent(prompt)
 
 
-def _read_api_key(key_file: str) -> str | None:
+def _read_api_key(key_file: str) -> str:
     """Reads an API key from a file."""
 
     try:
         with open(key_file, 'r') as f:
             return f.read().strip()
     except FileNotFoundError:
-        print(f"Error: API key file not found at {key_file}")
-        return None
+        return ""
 
 
-def _call_openai_api(prompt: str) -> str | None:
+def _call_openai_api(prompt: str) -> str:
     """Calls the OpenAI API and returns the response content."""
 
     api_key = _read_api_key('./data/keys/openai_api.key')
@@ -103,7 +109,7 @@ def _call_openai_api(prompt: str) -> str | None:
             },
             timeout=60,
         )
-        response.raise_for_status()  # Raise an exception for bad status codes
+        response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except requests.exceptions.RequestException as e:
         return f"Error calling OpenAI API: {e}"
@@ -111,61 +117,50 @@ def _call_openai_api(prompt: str) -> str | None:
         return f"Error parsing OpenAI API response: {e}"
 
 
-def _call_gemini_api(prompt: str) -> str | None:
-    """Calls the Google Gemini API using the new GenAI SDK."""
+def _call_gemini_api(prompt: str) -> str:
+    """Calls the Google Gemini API using the GenAI SDK."""
 
-    # 1. Obtener la API KEY
     api_key = _read_api_key('./data/keys/gemini_api.key')
     if not api_key:
         return "Gemini API key not found."
 
     try:
-        # 2. Inicializar el cliente (Nuevo estándar)
-        # El cliente maneja la configuración internamente
         client = genai.Client(api_key=api_key)
-
-        # 3. Definir el modelo exacto
-        # Si 'gemini-3-flash' da 404, prueba con 'gemini-2.0-flash'
-        # para descartar problemas de disponibilidad regional.
-        # model_id = 'gemini-3-flash'
-        model_id = 'gemini-2.5-flash'
-
-        print(f"Sending prompt to {model_id} via New SDK...")
-
-        # 4. Llamada de generación de contenido
         response = client.models.generate_content(
-            model=model_id,
+            model='gemini-2.5-flash',
             contents=prompt,
         )
-
-        # Acceder al texto de la respuesta
         return response.text
 
     except Exception as e:
         return f"An error occurred while calling the Gemini API: {e}"
 
 
-def _call_groq_api(prompt: str) -> str | None:
+def _call_groq_api(prompt: str) -> str:
     """Calls the Groq API and returns the response content."""
 
     api_key = _read_api_key('./data/keys/groq_api.key')
     if not api_key:
         return "Groq API key not found."
 
+    client = Groq(api_key=api_key)
+
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f'Bearer {api_key}'},
-            json={
-                # "model": "llama3-70b-8192",  # Using a recommended model
-                "model": "openai/gpt-oss-120b",
-                "messages": [{"role": "user", "content": prompt}],
-            },
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a senior investment strategist. "
+                    "Provide sharp, data-driven advice on my portfolio",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            max_tokens=2048,
             timeout=30,
         )
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
-    except requests.exceptions.RequestException as e:
-        return f"Error calling Groq API: {e}"
-    except (KeyError, IndexError) as e:
-        return f"Error parsing Groq API response: {e}"
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"Error calling Groq API: {e!s}"
