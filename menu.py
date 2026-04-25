@@ -16,38 +16,42 @@ SCRIPTS = [
 
 
 def print_menu():
-    print("\n╔══════════════════════════════╗")
-    print("║       Trading Dashboard       ║")
-    print("╠══════════════════════════════╣")
-    for i, (name, _) in enumerate(SCRIPTS, 1):
-        print(f"║  {i}. {name:<26}║")
-    print("║  0. Salir                    ║")
-    print("╚══════════════════════════════╝")
+    title = "Trading Dashboard"
+    entries = [(str(i), name) for i, (name, _) in enumerate(SCRIPTS, 1)] + [("0", "Exit")]
+    inner = max(len(title) + 4, max(len(n) for _, n in entries) + 7)
+    h = "═" * inner
+    print(f"\n╔{h}╗")
+    print(f"║{title.center(inner)}║")
+    print(f"╠{h}╣")
+    for num, name in entries:
+        row = f"  {num}. {name}"
+        print(f"║{row:<{inner}}║")
+    print(f"╚{h}╝")
 
 
 def main():
     while True:
         print_menu()
         try:
-            choice = input("\nElige una opción: ").strip()
+            choice = input("\nChoose an option: ").strip()
         except (KeyboardInterrupt, EOFError):
-            print("\nSaliendo...")
+            print("\nExiting...")
             sys.exit(0)
 
         if choice == "0":
-            print("Saliendo...")
+            print("Exiting...")
             sys.exit(0)
 
         if not choice.isdigit() or not (1 <= int(choice) <= len(SCRIPTS)):
-            print(f"Opción no válida. Elige entre 0 y {len(SCRIPTS)}.")
+            print(f"Invalid option. Choose between 0 and {len(SCRIPTS)}.")
             continue
 
         name, script = SCRIPTS[int(choice) - 1]
-        print(f"\n▶ Ejecutando {name}...\n{'─' * 34}")
+        print(f"\n▶ Running {name}...\n{'─' * 34}")
         result = subprocess.run([sys.executable, str(script)])
         print(f"\n{'─' * 34}")
-        print(f"✓ {name} finalizado (código: {result.returncode})")
-        input("\nPulsa Enter para volver al menú...")
+        print(f"✓ {name} finished (exit code: {result.returncode})")
+        input("\nPress Enter to return to the menu...")
 
 
 if __name__ == "__main__":
