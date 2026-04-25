@@ -2,11 +2,6 @@ from abc import ABCMeta, abstractmethod
 
 
 class BaseBrokerBackend(metaclass=ABCMeta):
-    broker = None
-
-    def __init__(self, broker):
-        self.broker = broker
-
     @abstractmethod
     def get_deposits_wd(self):
         pass
@@ -22,6 +17,3 @@ class BaseBrokerBackend(metaclass=ABCMeta):
     @abstractmethod
     def open_orders(self, rec_ids=None):
         pass
-
-
-

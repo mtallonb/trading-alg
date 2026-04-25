@@ -11,8 +11,7 @@ class KrakenBackend(BaseBrokerBackend):
     open_orders: dict
     cash_eur: float
 
-    def __init__(self, broker):
-        super().__init__(broker)
+    def __init__(self):
         api = krakenex.API()
         api.load_key('./data/kraken.key')
 
