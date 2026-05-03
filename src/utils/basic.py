@@ -29,6 +29,7 @@ LOCAL_TZ = pytz.timezone('Europe/Madrid')
 FIX_X_PAIR_NAMES = ['XETHEUR', 'XETH', 'XLTCEUR', 'XLTC', 'XETCEUR', 'XETC']  # 'XBTEUR', 'XDGEUR'
 AUTOSTAKING_SUFFIXES = ('.FEUR',)
 STAKING_SUFFIXES = ('.S', '.MEUR', '.SEUR', '.BEUR', *AUTOSTAKING_SUFFIXES)
+XSTOCKS_SUFFIXES = '.TEUR'
 
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 HEADER_PRICES_KRAKEN = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
@@ -210,6 +211,11 @@ def get_price_shares_from_order(order_string):
 
 
 def get_fix_pair_name(pair_name, fix_x_pair_names, currency='EUR'):
+
+    if pair_name.endswith('.T'):
+        # return pair_name[:-2]  # Remove '.T' only available on USD
+        return pair_name[:-2] + 'USD'
+
     if pair_name != 'XTZEUR' and pair_name.endswith('Z' + currency):
         pair_name = pair_name[:-4] + currency
 

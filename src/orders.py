@@ -11,6 +11,9 @@
 # Meter todos los trades e indicarle cuando salir de los muertos. Voy a abrir una posición de compra o venta
 # de acuerdo a la volatilidad en tal activo te paso mi ranking. Critica mi ranking.
 # Ayudar al usuario en los parámetros de configuración
+# Add sell count al comprar
+# Guardar precios para cambio de moneda USDEUR o EURUSD
+
 
 # RENAMING OF ASSETS:
 # MATICEUR -> POLEUR
@@ -66,7 +69,8 @@ LAST_ORDERS = 10
 DEFAULT_SESSIONS = [10, 50, 200]
 EXCLUDE_PAIR_NAMES = [
     'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
-    'MATICEUR', 'EOSEUR',
+    'MATICEUR', 'EOSEUR', 'GOOGLxUSD', 'USDCEUR', 'ZUSDEUR', 'XLTCZEUR', 'XETHZEUR', 'XXRPZEUR', 'XXBTZEUR',
+    'XETCZEUR', 'XXLMZEUR',
 ]  # fmt: off
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 ASSETS_TO_EXCLUDE_AMOUNT = [
@@ -83,7 +87,7 @@ MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 # 'FLOWEUR', 'AAVEEUR', 'XTZEUR', 'ADAEUR', 'AVAXEUR', 'ALGOEUR', 'MATICEUR', 'SUIEUR', 'TRUMPEUR']
 PAIR_TO_LAST_TRADES = []
 
-PAIR_TO_FORCE_INFO = ['XBTEUR']  # ['ADAEUR', 'SOLEUR']
+PAIR_TO_FORCE_INFO = []  # ['XBTEUR', 'ADAEUR', 'SOLEUR']
 
 PRINT_LAST_TRADES = False
 PRINT_ORDERS_SUMMARY = True
@@ -184,6 +188,11 @@ name_list = list(assets_dict.keys())
 concatenate_names = ','.join(name_list)
 # Watch-out is returning all assets with the latest price
 tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
+# Example GOOGLxUSD tiene precios y habria que convertirlo a GOOGLxEUR que es el activo real que tengo
+# xstocks_info = kapi.query_public('Ticker', {'tokenized_asset': concatenate_xstock_names.lower()})
+# Usar la conversion del pair USDCEUR
+
+# print(f'Extra tickers on response: {set(tickers_info["result"].keys()) - set(name_list)}')
 
 for name, ticker_info in tickers_info['result'].items():
     fixed_pair_name = get_fix_pair_name(name, FIX_X_PAIR_NAMES)
