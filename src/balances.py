@@ -37,6 +37,7 @@ PAGES = 4  # 50 RECORDS per page
 RECORDS_PER_PAGE = 50  # Watch-out is not working for higher values than 50
 FLOW_TYPE_DEPOSIT = 'deposit'
 FLOW_TYPE_WD = 'withdrawal'
+EXCLUDE_ASSET_PRICES_UPDATE = ['EOSEUR', 'XMREUR', 'MATICEUR']
 
 year = 2026
 filename = f'./data/trades_{year}.csv'
@@ -207,6 +208,37 @@ def year_gain_perc(
     return gain
 
 
+def update_asset_prices(
+    asset_name: str,
+    kapi,
+    date_to,
+) -> pd.DataFrame:
+    """Update the file of prices for the asset."""
+
+    latest_date = yesterday - timedelta(days=600)
+    df_prices, _ = read_prices_from_local_file(asset_name=asset_name)
+    if asset_name in EXCLUDE_ASSET_PRICES_UPDATE:
+        return df_prices
+
+    if not df_prices.empty:
+        latest_date = df_prices.DATE.iloc[-1]
+
+    if latest_date < date_to:
+        new_prices = get_new_prices(
+            kapi=kapi,
+            asset_name=asset_name,
+            timestamp_from=from_date_to_timestamp(day=latest_date),
+            with_volumes=True,
+        )
+        if new_prices is not None:
+            new_prices = timestamp_df_to_date_df(df=new_prices)
+            df_prices = pd.concat([df_prices, new_prices])
+            df_prices = df_prices.drop_duplicates(subset=['DATE'])
+            df_prices.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
+
+    return df_prices
+
+
 # --------End of functions------------------------------------------------------------------------------------------
 
 # ----GET DEPOSITS and WD-------------------------------------------------------------------------------------------
@@ -215,7 +247,6 @@ df_wd = update_get_flow_file(flow_type=FLOW_TYPE_WD)
 df_deposits = clean_flows_df(df_flow=df_deposits)
 df_wd = clean_flows_df(df_flow=df_wd)
 
-df_list = [df_deposits, df_wd]
 # ----------GET TRADES-------------------------------------------------------------------
 df_trades = pd.read_csv(filename)
 
@@ -246,26 +277,13 @@ asset_names = df_trades[~df_trades.ASSET.isin(['XXLMXXBT', 'BSVEUR', 'WAVESEUR']
 # asset_names = ['XXBTZEUR']
 # asset_names = ['TRUMPEUR']
 
+# Update prices of USDCEUR
+df_prices = update_asset_prices(asset_name='USDCEUR', kapi=kapi, date_to=date_to)
+df_list = [df_deposits, df_wd]
+
 for asset_name in asset_names:
-    latest_date = yesterday - timedelta(days=600)
     fix_asset_name = get_fix_pair_name(asset_name, FIX_X_PAIR_NAMES)
-    df_prices, _ = read_prices_from_local_file(asset_name=fix_asset_name)
-    if not df_prices.empty:
-        latest_date = df_prices.DATE.iloc[-1]
-
-    if latest_date < date_to:
-        new_prices = get_new_prices(
-            kapi=kapi,
-            asset_name=asset_name,
-            timestamp_from=from_date_to_timestamp(day=latest_date),
-            with_volumes=True,
-        )
-        if new_prices is not None:
-            new_prices = timestamp_df_to_date_df(df=new_prices)
-            df_prices = pd.concat([df_prices, new_prices])
-            df_prices = df_prices.drop_duplicates(subset=['DATE'])
-
-            df_prices.to_csv(f'{PRICES_DIR}{fix_asset_name}_DAILY_WITH_VOLUME.csv', index=False)
+    df_prices = update_asset_prices(asset_name=fix_asset_name, kapi=kapi, date_to=date_to)
 
     df_trades_asset = df_trades[df_trades.ASSET == asset_name]
     df_asset_pos = get_asset_positions(
@@ -282,9 +300,7 @@ df_positions.dropna(subset=['AMOUNT'], inplace=True)
 df_positions.reset_index(inplace=True)
 df_positions = df_positions[df_positions.DATE <= date_to]
 
-df_positions['TOTAL_SHARES'] = df_positions['SHARES'].cumsum()
 df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'] = df_positions.loc[df_positions.ASSET == 'ZEUR', 'SHARES'].cumsum()  # noqa # fmt: skip
-df_positions.drop(columns=['TOTAL_SHARES'], inplace=True)
 df_no_duplicates = df_positions.loc[df_positions.ASSET == 'ZEUR', :].drop_duplicates(subset=['DATE'], keep='last')
 
 # df_positions.reset_index(inplace=True)
@@ -345,7 +361,7 @@ df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index(
 
 
 years = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
-gains_by_year = [237.9, 1116.6, 8251.4, 2341.3, 2610.9, 5802.0, 3142.75, 525.0]
+gains_by_year = [237.9, 1116.6, 8251.4, 2341.3, 2610.9, 5802.0, 3142.75, 570.0]
 print('\n ***** GAINS BY YEAR ***** ')
 for idx, year in enumerate(years):
     gain = year_gain_perc(

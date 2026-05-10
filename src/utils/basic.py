@@ -392,12 +392,12 @@ def get_new_prices(
     timestamp_from: datetime.timestamp,
     with_volumes: bool = False,
 ) -> pd.DataFrame:
-    RENAME_ASSET_MAPPING
     if asset_name in RENAME_ASSET_MAPPING:
         asset_name = RENAME_ASSET_MAPPING[asset_name]
     # If timestamp_from is higher than 2 years display a warning
     prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
-    if not prices.get('result'):
+    if not prices.get('result') or not prices['result'].get(asset_name):
+        print(f'ERROR: OHLC for Asset {asset_name} not found')
         return None
     df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
     df_prices.columns = HEADER_PRICES_KRAKEN

@@ -408,12 +408,14 @@ class Asset:
 
         sells_data = [
             {
+                "acc_sell_count": self.last_sells_count,
                 "acc_sell_vol": smart_round(number=self.last_sells_shares),
                 "avg_sell": smart_round(number=self.last_sells_avg_price),
                 "acc_sell_amount": smart_round(number=self.last_sells_shares * self.last_sells_avg_price),
             },
         ]
         sells_cols = [
+            ("acc_sell_count", "Acc. Count", "^"),
             ("acc_sell_vol", "Acc. Vol", "^"),
             ("avg_sell", "Avg Price", "^"),
             ("acc_sell_amount", "Acc. Amt", "^"),
