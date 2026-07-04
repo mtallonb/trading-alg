@@ -303,6 +303,7 @@ for asset_name in sell_pairs_in_year:
         sell.amount for sell in sell_trades if sell.asset_name == asset_name and sell.completed.year == year
     ]
     # 1/6 of sell amount is not exactly 20% must be 16.6%
+    # Vendes al 20 % de ganancia pero eso representa el 16.6% de la cantidad vendida
     sell_amount_asset_year = sum(sell_trades_asset_year_amount) * D('0.166')
 
     if is_position_closed:

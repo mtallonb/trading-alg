@@ -558,7 +558,7 @@ if PRINT_ORDERS_SUMMARY:
         remaining_buys = max(BUY_LIMIT - asset.last_buys_count, 0)
         last_buy_amount = asset.last_buys_shares * asset.last_buys_avg_price
         buy_limit_reached = asset.check_buys_limit(BUY_LIMIT, MINIMUM_BUY_AMOUNT * BUY_LIMIT, last_buy_amount)
-        buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(BUY_LIMIT_AMOUNT)
+        buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(buy_limit_amount=BUY_LIMIT_AMOUNT)
 
         if asset.name not in ASSETS_TO_EXCLUDE_AMOUNT and remaining_buys:
             count_all_remaining_buys += remaining_buys
