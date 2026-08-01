@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import operator
+import os
 import re
+import sys
 import time
 
 from _csv import writer
@@ -13,6 +15,8 @@ from decimal import Decimal
 import numpy as np
 import pandas as pd
 import pytz
+
+from ia_agent import get_smart_summary
 
 from .classes import CSVTrade, PriceOHLC, Trade
 
@@ -772,3 +776,25 @@ def print_smart_df_multicolor(
 
 def print_separator():
     print("\n" + "-" * 100 + "\n")
+
+
+def run_smart_summary(
+    positions,
+    death_assets,
+    ia_agent,
+    captured_output,
+    local_tz,
+    output_dir,
+):
+    print(f'\n ***** SMART SUMMARY ({ia_agent}) ***** ')
+    smart_summary_time_start = datetime.now(timezone.utc)
+    agent_response = get_smart_summary(positions=positions, death_assets=death_assets, ia_agent=ia_agent)
+    print(f'Agent response: \n {agent_response}')
+    elapsed_time_smart_summary = datetime.now(timezone.utc) - smart_summary_time_start
+    print(f'Smart summary latency: {elapsed_time_smart_summary}')
+
+    sys.stdout = sys.stdout.streams[0]
+    os.makedirs(output_dir, exist_ok=True)
+    output_filename = os.path.join(output_dir, f"{datetime.now(local_tz).strftime('%Y%m%d')}.md")
+    with open(output_filename, 'w', encoding='utf-8') as output_file:
+        output_file.write(captured_output.getvalue())

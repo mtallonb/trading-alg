@@ -22,12 +22,14 @@
 # DELISTING:
 # LUNA, LUNA2, ETHW,
 
+import io
+import sys
+
 from datetime import datetime, timedelta, timezone
 
 import krakenex
 import pandas as pd
 
-from ia_agent import get_smart_summary
 from utils.basic import (
     BCOLORS,
     FIX_X_PAIR_NAMES,
@@ -47,6 +49,7 @@ from utils.basic import (
     print_smart_df_multicolor,
     print_table,
     read_prices_from_local_file,
+    run_smart_summary,
     smart_round,
 )
 from utils.classes import MAPPING_NAMES, OP_BUY, OP_SELL, Asset, Order, Trade
@@ -77,6 +80,26 @@ ASSETS_TO_EXCLUDE_AMOUNT = [
     'SCEUR', 'DASHEUR', 'SGBEUR', 'SHIBEUR', 'LUNAEUR', 'LUNA2EUR', 'WAVESEUR', 'EIGENEUR', 'APENFTEUR',
     'MATICEUR',
 ]  # fmt: off
+
+SMART_OUTPUT_DIR = './data/smart_outputs'
+
+
+class Tee(io.TextIOBase):
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+        return len(data)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
+
+captured_output = io.StringIO()
+sys.stdout = Tee(sys.stdout, captured_output)
 
 MAPPING_STAKING_NAME = {'BTC': 'XBTEUR'}
 # DUAL_ASSETS_NAME = {'MATICEUR': 'POLEUR'}
@@ -713,13 +736,18 @@ if PRINT_ORDERS_SUMMARY:
 elapsed_time_since_begining = datetime.now(timezone.utc) - processing_time_start
 
 if SHOW_SMART_SUMMARY:
-    print('\n ***** SMART SUMMARY ***** ')
-    smart_summary_time_start = datetime.now(timezone.utc)
     positions = [asset.to_dict() for asset in assets_dict.values()]
-    agent_response = get_smart_summary(positions=positions, death_assets=death_asset_names, ia_agent=IA_AGENT)
-    print(f'Agent response: \n {agent_response}')
-    elapsed_time_smart_summary = datetime.now(timezone.utc) - smart_summary_time_start
-    print(f'Smart summary latency: {elapsed_time_smart_summary}')
+    run_smart_summary(
+        positions=positions,
+        death_assets=death_asset_names,
+        ia_agent=IA_AGENT,
+        captured_output=captured_output,
+        local_tz=LOCAL_TZ,
+        output_dir=SMART_OUTPUT_DIR,
+    )
+else:
+    sys.stdout = sys.stdout.streams[0]
+
 
 print('\n ***** TIME SUMMARY ***** ')
 print(f'Endpoints latency: {elapsed_time_query_server}')
