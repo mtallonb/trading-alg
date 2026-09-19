@@ -128,7 +128,7 @@ LOAD_ALL_CLOSE_PRICES = True
 TRADE_FILE = './data/trades_2026.csv'
 KEY_FILE = './data/keys/kraken.key'
 
-TREND_THR = 0.2
+TREND_THR = 0.6  # rescaled from 0.2 on the old [-1,1]-truncated-to-0 TREND scale, now [0,1] with 0.5 = neutral
 
 # configure api
 kapi = krakenex.API()

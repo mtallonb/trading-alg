@@ -298,14 +298,18 @@ def compute_ranking(df):
     df['TREND_DIST_ABS'] = (df.CURR_PRICE - df.AVG_PRICE_200).abs() + (df.CURR_PRICE - df.AVG_PRICE_50).abs() + (df.CURR_PRICE - df.AVG_PRICE_10).abs()  # fmt: skip # noqa
     df['TREND'] = df.TREND_DIST / df.TREND_DIST_ABS
     df['TREND'] = df['TREND'].replace([np.inf, -np.inf], 0)
+    # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
+    # so a slightly negative raw TREND still reflects its relative magnitude.
+    df['TREND'] = (df['TREND'] + 1) / 2
     # Compute TREND_VOL
     df['VOL_DIST'] = 2 * df.AVG_VOL_10 - df.AVG_VOL_200 - df.AVG_VOL_50
     df['VOL_DIST_ABS'] = (df.AVG_VOL_10 - df.AVG_VOL_200).abs() + (df.AVG_VOL_10 - df.AVG_VOL_50).abs()
     df['VOL'] = df.VOL_DIST / df.VOL_DIST_ABS
     df['VOL'] = df['VOL'].replace([np.inf, -np.inf], 0)
+    # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
+    # so a slightly negative raw VOL still reflects its relative magnitude.
+    df['VOL'] = (df['VOL'] + 1) / 2
 
-    df.loc[df.VOL < 0, 'VOL'] = 0
-    df.loc[df.TREND < 0, 'TREND'] = 0
     df.loc[df.P_BUY <= -2, 'P_BUY'] = -2.0
     df.loc[df.P_SELL <= -2, 'P_SELL'] = -2.0
     df.loc[df.MARGIN_P > 6 * df.MARGIN_A.mean(), 'MARGIN_P'] = 6 * df.MARGIN_A.mean()
