@@ -558,6 +558,9 @@ class Asset:
                 "last_price": smart_round(number=last_price),
                 "ranking": self.get_ranking_message(),
                 "suggested_buy_price": smart_round(number=suggested_buy_price),
+                "current_buy_price": smart_round(number=self.orders_buy_higher_price)
+                if self.orders_buy_higher_price
+                else "N/A",
             },
         ]
         market_cols = [
@@ -565,7 +568,8 @@ class Asset:
             ("curr_price", "Curr. Price", "^"),
             ("last_price", "Last Trade Price", "^"),
             ("ranking", "Ranking", "^"),
-            ("suggested_buy_price", "Suggested buy price (max after last trade)", "^"),
+            ("suggested_buy_price", "Suggested buy price\n(max after last trade)", "^"),
+            ("current_buy_price", "Current buy price", "^"),
         ]
 
         buys_data = [
@@ -614,7 +618,7 @@ class Asset:
             ("balance", "Balance", "^"),
             ("sell_amount", "Sells Amount", "^"),
             ("buy_amount", "Buys Amount", "^"),
-            ("margin", "Margin (Balance+S-B)", "^"),
+            ("margin", "Margin \n(Balance+S-B)", "^"),
         ]
 
         last_trade_data = [
