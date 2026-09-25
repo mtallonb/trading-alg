@@ -240,6 +240,7 @@ def load_from_csv(filename, assets_dict, fix_x_pair_names):
         # Skip the header
         next(csv_reader, None)
 
+        trade = None  # Returned as-is when the CSV has no trades
         for asset_csv in csv_reader:
             asset_name = get_fix_pair_name(asset_csv['pair'], fix_x_pair_names)
             asset = assets_dict.get(asset_name)

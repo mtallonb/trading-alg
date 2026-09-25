@@ -338,15 +338,19 @@ class Asset:
 
         staking_data = [
             {
-                "shares": f"{smart_round(self.shares)} | {smart_round(self.staked_shares)}",
-                "balance": f"{smart_round(self.spot_balance)} | {smart_round(self.stacked_balance)}",
-                "total_balance": smart_round(self.balance),
+                "spot_shares": smart_round(number=self.shares),
+                "manual_shares": smart_round(number=self.staked_shares),
+                "spot_balance": smart_round(number=self.spot_balance),
+                "manual_balance": smart_round(number=self.stacked_balance),
+                "total_balance": smart_round(number=self.balance),
             },
         ]
         staking_cols = [
-            ("shares", "SHARES: Spot (incl. autostaked shares) | Manual", "^"),
-            ("balance", "BALANCE: Spot | Manual", "^"),
-            ("total_balance", "Balance (All staked+spot)", "^"),
+            ("spot_shares", "SHARES: Spot\n(incl. autostaked)", "^"),
+            ("manual_shares", "SHARES:\nManual", "^"),
+            ("spot_balance", "BALANCE:\nSpot", "^"),
+            ("manual_balance", "BALANCE:\nManual", "^"),
+            ("total_balance", "Balance\n(All staked+spot)", "^"),
         ]
         print_table(staking_data, staking_cols, title="STAKING INFO")
 
@@ -475,11 +479,11 @@ class Asset:
         sessions_data = [
             {
                 "sessions_prices": f"{smart_round(self.avg_session_price(days=200))}"
-                f" | {smart_round(self.avg_session_price(days=50))}"
-                f" | {smart_round(self.avg_session_price(days=10))}",
+                f" / {smart_round(self.avg_session_price(days=50))}"
+                f" / {smart_round(self.avg_session_price(days=10))}",
                 "sessions_vol": f"{smart_round(self.avg_session_volume(days=200))}"
-                f" | {smart_round(self.avg_session_volume(days=50))}"
-                f" | {smart_round(self.avg_session_volume(days=10))}",
+                f" / {smart_round(self.avg_session_volume(days=50))}"
+                f" / {smart_round(self.avg_session_volume(days=10))}",
             },
         ]
 
