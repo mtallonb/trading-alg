@@ -311,6 +311,7 @@ def fill_trades(kapi, assets_dict: dict[str, Asset], last_trade_from_csv):
                     break
 
                 if last_trade_from_csv:
+                    # Kept in Kraken order (newest first); reversed when inserted at the end of this function
                     new_trades.append((asset, trade))
                 else:
                     # No CSV: trades come newest first, so appending keeps trades[0] as the newest
@@ -331,7 +332,9 @@ def fill_trades(kapi, assets_dict: dict[str, Asset], last_trade_from_csv):
 
     if new_trades:
         print(BCOLORS.WARNING + f'CSV not updated: {len(new_trades)} trades newer than the CSV' + BCOLORS.ENDC)
-    # Insert oldest first so each asset ends with its newest trade at trades[0]
+    # Kraken order is reversed here: insert_trade_on_top puts each trade at trades[0], so inserting
+    # oldest first leaves the newest trade at trades[0], on top of the trades loaded from the CSV
+    # (inserting in Kraken order would leave the oldest new trade on top)
     for new_trade_asset, new_trade in reversed(new_trades):
         new_trade_asset.insert_trade_on_top(trade=new_trade)
 

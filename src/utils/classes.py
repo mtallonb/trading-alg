@@ -301,8 +301,9 @@ class Asset:
             self.orders_buy_higher_price = price
 
     def add_trade(self, trade):
-        if self.trades and self.trades[0].is_partial(trade):
-            self.trades[0].sum_trade(trade)
+        # trades is newest first and this appends an older trade, so the adjacent one is the last
+        if self.trades and self.trades[-1].is_partial(trade):
+            self.trades[-1].sum_trade(trade)
         else:
             self.trades.append(trade)
         self.update_calc(trade)
