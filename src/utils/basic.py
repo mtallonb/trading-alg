@@ -358,6 +358,7 @@ def read_trades_csv(filename, buy_trades, sell_trades):
 
         next(csv_reader, None)
 
+        trade = None  # Returned as-is when the CSV has no trades
         for asset_csv in csv_reader:
             trade = CSVTrade(
                 asset_csv['pair'],
