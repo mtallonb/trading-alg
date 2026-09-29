@@ -49,6 +49,7 @@ RENAME_ASSET_MAPPING = {
 
 OHLCV_DIR = './data/OHLCV_prices/'
 PRICES_DIR = './data/prices_with_volume/'
+REALISED_GAINS_FILE = './data/realised_gains_by_year.csv'
 
 
 class BCOLORS:
@@ -394,6 +395,20 @@ def append_trades_to_csv(filename, trades_to_append):
             ]
             append_writer.writerow(row)
         csvfile.close()
+
+
+def read_realised_gains(filename: str) -> dict[int, float]:
+    """Realised gain (G/L sell amount) per year, ascending by year."""
+    df = pd.read_csv(filename).sort_values(by=['YEAR'])
+    return dict(zip(df.YEAR, df.GL_SELL_AMOUNT))
+
+
+def save_realised_gain(filename: str, year: int, amount: float):
+    """Insert or replace the realised gain of year, keeping the other years."""
+    gains = read_realised_gains(filename=filename) if os.path.exists(filename) else {}
+    gains[year] = round(float(amount), 2)
+    df = pd.DataFrame(sorted(gains.items()), columns=['YEAR', 'GL_SELL_AMOUNT'])
+    df.to_csv(filename, index=False)
 
 
 def get_new_prices(

@@ -14,12 +14,14 @@ import krakenex
 from utils.basic import (
     DATETIME_FORMAT,
     FIX_X_PAIR_NAMES,
+    REALISED_GAINS_FILE,
     append_trades_to_csv,
     get_fix_pair_name,
     get_paginated_response_from_kraken,
     my_round,
     print_table,
     read_trades_csv,
+    save_realised_gain,
     smart_round,
 )
 from utils.classes import CSVTrade
@@ -141,7 +143,6 @@ def compute_gain_loss(
     print(f'is_position_closed: {is_position_closed}')
     print('==========\n')
     return total_gain_loss, gain_loss_year, fees, is_position_closed
-
 
 
 def fetch_new_trades(
@@ -337,6 +338,10 @@ def main():
     pair_gains, totals = compute_pair_gains(buy_trades=buy_trades, sell_trades=sell_trades, year=YEAR)
     print_summary(buy_trades=buy_trades, sell_trades=sell_trades, year=YEAR, totals=totals)
     print_pair_gains(pair_gains=pair_gains)
+
+    # Realised gain of the year, read by balances.py (a filtered run only covers one pair)
+    if not FILTER_ASSET_NAME:
+        save_realised_gain(filename=REALISED_GAINS_FILE, year=YEAR, amount=totals['gl_sell_amount'])
 
     # Append trades to CSV
     append_trades_to_csv(filename=TRADES_FILE, trades_to_append=trades_to_append_to_csv_asc)
