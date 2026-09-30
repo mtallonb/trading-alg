@@ -6,7 +6,6 @@
 # Compensar ganancias con las perdidas de las muertas.
 # Ejecutar las pérdidas si hay mucha ganancia este año
 # Mostrar si esta bloqueado el que esta a punto de vender
-# DEFAULT_SESSIONS = [10, 50, 200]
 # Add accumulated B/S on LIST percentage to execute
 # Meter todos los trades e indicarle cuando salir de los muertos. Voy a abrir una posición de compra o venta
 # de acuerdo a la volatilidad en tal activo te paso mi ranking. Critica mi ranking.
@@ -125,6 +124,8 @@ TRADE_FILE = './data/trades_2026.csv'
 KEY_FILE = './data/keys/kraken.key'
 
 TREND_THR = 0.6  # rescaled from 0.2 on the old [-1,1]-truncated-to-0 TREND scale, now [0,1] with 0.5 = neutral
+AVG_SESSIONS = [200, 50, 10]  # Days of the price/volume averages used by TREND and VOL (at least 2)
+EXPECTED_SELLS_DAYS = 200  # Days used to count expected sell trades (X_TRADES)
 
 
 def build_assets(balance, open_orders, currency) -> dict[str, Asset]:
@@ -364,8 +365,8 @@ def print_last_trades(assets_dict: dict[str, Asset]):
             print(f'\n {trade}')
 
 
-def build_ranking_rows(assets_dict: dict[str, Asset]) -> list[list]:
-    """Compute per-asset stats used for the ranking. Each row follows the ranking_cols order."""
+def build_ranking_rows(assets_dict: dict[str, Asset]) -> list[dict]:
+    """Compute per-asset stats used for the ranking, one dict per asset keyed by ranking column."""
     assets_by_last_trade = []
     for _, asset in assets_dict.items():
         if not asset.trades:
@@ -384,78 +385,52 @@ def build_ranking_rows(assets_dict: dict[str, Asset]) -> list[list]:
             buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(buy_limit_amount=BUY_LIMIT_AMOUNT)
             buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
             margin_amount = asset.margin_amount
-            expected_sells_200 = avg_sessions_200 = avg_sessions_50 = avg_sessions_10 = None
-            avg_volumes_200 = avg_volumes_50 = avg_volumes_10 = None
-            if asset.close_prices is not None and not asset.close_prices.empty:
-                expected_sells_200 = count_sells_in_range(
+            has_prices = asset.close_prices is not None and not asset.close_prices.empty
+            has_volumes = asset.close_volumes is not None and not asset.close_volumes.empty
+            expected_sells = None
+            if has_prices:
+                expected_sells = count_sells_in_range(
                     close_prices=asset.close_prices,
-                    days=200,
+                    days=EXPECTED_SELLS_DAYS,
                     buy_perc=BUY_PERCENTAGE,
                     sell_perc=SELL_PERCENTAGE,
                 )
-                avg_sessions_200 = asset.avg_session_price(days=200)
-                avg_sessions_50 = asset.avg_session_price(days=50)
-                avg_sessions_10 = asset.avg_session_price(days=10)
 
-            if asset.close_volumes is not None and not asset.close_volumes.empty:
-                avg_volumes_200 = asset.avg_session_volume(days=200)
-                avg_volumes_50 = asset.avg_session_volume(days=50)
-                avg_volumes_10 = asset.avg_session_volume(days=10)
-
-            # This list will be loaded to a DataFrame see ranking_cols
-            assets_by_last_trade.append(
-                [
-                    asset.name,
-                    asset.latest_trade_date,
-                    asset.orders_buy_count,
-                    buy_limit_reached,
-                    my_round(value=asset.price),
-                    my_round(value=asset.avg_buys),
-                    my_round(value=asset.avg_sells),
-                    my_round(value=margin_amount),
-                    sell_trades_count,
-                    expected_sells_200,
-                    my_round(value=avg_sessions_200),
-                    my_round(value=avg_sessions_50),
-                    my_round(value=avg_sessions_10),
-                    my_round(value=avg_volumes_200),
-                    my_round(value=avg_volumes_50),
-                    my_round(value=avg_volumes_10),
-                ],
-            )
+            # Column order matters: it is the order the ranking DataFrame is built with
+            row = {
+                'NAME': asset.name,
+                'LAST_TRADE': asset.latest_trade_date,
+                'IBS': asset.orders_buy_count,
+                'BLR': buy_limit_reached,
+                'CURR_PRICE': my_round(value=asset.price),
+                'AVG_B': my_round(value=asset.avg_buys),
+                'AVG_S': my_round(value=asset.avg_sells),
+                'MARGIN_A': my_round(value=margin_amount),
+                'S_TRADES': sell_trades_count,
+                'X_TRADES': expected_sells,
+            }
+            for days in AVG_SESSIONS:
+                avg_price = asset.avg_session_price(days=days) if has_prices else None
+                row[f'AVG_PRICE_{days}'] = my_round(value=avg_price)
+            for days in AVG_SESSIONS:
+                avg_volume = asset.avg_session_volume(days=days) if has_volumes else None
+                row[f'AVG_VOL_{days}'] = my_round(value=avg_volume)
+            assets_by_last_trade.append(row)
 
     return assets_by_last_trade
 
 
-def compute_and_print_ranking(assets_dict: dict[str, Asset], assets_by_last_trade: list[list]) -> list[str]:
+def compute_and_print_ranking(assets_dict: dict[str, Asset], assets_by_last_trade: list[dict]) -> list[str]:
     """Compute the ranking, store it on each asset and print the ranking tables. Returns death asset names."""
-    ranking_cols = [
-        'NAME',
-        'LAST_TRADE',
-        'IBS',
-        'BLR',
-        'CURR_PRICE',
-        'AVG_B',
-        'AVG_S',
-        'MARGIN_A',
-        'S_TRADES',
-        'X_TRADES',
-        'AVG_PRICE_200',
-        'AVG_PRICE_50',
-        'AVG_PRICE_10',
-        'AVG_VOL_200',
-        'AVG_VOL_50',
-        'AVG_VOL_10',
-    ]
-    df = pd.DataFrame(assets_by_last_trade, columns=ranking_cols)
-    ranking_df, detailed_ranking_df = compute_ranking(df=df)
+    df = pd.DataFrame(assets_by_last_trade)
+    ranking_df, detailed_ranking_df = compute_ranking(df=df, sessions=AVG_SESSIONS)
 
     for record in ranking_df[['NAME', 'RANKING']].to_dict('records'):
         assets_dict[record['NAME']].ranking = record['RANKING']
 
     table_title = (
-        'PAIR NAMES BY RANKING: (IBD: Is Buy Set. BLR: Buy Limit Reached. '
-        'S_TRADES and X_TRADES: Sell trades and Expected Sell trades on 200 sessions'
+        'PAIR NAMES BY RANKING: \n(IBD: Is Buy Set. BLR: Buy Limit Reached. '
+        f'S_TRADES and X_TRADES: Sell trades and Expected Sell trades on {EXPECTED_SELLS_DAYS} sessions'
     )
     ranking_df.loc[:, 'NAME'] = ranking_df['NAME'].replace(MAPPING_NAMES)
     print_smart_df(df=ranking_df, exclude_columns=['IBS', 'BLR'], title=table_title)
@@ -643,7 +618,11 @@ def print_orders_to_create(kapi, sorted_pair_names_list_balance):
                 or PRINT_BUYS_WARN_CONSECUTIVE
                 or asset.name in PAIR_TO_FORCE_INFO
             ):
-                asset.print_buy_message(gain_perc=BUY_PERCENTAGE, minimum_buy_amount=MINIMUM_BUY_AMOUNT)
+                asset.print_buy_message(
+                    gain_perc=BUY_PERCENTAGE,
+                    minimum_buy_amount=MINIMUM_BUY_AMOUNT,
+                    sessions=AVG_SESSIONS,
+                )
 
                 if AUTO_BUY_ORDER:
                     asset.print_set_order_message(
@@ -843,7 +822,8 @@ def main():
     if PRINT_ORDERS_SUMMARY:
         with timer(timings=timings, label='Orders summary time'):
             count_missing_buys, count_remaining_buys, count_all_remaining_buys = print_orders_to_create(
-                kapi=kapi, sorted_pair_names_list_balance=sorted_pair_names_list_balance,
+                kapi=kapi,
+                sorted_pair_names_list_balance=sorted_pair_names_list_balance,
             )
 
         print_cash_summary(

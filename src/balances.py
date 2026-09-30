@@ -23,7 +23,6 @@ from utils.basic import (
 
 # Invested on each asset and current balance -> result not very useful
 # Fix unrealised gain on asset delisting. Forced sale: the 20% is not gained
-# Dates instead of timestamps csv close files
 
 # PANDAS CONF
 pd.options.mode.chained_assignment = None  # default='warn'

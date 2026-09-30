@@ -365,7 +365,7 @@ class Asset:
         else:
             return f'{BCOLORS.WARNING}{smart_round(self.avg_buys)!s} | {perc!s} %{BCOLORS.ENDC}'
 
-    def print_buy_message(self, gain_perc: float, minimum_buy_amount: float):
+    def print_buy_message(self, gain_perc: float, minimum_buy_amount: float, sessions: list[int]):
         from utils.basic import BCOLORS, print_separator, print_table, smart_round
 
         latest_trade = self.trades[0]
@@ -479,12 +479,8 @@ class Asset:
 
         sessions_data = [
             {
-                "sessions_prices": f"{smart_round(self.avg_session_price(days=200))}"
-                f" / {smart_round(self.avg_session_price(days=50))}"
-                f" / {smart_round(self.avg_session_price(days=10))}",
-                "sessions_vol": f"{smart_round(self.avg_session_volume(days=200))}"
-                f" / {smart_round(self.avg_session_volume(days=50))}"
-                f" / {smart_round(self.avg_session_volume(days=10))}",
+                "sessions_prices": " / ".join(str(smart_round(self.avg_session_price(days=days))) for days in sessions),
+                "sessions_vol": " / ".join(str(smart_round(self.avg_session_volume(days=days))) for days in sessions),
             },
         ]
 
@@ -498,7 +494,7 @@ class Asset:
         print_table(buys_data, buys_cols, title="ACCUMULATED BUYS STATUS (RATE)") if self.last_buys_count > 0 else None  # fmt: skip # noqa
         print_table(margin_data, margin_cols, title="MARGIN STATUS")
         print_table(last_trade_data, last_trade_cols, title="LAST TRADE HISTORY")
-        print_table(sessions_data, sessions_cols, title="Sessions (200)(50)(10)")
+        print_table(sessions_data, sessions_cols, title="Sessions " + "".join(f"({days})" for days in sessions))
 
     def print_set_order_message(self, order_type: str, order_percentage: float, minimum_order_amount: float) -> None:
         from utils.basic import BCOLORS, my_round

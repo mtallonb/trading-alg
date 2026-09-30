@@ -282,13 +282,28 @@ def print_query_result(endpoint, result):
     print(f'Succeeded: {endpoint} records: {result["result"]["count"]}')
 
 
-def compute_ranking(df):
+def compute_ranking(df, sessions: list[int]):
     """
     df input COLUMNS: [
         'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES', 'X_TRADES',
-        'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10',
+        'AVG_PRICE_<days>' and 'AVG_VOL_<days>' for each days in sessions,
         ]
+    With P = CURR_PRICE, P_d = AVG_PRICE_<d>, V_d = AVG_VOL_<d>, s = min(sessions) and d over sessions:
+
+        TREND = (1 + sum_d(P - P_d) / sum_d(|P - P_d|)) / 2
+        VOL   = (1 + sum_{d != s}(V_s - V_d) / sum_{d != s}(|V_s - V_d|)) / 2
+        TREND_VOL = TREND * VOL
+
+    Both are in [0, 1]: 1 when P (or V_s) is above every other average, 0 when below all of them, 0.5 neutral.
+    With a single term the ratio is just ±1, so with 2 sessions VOL is always 0 or 1. VOL needs at least
+    2 sessions. If every difference is 0 the ratio is 0/0 = NaN, which makes RANKING NaN and drops the asset.
     """
+    if len(sessions) < 2:
+        raise ValueError(f'At least 2 sessions are needed to compute VOL, got {sessions}')
+    price_cols = [f'AVG_PRICE_{days}' for days in sessions]
+    vol_cols = [f'AVG_VOL_{days}' for days in sessions]
+    shortest_vol_col = f'AVG_VOL_{min(sessions)}'
+    longer_vol_cols = [col for col in vol_cols if col != shortest_vol_col]
 
     df['MARGIN_P'] = df.MARGIN_A
     df['P_BUY'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
@@ -296,16 +311,22 @@ def compute_ranking(df):
     df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
     df['BS_P'] = df['BS_P'].replace([np.inf, -np.inf], 0)
     # Compute TREND
-    df['TREND_DIST'] = 3 * df.CURR_PRICE - df.AVG_PRICE_200 - df.AVG_PRICE_50 - df.AVG_PRICE_10
-    df['TREND_DIST_ABS'] = (df.CURR_PRICE - df.AVG_PRICE_200).abs() + (df.CURR_PRICE - df.AVG_PRICE_50).abs() + (df.CURR_PRICE - df.AVG_PRICE_10).abs()  # fmt: skip # noqa
+    df['TREND_DIST'] = len(price_cols) * df.CURR_PRICE
+    df['TREND_DIST_ABS'] = 0.0
+    for col in price_cols:
+        df['TREND_DIST'] -= df[col]
+        df['TREND_DIST_ABS'] += (df.CURR_PRICE - df[col]).abs()
     df['TREND'] = df.TREND_DIST / df.TREND_DIST_ABS
     df['TREND'] = df['TREND'].replace([np.inf, -np.inf], 0)
     # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
     # so a slightly negative raw TREND still reflects its relative magnitude.
     df['TREND'] = (df['TREND'] + 1) / 2
     # Compute TREND_VOL
-    df['VOL_DIST'] = 2 * df.AVG_VOL_10 - df.AVG_VOL_200 - df.AVG_VOL_50
-    df['VOL_DIST_ABS'] = (df.AVG_VOL_10 - df.AVG_VOL_200).abs() + (df.AVG_VOL_10 - df.AVG_VOL_50).abs()
+    df['VOL_DIST'] = len(longer_vol_cols) * df[shortest_vol_col]
+    df['VOL_DIST_ABS'] = 0.0
+    for col in longer_vol_cols:
+        df['VOL_DIST'] -= df[col]
+        df['VOL_DIST_ABS'] += (df[shortest_vol_col] - df[col]).abs()
     df['VOL'] = df.VOL_DIST / df.VOL_DIST_ABS
     df['VOL'] = df['VOL'].replace([np.inf, -np.inf], 0)
     # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
@@ -345,7 +366,7 @@ def compute_ranking(df):
 
     df.sort_values(by=['RANKING'], inplace=True, ignore_index=True, ascending=False)
     ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'P_BUY', 'P_SELL', 'BS_P', 'TREND', 'VOL', 'TREND_VOL']]  # fmt: skip # noqa
-    details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'TREND', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10','VOL']]  # fmt: skip # noqa
+    details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', *price_cols, 'TREND', *vol_cols, 'VOL']]  # fmt: skip # noqa
 
     return ranking_df, details_df
 

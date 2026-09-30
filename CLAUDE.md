@@ -26,10 +26,10 @@ Personal Kraken/eToro trading scripts (EUR): read balance, orders and trades, ra
 
 ## `src/orders.py` refactor (in progress)
 
-Done: phase functions + `main()`, `timer`, unused vars removed, keyword arguments, known bugs fixed (tickers without asset, `close_prices`/`close_volumes` `None`, `last_trade_from_csv` `None`, trades newer than the CSV inserted oldest-first so `trades[0]` is the newest, untracked-pair orders only counted in totals, `load_from_csv` on empty CSV, `Asset.add_trade` fuses partials with `trades[-1]`). `Asset.trades` is newest first. Pending, in order:
+Done: phase functions + `main()`, `timer`, unused vars removed, keyword arguments, known bugs fixed (tickers without asset, `close_prices`/`close_volumes` `None`, `last_trade_from_csv` `None`, trades newer than the CSV inserted oldest-first so `trades[0]` is the newest, untracked-pair orders only counted in totals, `load_from_csv` on empty CSV, `Asset.add_trade` fuses partials with `trades[-1]`), averages parametrized with `AVG_SESSIONS` (≥ 2; VOL compares the shortest with the rest) and `EXPECTED_SELLS_DAYS`, ranking rows are dicts. `Asset.trades` is newest first. Pending, in order:
 
-1. Duplication: `XX...` name normalization, prices/volumes loading, buy/sell order accumulation (→ `Asset.add_order`), `check_buys_limit` computed twice, 200/50/10 averages (→ sessions list), 3 proximity tables, buy/sell cancellation (→ `check_and_cancel`), `warn()`/`fail()` for `BCOLORS`.
-2. Idioms: positional ranking rows tied to `ranking_cols` (→ dicts), side-effect comprehensions/ternaries, redundant checks, `sys.stdout` restored in one branch only (→ context manager).
+1. Duplication: `XX...` name normalization, prices/volumes loading, buy/sell order accumulation (→ `Asset.add_order`), `check_buys_limit` computed twice, 3 proximity tables, buy/sell cancellation (→ `check_and_cancel`), `warn()`/`fail()` for `BCOLORS`.
+2. Idioms: side-effect comprehensions/ternaries, redundant checks, `sys.stdout` restored in one branch only (→ context manager).
 3. Move config to its own module.
 
 ## `src/balances.py`
