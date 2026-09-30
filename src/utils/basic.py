@@ -296,7 +296,21 @@ def compute_ranking(df, sessions: list[int]):
 
     Both are in [0, 1]: 1 when P (or V_s) is above every other average, 0 when below all of them, 0.5 neutral.
     With a single term the ratio is just ±1, so with 2 sessions VOL is always 0 or 1. VOL needs at least
-    2 sessions. If every difference is 0 the ratio is 0/0 = NaN, which makes RANKING NaN and drops the asset.
+    2 sessions. If every difference is 0 the ratio is 0/0 = NaN, and the asset is dropped (printed).
+
+    MARGIN_A is the asset result in EUR (Asset.margin_amount = sells + current balance - buys). With k the
+    number of assets with MARGIN_A > 0 and r their rank by MARGIN_A (1 = lowest, ties averaged):
+
+        MARGIN_P = 0      if MARGIN_A <= 0
+        MARGIN_P = r / k  if MARGIN_A > 0
+
+    So losing assets all score 0 and winning ones are spread evenly in (0, 1] (lowest 1/k, highest 1). Only the
+    order counts, not the amount: an outlier (e.g. BTC with 4x the next margin) doesn't squash the rest, so no
+    hand-tuned cap is needed (it replaces the old `6 * mean(MARGIN_A)` cap). MARGIN_P is already in [0, 1],
+    so it is not min/max normalized like the other terms.
+
+    Assets without sells (AVG_S == 0) or with a NaN RANKING term are dropped before the cross-asset stats
+    (MARGIN_P rank and min/max normalization), so they don't change the scale of the ranked ones.
     """
     if len(sessions) < 2:
         raise ValueError(f'At least 2 sessions are needed to compute VOL, got {sessions}')
@@ -305,7 +319,9 @@ def compute_ranking(df, sessions: list[int]):
     shortest_vol_col = f'AVG_VOL_{min(sessions)}'
     longer_vol_cols = [col for col in vol_cols if col != shortest_vol_col]
 
-    df['MARGIN_P'] = df.MARGIN_A
+    # Assets without sells are not ranked: drop them before any cross-asset stat (mean, min/max)
+    df = df[df.AVG_S != 0.0].copy()
+
     df['P_BUY'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
     df['P_SELL'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
     df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
@@ -321,7 +337,7 @@ def compute_ranking(df, sessions: list[int]):
     # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
     # so a slightly negative raw TREND still reflects its relative magnitude.
     df['TREND'] = (df['TREND'] + 1) / 2
-    # Compute TREND_VOL
+    # Compute VOL
     df['VOL_DIST'] = len(longer_vol_cols) * df[shortest_vol_col]
     df['VOL_DIST_ABS'] = 0.0
     for col in longer_vol_cols:
@@ -335,12 +351,30 @@ def compute_ranking(df, sessions: list[int]):
 
     df.loc[df.P_BUY <= -2, 'P_BUY'] = -2.0
     df.loc[df.P_SELL <= -2, 'P_SELL'] = -2.0
-    df.loc[df.MARGIN_P > 6 * df.MARGIN_A.mean(), 'MARGIN_P'] = 6 * df.MARGIN_A.mean()
     df['TREND_VOL'] = df.TREND * df.VOL
 
+    # A NaN in any RANKING term makes RANKING NaN: drop those assets before any cross-asset stat
+    ranking_terms = ['P_BUY', 'P_SELL', 'BS_P', 'S_TRADES', 'MARGIN_A', 'X_TRADES', 'TREND_VOL']
+    idx_nan = df[ranking_terms].isna().any(axis=1)
+    nan_check_cols = ['CURR_PRICE', 'AVG_B', 'MARGIN_A', 'S_TRADES', 'X_TRADES', *price_cols, *vol_cols, 'TREND', 'VOL']
+    for _, row in df[idx_nan].iterrows():
+        nan_cols = [col for col in nan_check_cols if pd.isna(row[col])]
+        print(f'{BCOLORS.WARNING}Asset {row.NAME} dropped from ranking, NaN in: {", ".join(nan_cols)}{BCOLORS.ENDC}')
+    df = df[~idx_nan].copy()
+
+    # Negative margins (losing assets) score 0. Positive ones score their percentile rank among them, already in
+    # (0, 1], so an outlier (e.g. BTC) doesn't squash the rest and no cap is needed
+    df['MARGIN_P'] = df.MARGIN_A.where(df.MARGIN_A > 0).rank(pct=True)
+    df.loc[df.MARGIN_A <= 0, 'MARGIN_P'] = 0.0
+
     # ------NORMALIZATION--------
-    COLS_TO_NORM = ['P_BUY', 'P_SELL', 'BS_P', 'S_TRADES', 'MARGIN_P', 'X_TRADES']
-    df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
+    def normalize(x):
+        # A constant column would be 0/0 = NaN for every asset and drop them all: use 0 instead (NaN kept)
+        x_range = x.max() - x.min()
+        return (x - x.min()) / x_range if x_range != 0 else x - x.min()
+
+    COLS_TO_NORM = ['P_BUY', 'P_SELL', 'BS_P', 'S_TRADES', 'X_TRADES']
+    df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(normalize)
     # ---------------------------
 
     df['RANKING'] = (
@@ -355,10 +389,6 @@ def compute_ranking(df, sessions: list[int]):
         + df['TREND_VOL']
     )
 
-    idx_avg_s_zeros = df['AVG_S'] == 0.0
-    df.loc[idx_avg_s_zeros, 'RANKING'] = np.nan
-    # df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.dropna(subset=["RANKING"], how="all", inplace=True)
     # idx = df['RANKING'] < -10
     # df.loc[idx, 'RANKING'] = -10
     df['RANKING'] = df['RANKING'] - df['RANKING'].min()

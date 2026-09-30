@@ -442,7 +442,7 @@ def compute_and_print_ranking(assets_dict: dict[str, Asset], assets_by_last_trad
         table_title = f'PAIR NAMES with TREND >= {TREND_THR}'
         print_smart_df(df=ranking_df_trending, title=table_title)
 
-    table_title = 'PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount - buys_amount.'
+    table_title = 'PAIR NAMES BY RANKING DETAILS: MARGIN_A: sells_amount + balance - buys_amount.'
     detailed_ranking_df.loc[:, 'NAME'] = detailed_ranking_df['NAME'].replace(MAPPING_NAMES)
     print_smart_df(df=detailed_ranking_df, title=table_title)
 
