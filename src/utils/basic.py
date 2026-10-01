@@ -50,6 +50,14 @@ RENAME_ASSET_MAPPING = {
 OHLCV_DIR = './data/OHLCV_prices/'
 PRICES_DIR = './data/prices_with_volume/'
 REALISED_GAINS_FILE = './data/realised_gains_by_year.csv'
+OHLC_MAX_CANDLES = 720  # Kraken OHLC returns at most the 720 most recent candles, whatever `since` is
+OHLC_DAILY_SECONDS = 86400
+KRAKEN_RATE_LIMIT_RETRIES = 5
+KRAKEN_RATE_LIMIT_WAIT = 6  # Seconds: history calls cost 2 points and the counter decays 0.33 points/s at worst
+
+
+class KrakenError(Exception):
+    """Kraken answered with an error (after the rate limit retries)."""
 
 
 class BCOLORS:
@@ -234,6 +242,11 @@ def get_fix_pair_name(pair_name, fix_x_pair_names, currency='EUR'):
 
 
 def load_from_csv(filename, assets_dict, fix_x_pair_names):
+    """Load the trades CSV into its assets and return its last row as the newest trade (None if empty).
+
+    The CSV must be sorted oldest first (summary_trades.py appends new trades in ascending time): each row is
+    inserted on top, which leaves asset.trades newest first, and the last row is taken as the newest trade.
+    """
     csv_file = open(filename, mode='rb')
     with csv_file:
         default_header = ['pair', 'time', 'type', 'ordertype', 'price', 'cost', 'fee', 'vol']
@@ -468,15 +481,29 @@ def get_new_prices(
     timestamp_from: datetime.timestamp,
     with_volumes: bool = False,
 ) -> pd.DataFrame:
+    """Daily OHLC candles of the asset since timestamp_from (unix), as a DataFrame with TIMESTAMP, C (and VOL).
+
+    Kraken returns at most the 720 most recent candles (~2 years for daily ones), whatever `since` is, so an older
+    timestamp_from leaves a gap: warns when the first candle starts more than one day after timestamp_from.
+    """
     if asset_name in RENAME_ASSET_MAPPING:
         asset_name = RENAME_ASSET_MAPPING[asset_name]
-    # If timestamp_from is higher than 2 years display a warning
     prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
     if not prices.get('result') or not prices['result'].get(asset_name):
         print(f'ERROR: OHLC for Asset {asset_name} not found')
         return None
     df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
     df_prices.columns = HEADER_PRICES_KRAKEN
+
+    first_candle_time = int(df_prices.TIMESTAMP.iloc[0])
+    if first_candle_time > timestamp_from + OHLC_DAILY_SECONDS:
+        missing_from = datetime.fromtimestamp(timestamp_from, tz=timezone.utc).date()
+        first_candle = datetime.fromtimestamp(first_candle_time, tz=timezone.utc).date()
+        print(
+            f'{BCOLORS.WARNING}OHLC GAP for {asset_name}: asked since {missing_from} but Kraken starts at '
+            f'{first_candle} (it only returns the {OHLC_MAX_CANDLES} latest daily candles, or the pair is newer): '
+            f'prices from {missing_from} to {first_candle} are missing{BCOLORS.ENDC}',
+        )
     columns_to_get = ['TIMESTAMP', 'C']
     if with_volumes:
         columns_to_get = ['TIMESTAMP', 'C', 'VOL']
@@ -540,29 +567,58 @@ def get_paginated_response_from_kraken(
     endpoint: str,
     dict_key: str,
     params: dict,
-    pages: int,
-    records_per_page: int,
+    pages: int | None,
     is_private: bool = True,
     timestamp_from=None,
 ) -> list[dict]:
+    """Query up to `pages` pages (all of them if None) and return one dict per page.
+
+    Pages and the records inside each dict keep Kraken's order (TradesHistory: most recent first). timestamp_from
+    is sent as `start` (exclusive): only newer records. The offset `ofs` advances by the records actually received,
+    so it works with any Kraken page size (50 by default). Stops on an empty page or when `count` records are read.
+    Rate limit errors are retried; any other error raises KrakenError instead of returning the pages read so far,
+    since they are only the newest records and saving them (e.g. to the trades CSV) would leave a gap.
+    """
     records = []
     if timestamp_from:
         params['start'] = timestamp_from
 
-    for page in range(pages):
-        params['ofs'] = records_per_page * page
+    offset = 0
+    page = 0
+    while pages is None or page < pages:
+        params['ofs'] = offset
+        response = query_kraken_with_retry(kapi=kapi, endpoint=endpoint, params=params, is_private=is_private)
+        if response.get('error'):
+            raise KrakenError(f'Kraken {endpoint} error {response["error"]} after reading {offset} records')
+
+        result = response['result']
+        results = result.get(dict_key)
+        if not results:
+            return records
+
+        records.append(results)
+        offset += len(results)
+        page += 1
+        if 'count' in result and offset >= int(result['count']):
+            return records
+
+    return records
+
+
+def query_kraken_with_retry(kapi, endpoint: str, params: dict, is_private: bool) -> dict:
+    """Query Kraken, waiting and retrying while it answers with a rate limit error. Returns the last response."""
+    for attempt in range(KRAKEN_RATE_LIMIT_RETRIES + 1):
         if is_private:
             response = kapi.query_private(endpoint, params)
         else:
             response = kapi.query_public(endpoint, params)
 
-        results = response.get('result').get(dict_key)
-        if results:
-            records.append(results)
-        else:
-            return records
-
-    return records
+        is_rate_limit = any('Rate limit' in error for error in response.get('error', []))
+        if not is_rate_limit or attempt == KRAKEN_RATE_LIMIT_RETRIES:
+            return response
+        print(f'{endpoint}: Kraken rate limit, waiting {KRAKEN_RATE_LIMIT_WAIT} s')
+        time.sleep(KRAKEN_RATE_LIMIT_WAIT)
+    return response
 
 
 def smart_round(number: float | int | Decimal | None) -> str:

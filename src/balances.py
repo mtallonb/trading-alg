@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import krakenex
 import pandas as pd
@@ -33,8 +33,6 @@ TRADES_FILE = './data/trades_2026.csv'
 DEPOSITS_FILE = './data/deposits.csv'
 WITHDRAWALS_FILE = './data/withdrawals.csv'
 KEY_FILE = './data/keys/kraken.key'
-PAGES = 4  # 50 RECORDS per page
-RECORDS_PER_PAGE = 50  # Watch-out is not working for higher values than 50
 FLOW_TYPE_DEPOSIT = 'deposit'
 FLOW_TYPE_WD = 'withdrawal'
 EXCLUDE_ASSET_PRICES_UPDATE = ['EOSEUR', 'XMREUR', 'MATICEUR', 'WAVESEUR']
@@ -123,15 +121,16 @@ def update_get_flow_file(kapi, flow_type: str) -> pd.DataFrame:
     if isinstance(flow_datetime, pd.Timestamp):
         flow_datetime = flow_datetime.to_pydatetime(warn=False)
 
+    # Every flow after the last one in the file (all pages). Its TIME is naive UTC; Kraken returns it again
+    # (`start` has second precision) and the TIME filter below drops it
     new_flow_pages = get_paginated_response_from_kraken(
         kapi=kapi,
         endpoint='Ledgers',
         dict_key='ledger',
         params={'type': flow_type},
-        pages=PAGES,
-        records_per_page=RECORDS_PER_PAGE,
+        pages=None,
         is_private=True,
-        timestamp_from=flow_datetime.timestamp(),
+        timestamp_from=int(flow_datetime.replace(tzinfo=timezone.utc).timestamp()),
     )
     if not new_flow_pages:
         return df_flows

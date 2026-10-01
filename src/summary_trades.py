@@ -32,8 +32,6 @@ VERBOSE = True
 
 TRADES_FILE = './data/trades_2026.csv'
 KEY_FILE = './data/keys/kraken.key'
-PAGES = 2
-RECORDS_PER_PAGE = 50
 FILTER_ASSET_NAME = ''  #'EOSEUR' 'MATICEUR'
 CLOSED_POSITION_MAX_AMOUNT = D(5)  # EUR left in buys (at buy price) still considered dust
 
@@ -151,15 +149,23 @@ def fetch_new_trades(
     buy_trades: List[CSVTrade],
     sell_trades: List[CSVTrade],
 ) -> List[CSVTrade]:
-    """Read from Kraken the trades newer than the CSV (all if it is empty), adding them to buy_trades/sell_trades."""
+    """Read from Kraken the trades newer than the CSV, adding them to buy_trades/sell_trades.
+
+    Every page after the last CSV trade is read (Kraken `start`; the whole history when the CSV is empty).
+    Kraken TradesHistory returns the most recent first, so each page stops at the first trade not newer than the
+    CSV (`start` has second precision, so the last CSV trade can come back). The result is returned sorted oldest
+    first, as the CSV and FIFO/LIFO (buy_trades/sell_trades) expect.
+    """
     trades_to_append_to_csv = []
+    # CSV times are naive UTC
+    start = int(latest_trade_csv.completed.replace(tzinfo=timezone.utc).timestamp()) if latest_trade_csv else None
     trade_pages = get_paginated_response_from_kraken(
         kapi=kapi,
         endpoint='TradesHistory',
         dict_key='trades',
         params={'trades': 'false'},
-        pages=PAGES,
-        records_per_page=RECORDS_PER_PAGE,
+        pages=None,
+        timestamp_from=start,
     )
     if not trade_pages:
         print('*****No new trades Found*****')

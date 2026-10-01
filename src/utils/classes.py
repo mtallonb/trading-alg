@@ -211,15 +211,16 @@ class Asset:
             return f'{BCOLORS.WARNING}{my_round(value=self.ranking, decimal_places=1)}{BCOLORS.ENDC}'
 
     def oldest_order(self, type: str | None = None) -> Order | None:
-        if type is None:
-            return self.orders[0] if self.orders else None
+        """Open order (of type, if given) with the earliest creation_datetime, or None.
 
-        for order in self.orders:
-            if order.order_type == type:
-                return order
-        return None
+        Sorted by creation time instead of taking the first one: self.orders keeps the Kraken OpenOrders response
+        order (a dict keyed by txid), which is not documented.
+        """
+        orders = [order for order in self.orders if type is None or order.order_type == type]
+        return min(orders, key=lambda order: order.creation_datetime) if orders else None
 
     def latest_trade(self, type: str | None = None) -> Trade | None:
+        """Newest trade (of type, if given), or None. Relies on self.trades being newest first."""
         if type is None:
             return self.trades[0] if self.trades else None
         for trade in self.trades:
@@ -301,6 +302,7 @@ class Asset:
             self.orders_buy_higher_price = price
 
     def add_trade(self, trade):
+        """Append a trade older than every trade in self.trades (newest first), fusing it if partial."""
         # trades is newest first and this appends an older trade, so the adjacent one is the last
         if self.trades and self.trades[-1].is_partial(trade):
             self.trades[-1].sum_trade(trade)
@@ -309,6 +311,10 @@ class Asset:
         self.update_calc(trade)
 
     def insert_trade_on_top(self, trade):
+        """Insert a trade newer than every trade in self.trades (newest first) at trades[0], fusing it if partial.
+
+        To add several trades call it oldest first, so the newest one ends at trades[0].
+        """
         # if trade is the same we fuse instead
         if self.trades and self.trades[0].is_partial(trade):
             self.trades[0].sum_trade(trade)

@@ -60,13 +60,13 @@ BUY_PERCENTAGE = SELL_PERCENTAGE = 0.2  # Risk percentage to sell/buy 20%
 MINIMUM_BUY_AMOUNT = 70
 BUY_LIMIT_AMOUNT = (
     BUY_LIMIT * 0.5 * MINIMUM_BUY_AMOUNT
-)  # Computed as asset.trades_buy_amount - asset.trades_sell_amount
+)  # Reached when buys - sells - balance (= -MARGIN_A, EUR lost on the asset) exceeds it
 ORDER_THR = 0.35  # Umbral que consideramos error en la compra o venta a eliminar
 USE_ORDER_THR = False  # Use ORDER_THR to cancel orders
 IA_AGENT = "gemini"  # ['groq', 'gemini', 'openai']
 SHOW_SMART_SUMMARY = False
 # ----------------------------------------------------------------------------------------------------------------------
-RECORDS_PER_PAGE = 50
+TRADE_PAGES = 2  # Latest Kraken trade pages (50 trades each) read when there is no CSV
 LAST_ORDERS = 10
 EXCLUDE_PAIR_NAMES = [
     'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
@@ -220,7 +220,11 @@ def fill_staking_info(kapi, assets_dict: dict[str, Asset]) -> float:
 
 
 def fill_orders(open_orders, assets_dict: dict[str, Asset]):
-    """Attach open orders to their assets. Returns (orders rows for pandas stats, buys_amount, sells_amount)."""
+    """Attach open orders to their assets. Returns (orders rows for pandas stats, buys_amount, sells_amount).
+
+    Kraken OpenOrders is a dict keyed by txid with no documented order, so asset.orders keeps the response order
+    and anything order-dependent must sort by creation_datetime (see Asset.oldest_order).
+    """
     orders = []
     buys_amount = 0
     sells_amount = 0
@@ -271,7 +275,14 @@ def fill_orders(open_orders, assets_dict: dict[str, Asset]):
 
 
 def fill_trades(kapi, assets_dict: dict[str, Asset], last_trade_from_csv):
-    """Add the latest Kraken trades (not yet in the CSV) to their assets."""
+    """Add the latest Kraken trades (not yet in the CSV) to their assets.
+
+    With a CSV every trade after it is read (Kraken `start` = its last trade time, all pages); without it only
+    the TRADE_PAGES latest pages. Kraken TradesHistory returns the most recent trades first (documented), so
+    reading stops at the first trade not newer than last_trade_from_csv (`start` has second precision, so the
+    last CSV trade can come back). Asset.trades must stay newest first: with a CSV (already loaded, newest
+    first) the new trades are inserted on top oldest first; without it they are appended in Kraken order.
+    """
     print('\n *****TRADES*****')
     asset_name = ''
     trade_pages = get_paginated_response_from_kraken(
@@ -279,8 +290,8 @@ def fill_trades(kapi, assets_dict: dict[str, Asset], last_trade_from_csv):
         endpoint='TradesHistory',
         dict_key='trades',
         params={'trades': 'false'},
-        pages=2,
-        records_per_page=RECORDS_PER_PAGE,
+        pages=None if last_trade_from_csv else TRADE_PAGES,
+        timestamp_from=int(last_trade_from_csv.execution_datetime.timestamp()) if last_trade_from_csv else None,
     )
     if not trade_pages:
         print(BCOLORS.WARNING + 'No trades Found' + BCOLORS.ENDC)
@@ -356,6 +367,9 @@ def remove_assets_without_trades(assets_dict: dict[str, Asset]):
 def print_last_trades(assets_dict: dict[str, Asset]):
     for asset_name in PAIR_TO_LAST_TRADES:
         asset = assets_dict.get(asset_name)
+        if not asset:
+            print(f'PAIR_TO_LAST_TRADES asset without balance, orders or trades: {asset_name}')
+            continue
         print(f'\n**** Open orders for asset: {asset.output_name}.')
         for order in asset.orders[:LAST_ORDERS]:
             print(f'\n {order} ')
@@ -382,7 +396,7 @@ def build_ranking_rows(assets_dict: dict[str, Asset]) -> list[dict]:
                 buy_limit_amount=MINIMUM_BUY_AMOUNT * BUY_LIMIT,
                 buy_amount=last_buy_amount,
             )
-            buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(buy_limit_amount=BUY_LIMIT_AMOUNT)
+            buy_limit_amount_reached, _ = asset.check_buys_amount_limit(buy_limit_amount=BUY_LIMIT_AMOUNT)
             buy_limit_reached = 1 if buy_limit_reached or buy_limit_amount_reached else 0
             margin_amount = asset.margin_amount
             has_prices = asset.close_prices is not None and not asset.close_prices.empty
@@ -538,7 +552,7 @@ def print_orders_to_create(kapi, sorted_pair_names_list_balance):
             buy_limit_amount=MINIMUM_BUY_AMOUNT * BUY_LIMIT,
             buy_amount=last_buy_amount,
         )
-        buy_limit_amount_reached, margin_amount = asset.check_buys_amount_limit(buy_limit_amount=BUY_LIMIT_AMOUNT)
+        buy_limit_amount_reached, _ = asset.check_buys_amount_limit(buy_limit_amount=BUY_LIMIT_AMOUNT)
 
         if asset.name not in ASSETS_TO_EXCLUDE_AMOUNT and remaining_buys:
             count_all_remaining_buys += remaining_buys
@@ -596,7 +610,7 @@ def print_orders_to_create(kapi, sorted_pair_names_list_balance):
         if buy_limit_amount_reached:
             print(
                 BCOLORS.WARNING + f'Watch-out BUY LIMIT AMOUNT of {BUY_LIMIT_AMOUNT} reached on asset: {asset_name}. '
-                f'Margin amount: {my_round(value=margin_amount)}' + BCOLORS.ENDC,
+                f'Net margin (MARGIN_A): {my_round(value=asset.margin_amount)}' + BCOLORS.ENDC,
             )
 
         if buy_limit_reached:
