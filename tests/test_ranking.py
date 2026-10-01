@@ -86,6 +86,16 @@ def test_two_sessions_vol_is_binary():
     assert set(ranking_df.VOL) <= {0.0, 1.0}
 
 
+def test_single_asset_gets_a_ranking_instead_of_nan():
+    ranking_df, _ = compute_ranking(df=ranking_rows(margins=[10]), sessions=SESSIONS)
+    assert ranking_df.RANKING.tolist() == [0.0]
+
+
+def test_ranking_is_scaled_to_0_10():
+    ranking_df, _ = compute_ranking(df=ranking_rows(margins=[10, 50, 100, 200, 20]), sessions=SESSIONS)
+    assert ranking_df.RANKING.max() == 10 and ranking_df.RANKING.min() == 0
+
+
 def test_one_session_is_rejected():
     with pytest.raises(ValueError):
         compute_ranking(df=ranking_rows(margins=[10, 20], sessions=[10]), sessions=[10])

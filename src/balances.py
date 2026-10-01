@@ -142,7 +142,8 @@ def update_get_flow_file(kapi, flow_type: str) -> pd.DataFrame:
     df_new_flows = df_new_flows[df_new_flows.TIME > latest_flow_datetime]
     if not df_new_flows.empty:
         df_flows = pd.concat([df_flows, df_new_flows])
-        df_flows['TIME'] = pd.to_datetime(df_flows.TIME)
+        # Mixed column: file rows are strings (with or without fractional seconds), new ones Timestamps
+        df_flows['TIME'] = pd.to_datetime(df_flows.TIME, format='ISO8601')
         df_flows.sort_values(by=['TIME'], ascending=True, inplace=True, ignore_index=True)
         df_flows.to_csv(flow_filename, index=False)
 

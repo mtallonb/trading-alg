@@ -287,6 +287,29 @@ class Asset:
 
             print(f'{BCOLORS.FAIL}Missing staking info: {self.name}{BCOLORS.ENDC}')
 
+    def add_order(self, order: Order):
+        """Attach an open order and add it to the buy/sell order totals (count, amount, closest price)."""
+        self.orders.append(order)
+        amount = order.price * order.shares
+        if order.order_type == OP_BUY:
+            self.orders_buy_amount += amount
+            self.orders_buy_count += 1
+            self.update_orders_buy_higher_price(price=order.price)
+        else:
+            self.orders_sell_amount += amount
+            self.orders_sell_count += 1
+            self.update_orders_sell_lower_price(price=order.price)
+
+    def remove_orders(self, orders: list[Order]):
+        """Detach orders (e.g. cancelled) and recompute the order totals from the remaining ones."""
+        remaining_orders = [order for order in self.orders if order not in orders]
+        self.orders = []
+        self.orders_buy_count = self.orders_sell_count = 0
+        self.orders_buy_amount = self.orders_sell_amount = 0.0
+        self.orders_buy_higher_price = self.orders_sell_lower_price = 0.0
+        for order in remaining_orders:
+            self.add_order(order=order)
+
     def update_orders_sell_lower_price(self, price):
         if not self.orders_sell_lower_price:
             self.orders_sell_lower_price = price

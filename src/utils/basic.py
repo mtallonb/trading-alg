@@ -37,7 +37,8 @@ XSTOCKS_SUFFIXES = '.TEUR'
 
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 HEADER_PRICES_KRAKEN = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
-HEADER_POSITIONS = ['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
+TRADES_CSV_HEADER = ['pair', 'time(UTC)', 'type', 'ordertype', 'price', 'cost', 'fee', 'vol']
+HEADER_POSITIONS =['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
 RENAME_ASSET_MAPPING = {
     'XBTEUR': 'XXBTZEUR',
     'XRPEUR': 'XXRPZEUR',
@@ -177,17 +178,21 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
     return df_prices, df_volumes
 
 
-def cancel_orders(kapi, order_type, orders):
+def cancel_orders(kapi, order_type, orders) -> list:
+    """Cancel on Kraken the orders of order_type. Returns the ones Kraken actually cancelled."""
+    cancelled_orders = []
     for order in orders:
-        if order.order_type == order_type:
-            cancel_order(kapi, order)
+        if order.order_type == order_type and cancel_order(kapi=kapi, order=order):
+            cancelled_orders.append(order)
+    return cancelled_orders
 
 
-def cancel_order(kapi, order):
+def cancel_order(kapi, order) -> bool:
+    """Cancel the order on Kraken. Returns True if Kraken cancelled it (no error and count > 0)."""
     req_data = {'txid': order.txid}
     close_order_result = kapi.query_private('CancelOrder', req_data)
     print_query_result('CancelOrder', close_order_result)
-    return
+    return not close_order_result.get('error') and close_order_result['result'].get('count', 0) > 0
 
 
 def get_max_price_since(kapi, pair_name: str, original_name: str, since_datetime: datetime) -> PriceOHLC | None:
@@ -404,8 +409,8 @@ def compute_ranking(df, sessions: list[int]):
 
     # idx = df['RANKING'] < -10
     # df.loc[idx, 'RANKING'] = -10
-    df['RANKING'] = df['RANKING'] - df['RANKING'].min()
-    df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
+    # Scaled to [0, 10]; a single asset (or all equal) is 0 instead of 0/0 = NaN
+    df['RANKING'] = normalize(df['RANKING']) * 10
 
     df.sort_values(by=['RANKING'], inplace=True, ignore_index=True, ascending=False)
     ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'P_BUY', 'P_SELL', 'BS_P', 'TREND', 'VOL', 'TREND_VOL']]  # fmt: skip # noqa
@@ -443,9 +448,16 @@ def read_trades_csv(filename, buy_trades, sell_trades):
 
 
 def append_trades_to_csv(filename, trades_to_append):
-    # Write latest trades to CSV
+    """Append trades to the trades CSV, writing the header first when the file is missing or empty.
+
+    Readers (read_trades_csv, load_from_csv) skip the first line, so without the header the first trade of an
+    empty file would be lost.
+    """
+    needs_header = not os.path.exists(filename) or os.path.getsize(filename) == 0
     with open(filename, mode='a+', newline='') as csvfile:
         append_writer = writer(csvfile)
+        if needs_header:
+            append_writer.writerow(TRADES_CSV_HEADER)
         for trade in trades_to_append:
             row = [
                 trade.asset_name,

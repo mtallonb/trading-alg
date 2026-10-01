@@ -5,7 +5,9 @@ Behaves like the Kraken REST API (https://docs.kraken.com/api-reference/) where 
   `limit` page size (default 50, max 100; Ledgers always 50), `count` with the total matching records.
 - OpenOrders: `open` dict keyed by txid, in the order the orders were added (the real order is undocumented).
 - OHLC: only the 720 most recent candles of `ohlc[pair]` (oldest first, like Kraken), then filtered by `since`.
-- Balance, Ticker (all tickers, whatever pairs are asked), Earn/Allocations: return the data set.
+- Ticker: all tickers, whatever pairs are asked; if one of them is in `unknown_pairs`, 'EQuery:Unknown asset pair'
+  together with the tickers (as the real API does).
+- Balance, Earn/Allocations: return the data set.
 - CancelOrder: removes the open order and records the txid in `cancelled`.
 Errors (e.g. rate limit) can be queued per endpoint with `queue_error`. Every call is logged in `calls`.
 """
@@ -65,6 +67,7 @@ class FakeKraken:
         self.open_orders: dict[str, dict] = {}
         self.balance: dict[str, str] = {}
         self.tickers: dict[str, dict] = {}
+        self.unknown_pairs: set[str] = set()  # asked in Ticker: error + the known tickers (e.g. delisted pairs)
         self.allocations: list[dict] = []
         self.ohlc: dict[str, list] = {}
         self.cancelled: list[str] = []
@@ -130,6 +133,10 @@ class FakeKraken:
             'OHLC': lambda: self._ohlc(params=params),
             'CancelOrder': lambda: self._cancel(params=params),
         }
+        asked_pairs = {pair.upper() for pair in params.get('pair', '').split(',') if pair}
+        if method == 'Ticker' and asked_pairs & self.unknown_pairs:
+            # Real Kraken: the error comes together with the known pairs' tickers
+            return {'error': ['EQuery:Unknown asset pair'], 'result': dict(self.tickers)}
         if method not in handlers:
             return {'error': [f'EGeneral:Unknown method {method}']}
         return {'error': [], 'result': handlers[method]()}

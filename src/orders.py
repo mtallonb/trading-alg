@@ -34,6 +34,7 @@ from utils.basic import (
     BCOLORS,
     FIX_X_PAIR_NAMES,
     LOCAL_TZ,
+    KrakenError,
     cancel_orders,
     chunks,
     compute_ranking,
@@ -71,7 +72,7 @@ LAST_ORDERS = 10
 EXCLUDE_PAIR_NAMES = [
     'ZEUREUR', 'BSVEUR', 'LUNAEUR', 'SHIBEUR', 'ETH2EUR', 'WAVESEUR', 'XMREUR', 'EUR', 'EIGENEUR', 'APENFTEUR',
     'MATICEUR', 'EOSEUR', 'GOOGLxUSD', 'USDCEUR', 'ZUSDEUR', 'XLTCZEUR', 'XETHZEUR', 'XXRPZEUR', 'XXBTZEUR',
-    'XETCZEUR', 'XXLMZEUR',
+    'XETCZEUR', 'XXLMZEUR', 'ETHWEUR', 'LUNA2EUR',
 ]  # fmt: off
 # auto remove *.SEUR 'ATOM.SEUR', 'DOT.SEUR', 'XTZ.SEUR', 'EUR.MEUR']
 ASSETS_TO_EXCLUDE_AMOUNT = [
@@ -169,6 +170,11 @@ def fill_prices_and_volumes(kapi, assets_dict: dict[str, Asset]):
     concatenate_names = ','.join(name_list)
     # Watch-out is returning all assets with the latest price
     tickers_info = kapi.query_public('Ticker', {'pair': concatenate_names.lower()})
+    # An unknown (e.g. delisted) pair returns 'EQuery:Unknown asset pair' together with the known pairs' tickers:
+    # only fail when there is no ticker at all; the pairs left without price are named below
+    ticker_error = tickers_info.get('error')
+    if ticker_error and not tickers_info.get('result'):
+        raise KrakenError(f'Kraken Ticker error {ticker_error} for pairs: {concatenate_names}')
     # Example GOOGLxUSD tiene precios y habria que convertirlo a GOOGLxEUR que es el activo real que tengo
     # xstocks_info = kapi.query_public('Ticker', {'tokenized_asset': concatenate_xstock_names.lower()})
     # Usar la conversion del pair USDCEUR
@@ -200,6 +206,15 @@ def fill_prices_and_volumes(kapi, assets_dict: dict[str, Asset]):
                     print(f'Local VOLUMES of asset {fixed_pair_name} not updated since: {latest_volume_date}')
             else:
                 print(f'None volumes found for asset: {fixed_pair_name}')
+
+    # Assets left without a Kraken price keep price 0: their balance is 0 and they are dropped from the ranking
+    no_price_names = [name for name, asset in assets_dict.items() if not asset.price]
+    if no_price_names:
+        # Kraken's error doesn't name the pair: these are the ones asked and missing from the response
+        reason = ''
+        if ticker_error:
+            reason = f'Kraken Ticker error {ticker_error}, add them to EXCLUDE_PAIR_NAMES if delisted.'
+        print(f'{BCOLORS.FAIL}No Kraken ticker price (price 0, not ranked): {no_price_names}. {reason}{BCOLORS.ENDC}')
 
 
 def fill_staking_info(kapi, assets_dict: dict[str, Asset]) -> float:
@@ -251,15 +266,7 @@ def fill_orders(open_orders, assets_dict: dict[str, Asset]):
             print(f'Order for untracked pair (excluded or unknown), only counted in totals: {pair_name}')
             continue
 
-        asset.orders.append(order)
-        if order.order_type == 'buy':
-            asset.orders_buy_amount += amount
-            asset.orders_buy_count += 1
-            asset.update_orders_buy_higher_price(price=price)
-        else:
-            asset.orders_sell_amount += amount
-            asset.orders_sell_count += 1
-            asset.update_orders_sell_lower_price(price=price)
+        asset.add_order(order=order)
 
         # This array is used exclusively for Pandas stats
         orders.append(
@@ -416,7 +423,8 @@ def build_ranking_rows(assets_dict: dict[str, Asset]) -> list[dict]:
                 'LAST_TRADE': asset.latest_trade_date,
                 'IBS': asset.orders_buy_count,
                 'BLR': buy_limit_reached,
-                'CURR_PRICE': my_round(value=asset.price),
+                # No ticker price: NaN so compute_ranking drops (and prints) it instead of ranking it at price 0
+                'CURR_PRICE': my_round(value=asset.price) if asset.price else None,
                 'AVG_B': my_round(value=asset.avg_buys),
                 'AVG_S': my_round(value=asset.avg_sells),
                 'MARGIN_A': my_round(value=margin_amount),
@@ -554,16 +562,6 @@ def print_orders_to_create(kapi, sorted_pair_names_list_balance):
         )
         buy_limit_amount_reached, _ = asset.check_buys_amount_limit(buy_limit_amount=BUY_LIMIT_AMOUNT)
 
-        if asset.name not in ASSETS_TO_EXCLUDE_AMOUNT and remaining_buys:
-            count_all_remaining_buys += remaining_buys
-            if asset.orders_buy_amount:
-                print('BUY order already set. Subtracting 1.') if SHOW_COUNT_BUYS else None
-                count_all_remaining_buys -= 1
-
-            if SHOW_COUNT_BUYS:
-                print(f'Remaining buys: {remaining_buys} for pair: {asset_name}.')
-                print(f'Count ALL buys: {count_all_remaining_buys}.\n')
-
         if asset_name in PAIR_TO_FORCE_INFO:
             print(BCOLORS.WARNING + f'FORCE INFO ON PAIR: {asset_name}' + BCOLORS.ENDC)
 
@@ -585,7 +583,9 @@ def print_orders_to_create(kapi, sorted_pair_names_list_balance):
             if AUTO_CANCEL_SELL_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete SELL orders from pair: {asset_name}.' + BCOLORS.ENDC)
                 input("Press Enter to continue or Ctrl+D to exit")
-                cancel_orders(kapi=kapi, order_type=OP_SELL, orders=asset.orders)
+                cancelled_orders = cancel_orders(kapi=kapi, order_type=OP_SELL, orders=asset.orders)
+                # So the new sell order is suggested below in this same run
+                asset.remove_orders(orders=cancelled_orders)
 
         oldest_buy_order = asset.oldest_order(type=OP_BUY)
         buy_higher_price = asset.orders_buy_higher_price
@@ -605,7 +605,20 @@ def print_orders_to_create(kapi, sorted_pair_names_list_balance):
             if AUTO_CANCEL_BUY_ORDER:
                 print(BCOLORS.WARNING + f'Going to delete BUY orders from pair: {asset_name}.' + BCOLORS.ENDC)
                 input("Press Enter to continue or Ctrl+D to exit")
-                cancel_orders(kapi=kapi, order_type=OP_BUY, orders=asset.orders)
+                cancelled_orders = cancel_orders(kapi=kapi, order_type=OP_BUY, orders=asset.orders)
+                # So the new buy order is suggested (and counted as missing) below in this same run
+                asset.remove_orders(orders=cancelled_orders)
+
+        # After the cancellations: a cancelled buy order no longer counts as set
+        if asset.name not in ASSETS_TO_EXCLUDE_AMOUNT and remaining_buys:
+            count_all_remaining_buys += remaining_buys
+            if asset.orders_buy_amount:
+                print('BUY order already set. Subtracting 1.') if SHOW_COUNT_BUYS else None
+                count_all_remaining_buys -= 1
+
+            if SHOW_COUNT_BUYS:
+                print(f'Remaining buys: {remaining_buys} for pair: {asset_name}.')
+                print(f'Count ALL buys: {count_all_remaining_buys}.\n')
 
         if buy_limit_amount_reached:
             print(
