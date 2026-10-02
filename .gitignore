@@ -50,3 +50,12 @@ nosetests.xml
 .DS_Store
 data/xtb_assets.csv
 src/config.env
+
+# Personal data (kept locally, versioned in the private repo)
+data/trades_*.csv
+data/old_trades/
+data/deposits.csv
+data/withdrawals.csv
+data/realised_gains_by_year.csv
+data/smart_outputs/
+data/ledger.csv
