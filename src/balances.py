@@ -7,18 +7,16 @@ import pandas as pd
 
 from utils.basic import (
     FIX_X_PAIR_NAMES,
-    PRICES_DIR,
+    FX_PAIR,
     REALISED_GAINS_FILE,
-    from_date_to_timestamp,
     get_fix_pair_name,
-    get_new_prices,
     get_paginated_response_from_kraken,
+    is_eur_pair,
     my_round,
     print_table,
-    read_prices_from_local_file,
     read_realised_gains,
     smart_round,
-    timestamp_df_to_date_df,
+    update_asset_prices,
 )
 
 # Invested on each asset and current balance -> result not very useful
@@ -35,8 +33,8 @@ WITHDRAWALS_FILE = './data/withdrawals.csv'
 KEY_FILE = './data/keys/kraken.key'
 FLOW_TYPE_DEPOSIT = 'deposit'
 FLOW_TYPE_WD = 'withdrawal'
-EXCLUDE_ASSET_PRICES_UPDATE = ['EOSEUR', 'XMREUR', 'MATICEUR', 'WAVESEUR']
 CASH_ONLY_ASSETS = ['BSVEUR']  # Sold airdropped coins without buys: only their cash is counted, no position
+USD_ASSET = 'ZUSD'
 # Balance moves without a trade (no cash involved), from the Kraken ledger
 ASSET_CONVERSIONS = [
     # WAVES delisted and converted to BTC (refids LABGJBC-TH6PA-CGKUYI, LA72OX5-EHUGC-B3OXJE)
@@ -58,6 +56,50 @@ def get_cash_positions(df_trades: pd.DataFrame) -> pd.DataFrame:
     df_cash_pos.drop(['VOL', 'DATETIME', 'TYPE'], axis=1, inplace=True)
 
     return df_cash_pos
+
+
+def get_fx_cash_positions(df_fx_trades: pd.DataFrame) -> pd.DataFrame:
+    """ZEUR cash movement of every EURUSD trade: selling EUR pays VOL, buying EUR receives VOL.
+
+    VOL is in EUR (the base); the fee is charged in USD (the quote), so it is taken from the USD position instead.
+    """
+    df_cash_pos = df_fx_trades.copy()
+    df_cash_pos.ASSET = 'ZEUR'
+    df_cash_pos.PRICE = 1.0
+    df_cash_pos['AMOUNT'] = df_cash_pos.VOL.where(df_cash_pos.TYPE == 'B', -df_cash_pos.VOL)
+    df_cash_pos['SHARES'] = df_cash_pos.AMOUNT
+    df_cash_pos['FEE'] = 0.0
+    df_cash_pos.drop(['VOL', 'DATETIME', 'TYPE'], axis=1, inplace=True)
+
+    return df_cash_pos
+
+
+def get_usd_positions(df_fx_trades: pd.DataFrame, df_fx_prices: pd.DataFrame, date_to: date) -> pd.DataFrame:
+    """Daily USD position, valued in EUR with 1 / EURUSD (the last known rate on days without a candle).
+
+    Selling EUR is buying USD (cost - fee received); buying EUR is selling USD (cost + fee paid).
+    """
+    df_usd_trades = df_fx_trades.copy()
+    is_eur_sell = df_usd_trades.TYPE == 'S'
+    df_usd_trades['VOL'] = (df_usd_trades.AMOUNT - df_usd_trades.FEE).where(
+        is_eur_sell,
+        df_usd_trades.AMOUNT + df_usd_trades.FEE,
+    )
+    df_usd_trades['TYPE'] = is_eur_sell.map({True: 'B', False: 'S'})
+    df_usd_trades['FEE'] = 0.0  # Already taken from VOL, and the FEE column of the positions is in EUR
+    df_usd_trades['ASSET'] = USD_ASSET
+
+    df_usd_prices = df_fx_prices[['DATE']].copy()
+    df_usd_prices['PRICE'] = 1 / pd.to_numeric(df_fx_prices.PRICE)
+    dates = pd.date_range(start=df_usd_prices.DATE.min(), end=date_to, freq='d').date
+    df_usd_prices = df_usd_prices.set_index('DATE').reindex(dates).ffill().rename_axis('DATE').reset_index()
+
+    return get_asset_positions(
+        asset_name=USD_ASSET,
+        df_trades=df_usd_trades,
+        df_prices=df_usd_prices,
+        date_to=date_to,
+    )
 
 
 def get_asset_positions(
@@ -167,6 +209,12 @@ def read_trades(filename: str) -> pd.DataFrame:
     df_trades.rename({'pair': 'Asset', 'time(UTC)': 'Datetime', 'cost': 'Amount'}, axis=1, inplace=True)
     df_trades.columns = [x.upper() for x in df_trades.columns]
 
+    # Cash and positions are in EUR: a USD cost (xStocks) would be counted as ZEUR. FX_PAIR is handled apart
+    is_kept = df_trades.ASSET.map(lambda name: is_eur_pair(pair_name=name) or name == FX_PAIR)
+    if not is_kept.all():
+        print(f'Trades of pairs not quoted in EUR left out: {sorted(df_trades[~is_kept].ASSET.unique())}')
+    df_trades = df_trades[is_kept].reset_index(drop=True)
+
     # Operation types D|W|B|S stands for Deposit, Withdrawal, Buy, Sell
     df_trades['TYPE'] = df_trades['TYPE'].replace('buy', 'B')
     df_trades['TYPE'] = df_trades['TYPE'].replace('sell', 'S')
@@ -200,6 +248,7 @@ def year_gain_perc(
     df_balances_avg: pd.DataFrame,
     year: int,
     realised: float,
+    current_balance: float | None = None,
     verbose: bool = VERBOSE,
 ) -> float:
     df_deposits.DATE = pd.to_datetime(df_deposits.DATE)
@@ -222,6 +271,7 @@ def year_gain_perc(
     if verbose:
         table_data = [
             {
+                "current_balance": smart_round(number=current_balance) if current_balance is not None else None,
                 "balance_0": smart_round(number=balance_0),
                 "balance_365": smart_round(number=balance_365),
                 "mean_balance": smart_round(number=mean_balance),
@@ -240,44 +290,15 @@ def year_gain_perc(
             ("gain", "GAIN (%)"),
             ("realised_perc", "REALISED GAIN (%)"),
         ]
+        if current_balance is not None:
+            # Today's positions at the latest price (today's candle, not closed yet)
+            table_columns.insert(2, ("current_balance", "CURRENT BALANCE"))
         print_table(
             data=table_data,
             columns=table_columns,
             title=f"YEAR: {year}",
         )
     return gain
-
-
-def update_asset_prices(
-    asset_name: str,
-    kapi,
-    date_to: date,
-) -> pd.DataFrame:
-    """Update the file of prices for the asset."""
-
-    latest_date = date_to - timedelta(days=600)
-    df_prices, _ = read_prices_from_local_file(asset_name=asset_name)
-    if asset_name in EXCLUDE_ASSET_PRICES_UPDATE:
-        return df_prices
-
-    if not df_prices.empty:
-        latest_date = df_prices.DATE.iloc[-1]
-
-    # The latest stored day may hold a partial (not yet closed) candle: fetch it again and keep the new close
-    if latest_date <= date_to:
-        new_prices = get_new_prices(
-            kapi=kapi,
-            asset_name=asset_name,
-            timestamp_from=from_date_to_timestamp(day=latest_date),
-            with_volumes=True,
-        )
-        if new_prices is not None:
-            new_prices = timestamp_df_to_date_df(df=new_prices)
-            df_prices = pd.concat([df_prices, new_prices])
-            df_prices = df_prices.drop_duplicates(subset=['DATE'], keep='last')
-            df_prices.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
-
-    return df_prices
 
 
 def build_positions(
@@ -288,11 +309,17 @@ def build_positions(
     date_to: date,
 ) -> pd.DataFrame:
     """Daily position (shares, price, amount) of every traded asset, plus the ZEUR cash movements."""
+    df_fx_trades = df_trades[df_trades.ASSET == FX_PAIR]
+    df_trades = df_trades[df_trades.ASSET != FX_PAIR]
     asset_names = df_trades[~df_trades.ASSET.isin(CASH_ONLY_ASSETS)].ASSET.dropna().unique()
 
     # Update prices of USDCEUR
     update_asset_prices(asset_name='USDCEUR', kapi=kapi, date_to=date_to)
     df_list = [df_deposits, df_wd, get_cash_positions(df_trades=df_trades)]
+    if not df_fx_trades.empty:
+        df_list.append(get_fx_cash_positions(df_fx_trades=df_fx_trades))
+        df_fx_prices = update_asset_prices(asset_name=FX_PAIR, kapi=kapi, date_to=date_to)
+        df_list.append(get_usd_positions(df_fx_trades=df_fx_trades, df_fx_prices=df_fx_prices, date_to=date_to))
     df_trades = add_conversions(df_trades=df_trades)
 
     for asset_name in asset_names:
@@ -346,6 +373,17 @@ def add_daily_cash(df_positions: pd.DataFrame, date_to: date) -> pd.DataFrame:
 
 
 def print_summary(df_trades: pd.DataFrame, df_deposits: pd.DataFrame, df_wd: pd.DataFrame):
+    # EURUSD is a currency exchange, not an investment: out of BUYS/SELLS, its EUR (VOL) only moves the cash
+    df_fx_trades = df_trades[df_trades.ASSET == FX_PAIR]
+    df_trades = df_trades[df_trades.ASSET != FX_PAIR]
+    fx_eur_sold = df_fx_trades[df_fx_trades.TYPE == 'S'].VOL.sum()
+    fx_eur_bought = df_fx_trades[df_fx_trades.TYPE == 'B'].VOL.sum()
+    if not df_fx_trades.empty:
+        print(
+            f'\n FX EUR->USD: {my_round(value=fx_eur_sold)} EUR sold, {my_round(value=fx_eur_bought)} EUR bought '
+            f'(fees {my_round(value=df_fx_trades.FEE.sum())} USD)',
+        )
+
     total_buy_amount = df_trades[df_trades.TYPE == 'B'].AMOUNT.sum()
     total_sell_amount = df_trades[df_trades.TYPE == 'S'].AMOUNT.sum()
     total_fees = df_trades.FEE.sum()
@@ -362,11 +400,20 @@ def print_summary(df_trades: pd.DataFrame, df_deposits: pd.DataFrame, df_wd: pd.
     print('\n DEPOSIT - WD: {}'.format(my_round(value=total_deposit - total_wd)))
 
     flow_fees = df_deposits.FEE.sum() + df_wd.FEE.sum()
-    cash = total_deposit - total_wd - total_buy_amount + total_sell_amount - total_fees - flow_fees
+    cash = (
+        total_deposit - total_wd - total_buy_amount + total_sell_amount - total_fees - flow_fees
+        - fx_eur_sold + fx_eur_bought
+    )  # fmt: skip
     print('\n CASH: {}'.format(my_round(value=cash)))
 
 
-def print_gains_by_year(df_deposits: pd.DataFrame, df_wd: pd.DataFrame, df_positions: pd.DataFrame):
+def print_gains_by_year(
+    df_deposits: pd.DataFrame,
+    df_wd: pd.DataFrame,
+    df_positions: pd.DataFrame,
+    current_balance: float,
+    current_year: int,
+):
     # AVG BALANCE
     df_avg_balances_per_day = df_positions.groupby('DATE').AMOUNT.sum().reset_index()
 
@@ -379,6 +426,7 @@ def print_gains_by_year(df_deposits: pd.DataFrame, df_wd: pd.DataFrame, df_posit
             df_balances_avg=df_avg_balances_per_day,
             year=year,
             realised=realised,
+            current_balance=current_balance if year == current_year else None,
         )
 
 
@@ -387,7 +435,8 @@ def main():
     kapi = krakenex.API()
     kapi.load_key(KEY_FILE)
 
-    date_to = (datetime.today() - timedelta(days=1)).date()
+    today = datetime.today().date()
+    date_to = today - timedelta(days=1)
 
     df_deposits, df_wd = load_flows(kapi=kapi)
     df_trades = read_trades(filename=TRADES_FILE)
@@ -396,12 +445,21 @@ def main():
         df_trades=df_trades,
         df_deposits=df_deposits,
         df_wd=df_wd,
-        date_to=date_to,
+        date_to=today,
     )
-    df_positions = add_daily_cash(df_positions=df_positions, date_to=date_to)
+    df_positions = add_daily_cash(df_positions=df_positions, date_to=today)
+    # Today only for the current balance: the gains use the closed days (until date_to)
+    current_balance = df_positions[df_positions.DATE == today].AMOUNT.sum()
+    df_positions = df_positions[df_positions.DATE <= date_to]
 
     print_summary(df_trades=df_trades, df_deposits=df_deposits, df_wd=df_wd)
-    print_gains_by_year(df_deposits=df_deposits, df_wd=df_wd, df_positions=df_positions)
+    print_gains_by_year(
+        df_deposits=df_deposits,
+        df_wd=df_wd,
+        df_positions=df_positions,
+        current_balance=current_balance,
+        current_year=today.year,
+    )
 
 
 if __name__ == '__main__':

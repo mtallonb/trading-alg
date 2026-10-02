@@ -22,3 +22,17 @@ def test_pairs_are_processed_in_name_order(capsys):
     out = capsys.readouterr().out
     log_positions = [out.find(pair) for pair in sorted(PAIRS)]
     assert -1 not in log_positions and log_positions == sorted(log_positions)
+
+
+def test_non_eur_trades_left_out_of_the_gains(capsys):
+    trades = [
+        trade(pair='ADAEUR', completed='2026-09-01 10:00:00', type='sell', price='1.2'),
+        trade(pair='EURUSD', completed='2026-09-02 10:00:00', type='sell', price='1.12452'),
+        trade(pair='AAPLxUSD', completed='2026-09-03 10:00:00', type='sell', price='200'),
+    ]
+
+    eur_trades = summary_trades.drop_non_eur_trades(trades=trades)
+
+    # A EURUSD sell has no buys: it gave a fake 16.6% gain on its USD cost
+    assert [eur_trade.asset_name for eur_trade in eur_trades] == ['ADAEUR']
+    assert "['AAPLxUSD', 'EURUSD']" in capsys.readouterr().out

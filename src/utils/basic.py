@@ -9,7 +9,7 @@ import time
 from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from itertools import pairwise
 
@@ -47,9 +47,12 @@ RENAME_ASSET_MAPPING = {
     'XLMEUR': 'XXLMZEUR',
     'ETHEUR': 'XETHZEUR',
     'LTCEUR': 'XLTCZEUR',
+    'EURUSD': 'ZEURZUSD',  # USD per EUR: divide a USD amount by it to get EUR
 }
 
 OHLCV_DIR = './data/OHLCV_prices/'
+FX_PAIR = 'EURUSD'  # Currency exchange (USD per EUR), not an investment: base EUR, quoted in USD
+EXCLUDE_ASSET_PRICES_UPDATE = ['EOSEUR', 'XMREUR', 'MATICEUR', 'WAVESEUR']
 PRICES_DIR = './data/prices_with_volume/'
 REALISED_GAINS_FILE = './data/realised_gains_by_year.csv'
 OHLC_MAX_CANDLES = 720  # Kraken OHLC returns at most the 720 most recent candles, whatever `since` is
@@ -109,6 +112,16 @@ def is_auto_staked(name: str):
     return name.endswith(AUTOSTAKING_SUFFIXES)
 
 
+def is_eur_pair(pair_name: str) -> bool:
+    """Kraken trade pair quoted in EUR (price/cost in EUR). False for e.g. EURUSD or xStocks in USD (AAPLxUSD)."""
+    return pair_name.endswith('EUR')
+
+
+def is_xstock_pair(pair_name: str) -> bool:
+    """Tokenized stock pair (xStocks, e.g. GOOGLxUSD): Kraken public endpoints need asset_class=tokenized_asset."""
+    return pair_name.endswith('xUSD')
+
+
 def remove_staking_suffix(name: str):
     for suffix in STAKING_SUFFIXES:
         if name.endswith(suffix):
@@ -166,6 +179,10 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
             df = df.drop_duplicates(subset=['DATE'])
         else:
             df.DATE = pd.to_datetime(df.DATE).dt.date
+    elif not Path(f'{OHLCV_DIR}{asset_name}_1440.csv').exists():
+        # New pair (e.g. EURUSD): no local prices yet, update_asset_prices downloads them from Kraken
+        print(f"No local prices for: {asset_name}")
+        df = pd.DataFrame(columns=['DATE', 'PRICE', 'VOL'])
     else:
         print(f"Prices for: {asset_name} taken from OHLC prices")
         df = pd.read_csv(f'{OHLCV_DIR}{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C', 'VOL']]
@@ -174,7 +191,9 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
         df.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
     df_prices = df[['DATE', 'PRICE', 'VOL']]
-    df['VOL_EUR'] = df.VOL * df.PRICE
+    # VOL is in the pair's base currency: already EUR when EUR is the base (EURUSD, priced in USD per EUR)
+    is_eur_base = asset_name.startswith('EUR') and not is_eur_pair(pair_name=asset_name)
+    df['VOL_EUR'] = df.VOL if is_eur_base else df.VOL * df.PRICE
     df_volumes = df[['DATE', 'VOL_EUR']]
     return df_prices, df_volumes
 
@@ -540,7 +559,10 @@ def get_new_prices(
     """
     if asset_name in RENAME_ASSET_MAPPING:
         asset_name = RENAME_ASSET_MAPPING[asset_name]
-    prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
+    params = {'pair': asset_name, 'interval': 1440, 'since': timestamp_from}
+    if is_xstock_pair(pair_name=asset_name):
+        params['asset_class'] = 'tokenized_asset'  # Without it: 'EQuery:Invalid asset pair'
+    prices = kapi.query_public('OHLC', params)
     if not prices.get('result') or not prices['result'].get(asset_name):
         print(f'ERROR: OHLC for Asset {asset_name} not found')
         return None
@@ -560,6 +582,38 @@ def get_new_prices(
     if with_volumes:
         columns_to_get = ['TIMESTAMP', 'C', 'VOL']
     df_prices = df_prices[columns_to_get]
+
+    return df_prices
+
+
+def update_asset_prices(
+    asset_name: str,
+    kapi,
+    date_to: date,
+) -> pd.DataFrame:
+    """Update the file of prices for the asset."""
+
+    latest_date = date_to - timedelta(days=600)
+    df_prices, _ = read_prices_from_local_file(asset_name=asset_name)
+    if asset_name in EXCLUDE_ASSET_PRICES_UPDATE:
+        return df_prices
+
+    if not df_prices.empty:
+        latest_date = df_prices.DATE.iloc[-1]
+
+    # The latest stored day may hold a partial (not yet closed) candle: fetch it again and keep the new close
+    if latest_date <= date_to:
+        new_prices = get_new_prices(
+            kapi=kapi,
+            asset_name=asset_name,
+            timestamp_from=from_date_to_timestamp(day=latest_date),
+            with_volumes=True,
+        )
+        if new_prices is not None:
+            new_prices = timestamp_df_to_date_df(df=new_prices)
+            df_prices = pd.concat([df_prices, new_prices])
+            df_prices = df_prices.drop_duplicates(subset=['DATE'], keep='last')
+            df_prices.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
     return df_prices
 

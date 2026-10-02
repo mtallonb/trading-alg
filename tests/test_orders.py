@@ -167,3 +167,54 @@ def test_print_last_trades_skips_unknown_pair(monkeypatch, capsys):
     monkeypatch.setattr(orders, 'PAIR_TO_LAST_TRADES', ['NOPEEUR'])
     orders.print_last_trades(assets_dict={})
     assert 'NOPEEUR' in capsys.readouterr().out
+
+
+def test_build_assets_skips_eurusd_order():
+    # An open EURUSD order (EUR -> USD) became the 'EURUSDEUR' asset and Kraken Ticker failed for every pair
+    kraken = FakeKraken()
+    kraken.add_open_orders([make_open_order(opentm=datetime(2026, 10, 1).timestamp(), pair='EURUSD', price=1.12)])
+
+    assets_dict = orders.build_assets(
+        balance={'result': {'ZEUR': '100.0', 'ADA': '10.0', 'AAPLx.T': '1.0'}},  # a stock in USD: no asset
+        open_orders=kraken.query_private('OpenOrders'),
+        currency='EUR',
+    )
+
+    assert list(assets_dict) == ['ADAEUR']
+
+
+def test_eurusd_sell_order_holds_its_eur_out_of_the_remaining_cash(capsys):
+    kraken = FakeKraken()
+    opentm = datetime(2026, 10, 1).timestamp()
+    kraken.add_open_orders(
+        [
+            make_open_order(opentm=opentm, pair='ADAEUR', type='buy', price=0.5, vol=100),  # holds 50 EUR
+            make_open_order(opentm=opentm, pair='EURUSD', type='sell', price=1.12, vol=1000),  # holds 1,000 EUR
+            make_open_order(opentm=opentm, pair='EURUSD', type='buy', price=1.10, vol=500),  # holds USD
+            make_open_order(opentm=opentm, pair='AAPLxUSD', type='buy', price=200, vol=1),  # holds USD
+        ],
+    )
+    asset = Asset(name='ADAEUR', original_name='ADAEUR')
+
+    _, buys_amount, sells_amount, fx_eur_committed = orders.fill_orders(
+        open_orders=kraken.query_private('OpenOrders'),
+        assets_dict={'ADAEUR': asset},
+    )
+
+    # Before, the USD amounts (1,120 + 550 + 200) were added to the EUR totals and the 1,000 EUR were not held
+    assert (buys_amount, sells_amount, fx_eur_committed) == (50, 0, 1000)
+    assert len(asset.orders) == 1
+
+    orders.print_cash_summary(
+        sells_amount=sells_amount,
+        buys_amount=buys_amount,
+        cash_eur=5000,
+        fx_eur_committed=fx_eur_committed,
+        staked_eur=0,
+        count_missing_buys=0,
+        count_remaining_buys=0,
+        count_all_remaining_buys=0,
+    )
+    out = capsys.readouterr().out
+    assert '3.95K' in out  # Remaining Cash: 5,000 - 50 - 1,000
+    assert 'EUR held by EURUSD sells' in out

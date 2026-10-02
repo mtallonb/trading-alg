@@ -33,6 +33,7 @@ import pandas as pd
 from utils.basic import (
     BCOLORS,
     FIX_X_PAIR_NAMES,
+    FX_PAIR,
     LOCAL_TZ,
     KrakenError,
     cancel_orders,
@@ -42,6 +43,7 @@ from utils.basic import (
     get_fix_pair_name,
     get_paginated_response_from_kraken,
     get_price_shares_from_order,
+    is_eur_pair,
     is_staked,
     load_from_csv,
     my_round,
@@ -137,7 +139,9 @@ def build_assets(balance, open_orders, currency) -> dict[str, Asset]:
 
     # Assets with balance or open order
     asset_original_names = list(balance['result'].keys())
-    asset_original_names.extend(set([order['descr']['pair'] for order in open_orders['result']['open'].values()]))
+    # Only pairs quoted in EUR: EURUSD or a USD pair became e.g. 'EURUSDEUR', unknown to Kraken Ticker
+    order_pairs = {order['descr']['pair'] for order in open_orders['result']['open'].values()}
+    asset_original_names.extend(pair for pair in order_pairs if is_eur_pair(pair_name=pair))
     asset_original_names = set(asset_original_names)
 
     # ----------INITIALIZE PAIRS DICT-------------------------------------------------------------------
@@ -146,7 +150,12 @@ def build_assets(balance, open_orders, currency) -> dict[str, Asset]:
         original_name = name + 'Z' if name[0] == 'X' else name
         original_name = original_name if original_name.endswith(currency) else original_name + currency
         key_name = get_fix_pair_name(pair_name=key_name, fix_x_pair_names=FIX_X_PAIR_NAMES)
-        if key_name not in EXCLUDE_PAIR_NAMES and not is_staked(name=key_name) and not assets_dict.get(key_name, False):
+        if (
+            key_name not in EXCLUDE_PAIR_NAMES
+            and is_eur_pair(pair_name=key_name)  # e.g. a stock balance in USD
+            and not is_staked(name=key_name)
+            and not assets_dict.get(key_name, False)
+        ):
             asset = Asset(name=key_name, original_name=original_name)
             assets_dict[key_name] = asset
 
@@ -237,7 +246,8 @@ def fill_staking_info(kapi, assets_dict: dict[str, Asset]) -> float:
 
 
 def fill_orders(open_orders, assets_dict: dict[str, Asset]):
-    """Attach open orders to their assets. Returns (orders rows for pandas stats, buys_amount, sells_amount).
+    """Attach open orders to their assets. Returns (orders rows for pandas stats, buys_amount, sells_amount,
+    fx_eur_committed: EUR held by open EURUSD sells).
 
     Kraken OpenOrders is a dict keyed by txid with no documented order, so asset.orders keeps the response order
     and anything order-dependent must sort by creation_datetime (see Asset.oldest_order).
@@ -245,6 +255,7 @@ def fill_orders(open_orders, assets_dict: dict[str, Asset]):
     orders = []
     buys_amount = 0
     sells_amount = 0
+    fx_eur_committed = 0
     print('\n *****OPEN ORDERS READ*****')
 
     for txid, order_dict in open_orders.get('result').get('open').items():
@@ -256,6 +267,17 @@ def fill_orders(open_orders, assets_dict: dict[str, Asset]):
         amount = price * shares
         order = Order(txid=txid, order_type=order_detail['type'], shares=shares, price=price)
         order.creation_datetime = datetime.fromtimestamp(order_dict['opentm'])
+
+        # EURUSD price is USD per EUR: a sell holds `shares` EUR, a buy holds USD (no EUR)
+        if order_detail['pair'] == FX_PAIR:
+            if order.order_type == 'sell':
+                fx_eur_committed += shares
+            print(f'{FX_PAIR} order (EUR <-> USD exchange): {order.order_type} {shares} EUR at {price}')
+            continue
+        # Other pairs not quoted in EUR (stocks in USD) hold USD: out of the EUR totals
+        if not is_eur_pair(pair_name=order_detail['pair']):
+            print(f'Order for pair not quoted in EUR, out of the totals: {order_detail["pair"]}')
+            continue
 
         # Totals include every open order: it is cash committed even if the pair is not tracked
         if order.order_type == 'buy':
@@ -280,7 +302,7 @@ def fill_orders(open_orders, assets_dict: dict[str, Asset]):
             },
         )
 
-    return orders, buys_amount, sells_amount
+    return orders, buys_amount, sells_amount, fx_eur_committed
 
 
 def fill_trades(kapi, assets_dict: dict[str, Asset], last_trade_from_csv):
@@ -690,6 +712,7 @@ def print_cash_summary(
     sells_amount,
     buys_amount,
     cash_eur,
+    fx_eur_committed,
     staked_eur,
     count_missing_buys,
     count_remaining_buys,
@@ -710,11 +733,13 @@ def print_cash_summary(
     print_table(data=trading_activity_data, columns=cols_config, title="1. TRADING ACTIVITY")
 
     # --- TABLE 2: CASH STATUS ---
-    remaining_val = smart_round(number=cash_eur - buys_amount)
+    # Kraken Balance includes the EUR held by open orders: buys and EURUSD sells
+    remaining_val = smart_round(number=cash_eur - buys_amount - fx_eur_committed)
     highlighted_cash = BCOLORS.WARNING + f"{remaining_val}" + BCOLORS.ENDC
 
     cash_status_data = [
         {"desc": "Remaining Cash (EUR)", "val": highlighted_cash},
+        {"desc": f"EUR held by {FX_PAIR} sells", "val": smart_round(number=fx_eur_committed)},
         {"desc": "Staked cash", "val": smart_round(number=staked_eur)},
     ]
     print_table(data=cash_status_data, columns=cols_config, title="2. CASH STATUS")
@@ -819,7 +844,10 @@ def main():
 
     # ----------FILL ORDERS-------------------------------------------------------------------
     with timer(timings=timings, label='Open orders time'):
-        orders, buys_amount, sells_amount = fill_orders(open_orders=open_orders, assets_dict=assets_dict)
+        orders, buys_amount, sells_amount, fx_eur_committed = fill_orders(
+            open_orders=open_orders,
+            assets_dict=assets_dict,
+        )
 
     # ----------FILL TRADES-------------------------------------------------------------------
     last_trade_from_csv = None
@@ -859,6 +887,7 @@ def main():
             sells_amount=sells_amount,
             buys_amount=buys_amount,
             cash_eur=cash_eur,
+            fx_eur_committed=fx_eur_committed,
             staked_eur=staked_eur,
             count_missing_buys=count_missing_buys,
             count_remaining_buys=count_remaining_buys,

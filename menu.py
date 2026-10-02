@@ -12,6 +12,7 @@ SCRIPTS = [
     ("Orders", SRC / "orders.py"),
     ("eToro Orders", SRC / "etoro_orders.py"),
     ("Backtest", SRC / "backtest.py"),
+    ("Prices (EURUSD)", SRC / "prices.py"),
 ]
 
 

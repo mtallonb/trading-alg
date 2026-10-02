@@ -18,6 +18,7 @@ from utils.basic import (
     append_trades_to_csv,
     get_fix_pair_name,
     get_paginated_response_from_kraken,
+    is_eur_pair,
     my_round,
     print_table,
     read_trades_csv,
@@ -198,6 +199,17 @@ def fetch_new_trades(
     return trades_to_append_to_csv_asc
 
 
+def drop_non_eur_trades(trades: List[CSVTrade]) -> List[CSVTrade]:
+    """Trades of EUR-quoted pairs only: the G/L is in EUR, a USD cost (EURUSD, xStocks) would count as EUR.
+
+    They are still appended to the CSV, which keeps the whole history.
+    """
+    non_eur_pairs = sorted({trade.asset_name for trade in trades if not is_eur_pair(pair_name=trade.asset_name)})
+    if non_eur_pairs:
+        print(f'Trades of pairs not quoted in EUR left out of the G/L: {non_eur_pairs}')
+    return [trade for trade in trades if is_eur_pair(pair_name=trade.asset_name)]
+
+
 def compute_pair_gains(buy_trades: List[CSVTrade], sell_trades: List[CSVTrade], year: int) -> tuple[list[dict], dict]:
     """G/L FIFO/LIFO per pair sold in year, plus the totals of all pairs."""
     # Sorted so the per-pair logs (and ties in the tables) come out in the same order on every run
@@ -341,6 +353,8 @@ def main():
         buy_trades=buy_trades,
         sell_trades=sell_trades,
     )
+    buy_trades = drop_non_eur_trades(trades=buy_trades)
+    sell_trades = drop_non_eur_trades(trades=sell_trades)
 
     pair_gains, totals = compute_pair_gains(buy_trades=buy_trades, sell_trades=sell_trades, year=YEAR)
     print_summary(buy_trades=buy_trades, sell_trades=sell_trades, year=YEAR, totals=totals)
