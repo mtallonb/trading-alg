@@ -124,7 +124,9 @@ LOAD_ALL_CLOSE_PRICES = True
 TRADE_FILE = './data/trades_2026.csv'
 KEY_FILE = './data/keys/kraken.key'
 
-TREND_THR = 0.6  # rescaled from 0.2 on the old [-1,1]-truncated-to-0 TREND scale, now [0,1] with 0.5 = neutral
+# TREND: 1 averages rising from the longest session, 0 falling, mixed in (0.25, 0.75) led by the 10 vs 50-day gap
+TREND_SCALE = 0.1  # 10/50-day gap (agreed by the longer averages) giving a mixed TREND of 0.5 + 0.25 * tanh(1) = 0.69
+TREND_THR = 0.6
 AVG_SESSIONS = [200, 50, 10]  # Days of the price/volume averages used by TREND and VOL (at least 2)
 EXPECTED_SELLS_DAYS = 200  # Days used to count expected sell trades (X_TRADES)
 
@@ -445,7 +447,7 @@ def build_ranking_rows(assets_dict: dict[str, Asset]) -> list[dict]:
 def compute_and_print_ranking(assets_dict: dict[str, Asset], assets_by_last_trade: list[dict]) -> list[str]:
     """Compute the ranking, store it on each asset and print the ranking tables. Returns death asset names."""
     df = pd.DataFrame(assets_by_last_trade)
-    ranking_df, detailed_ranking_df = compute_ranking(df=df, sessions=AVG_SESSIONS)
+    ranking_df, detailed_ranking_df = compute_ranking(df=df, sessions=AVG_SESSIONS, trend_scale=TREND_SCALE)
 
     for record in ranking_df[['NAME', 'RANKING']].to_dict('records'):
         assets_dict[record['NAME']].ranking = record['RANKING']

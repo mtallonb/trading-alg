@@ -11,6 +11,7 @@ from codecs import iterdecode
 from csv import DictReader
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from itertools import pairwise
 
 import numpy as np
 import pandas as pd
@@ -300,21 +301,42 @@ def print_query_result(endpoint, result):
     print(f'Succeeded: {endpoint} records: {result["result"]["count"]}')
 
 
-def compute_ranking(df, sessions: list[int]):
+def trend_ratio(dist: pd.Series, dist_abs: pd.Series) -> pd.Series:
+    """dist / dist_abs in [-1, 1], 0 (neutral) when every difference is 0; NaN inputs stay NaN.
+
+    dist_abs == 0 means the value equals every average, but float rounding can leave dist slightly off 0
+    (e.g. 3 * 0.1 - 0.1 - 0.1 - 0.1 = 2.8e-17), so the plain division gave inf (then 0) or 0/0 = NaN (asset
+    dropped) depending on the price.
+    """
+    return (dist / dist_abs).where(dist_abs != 0, 0.0)
+
+
+def compute_ranking(df, sessions: list[int], trend_scale: float):
     """
     df input COLUMNS: [
         'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES', 'X_TRADES',
         'AVG_PRICE_<days>' and 'AVG_VOL_<days>' for each days in sessions,
         ]
-    With P = CURR_PRICE, P_d = AVG_PRICE_<d>, V_d = AVG_VOL_<d>, s = min(sessions) and d over sessions:
+    With P_d = AVG_PRICE_<d>, V_d = AVG_VOL_<d>, s1 < s2 the two shortest sessions (10, 50), s = s1, d over
+    sessions and d(a, b) = (P_a - P_b) / P_b:
 
-        TREND = (1 + sum_d(P - P_d) / sum_d(|P - P_d|)) / 2
+        TREND = 1  if the price averages strictly rise from the longest to the shortest session (P_200 < P_50 < P_10)
+                0  if they strictly fall (P_200 > P_50 > P_10)
+                otherwise (mixed):
+                    agreement  = share of the other (shorter a, longer b) pairs with d(a, b) of the same sign as
+                                 d(s1, s2) (equal averages count 1/2; 1 when there are no other pairs)
+                    TREND_PERC = d(s1, s2) * (1 + agreement) / 2
+                    TREND      = 0.5 + 0.25 * tanh(TREND_PERC / trend_scale)     in (0.25, 0.75)
         VOL   = (1 + sum_{d != s}(V_s - V_d) / sum_{d != s}(|V_s - V_d|)) / 2
         TREND_VOL = TREND * VOL
 
-    Both are in [0, 1]: 1 when P (or V_s) is above every other average, 0 when below all of them, 0.5 neutral.
-    With a single term the ratio is just ±1, so with 2 sessions VOL is always 0 or 1. VOL needs at least
-    2 sessions. If every difference is 0 the ratio is 0/0 = NaN, and the asset is dropped (printed).
+    TREND is the trend of the price averages themselves, not of the current price (it only enters the shortest
+    average). Only a perfect order gets 1 or 0. In mixed cases the most recent pair (10 vs 50) decides the side
+    and size (above 0.5 when the 10-day average is above the 50-day one), and the longer averages halve it when
+    none of them agrees. E.g. with trend_scale 0.1: SNX 0.22 / 0.19 / 0.22 (10-day +15.8 % over the 50-day) 0.69,
+    BCH 272 / 208 / 225 (still below the 200-day) 0.60, a pullback 1.0 / 1.3 / 1.2 (10-day -7.7 %) 0.41.
+    VOL is in [0, 1]: 1 when V_s is above every other average, 0 when below all of them, 0.5 when equal; it only
+    weights the sign by the distances, so with 2 sessions it is always 0 or 1. Both need at least 2 sessions.
 
     MARGIN_A is the asset result in EUR (Asset.margin_amount = sells + current balance - buys). With k the
     number of assets with MARGIN_A > 0 and r their rank by MARGIN_A (1 = lowest, ties averaged):
@@ -333,6 +355,16 @@ def compute_ranking(df, sessions: list[int]):
     if len(sessions) < 2:
         raise ValueError(f'At least 2 sessions are needed to compute VOL, got {sessions}')
     price_cols = [f'AVG_PRICE_{days}' for days in sessions]
+    sessions_asc = sorted(sessions)
+    longest_to_shortest_price_cols = [f'AVG_PRICE_{days}' for days in reversed(sessions_asc)]
+    # (shorter, longer) session pairs: the two shortest lead the mixed TREND, the others give the agreement
+    leading_pair = (sessions_asc[0], sessions_asc[1])
+    other_pairs = [
+        (shorter, longer)
+        for i, shorter in enumerate(sessions_asc)
+        for longer in sessions_asc[i + 1 :]
+        if (shorter, longer) != leading_pair
+    ]
     vol_cols = [f'AVG_VOL_{days}' for days in sessions]
     shortest_vol_col = f'AVG_VOL_{min(sessions)}'
     longer_vol_cols = [col for col in vol_cols if col != shortest_vol_col]
@@ -342,27 +374,35 @@ def compute_ranking(df, sessions: list[int]):
 
     df['P_BUY'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
     df['P_SELL'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
-    df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
-    df['BS_P'] = df['BS_P'].replace([np.inf, -np.inf], 0)
-    # Compute TREND
-    df['TREND_DIST'] = len(price_cols) * df.CURR_PRICE
-    df['TREND_DIST_ABS'] = 0.0
-    for col in price_cols:
-        df['TREND_DIST'] -= df[col]
-        df['TREND_DIST_ABS'] += (df.CURR_PRICE - df[col]).abs()
-    df['TREND'] = df.TREND_DIST / df.TREND_DIST_ABS
-    df['TREND'] = df['TREND'].replace([np.inf, -np.inf], 0)
-    # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
-    # so a slightly negative raw TREND still reflects its relative magnitude.
-    df['TREND'] = (df['TREND'] + 1) / 2
+    df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S  # AVG_S != 0 here
+    # Compute TREND (see docstring): mixed value led by the two shortest averages, 1/0 for a perfect order
+    def price_perc(shorter: int, longer: int) -> pd.Series:
+        return (df[f'AVG_PRICE_{shorter}'] - df[f'AVG_PRICE_{longer}']) / df[f'AVG_PRICE_{longer}']
+
+    leading_perc = price_perc(*leading_pair)
+    agreement = pd.Series(0.0 if other_pairs else 1.0, index=df.index)
+    for shorter, longer in other_pairs:
+        other_perc = price_perc(shorter, longer)
+        same_sign = np.sign(other_perc) == np.sign(leading_perc)
+        agreement += np.where(same_sign, 1.0, np.where(other_perc == 0, 0.5, 0.0)) / len(other_pairs)
+    df['TREND_PERC'] = leading_perc * (1 + agreement) / 2
+    df['TREND'] = 0.5 + 0.25 * np.tanh(df.TREND_PERC / trend_scale)
+
+    rising = pd.Series(True, index=df.index)
+    falling = pd.Series(True, index=df.index)
+    for longer_col, shorter_col in pairwise(longest_to_shortest_price_cols):
+        rising &= df[shorter_col] > df[longer_col]
+        falling &= df[shorter_col] < df[longer_col]
+    df.loc[rising, 'TREND'] = 1.0
+    df.loc[falling, 'TREND'] = 0.0
+    df.loc[df[price_cols].isna().any(axis=1), 'TREND'] = np.nan  # missing average: dropped (and printed) below
     # Compute VOL
     df['VOL_DIST'] = len(longer_vol_cols) * df[shortest_vol_col]
     df['VOL_DIST_ABS'] = 0.0
     for col in longer_vol_cols:
         df['VOL_DIST'] -= df[col]
         df['VOL_DIST_ABS'] += (df[shortest_vol_col] - df[col]).abs()
-    df['VOL'] = df.VOL_DIST / df.VOL_DIST_ABS
-    df['VOL'] = df['VOL'].replace([np.inf, -np.inf], 0)
+    df['VOL'] = trend_ratio(dist=df.VOL_DIST, dist_abs=df.VOL_DIST_ABS)
     # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
     # so a slightly negative raw VOL still reflects its relative magnitude.
     df['VOL'] = (df['VOL'] + 1) / 2

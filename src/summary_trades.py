@@ -200,8 +200,9 @@ def fetch_new_trades(
 
 def compute_pair_gains(buy_trades: List[CSVTrade], sell_trades: List[CSVTrade], year: int) -> tuple[list[dict], dict]:
     """G/L FIFO/LIFO per pair sold in year, plus the totals of all pairs."""
-    sell_pairs_in_year = set([sell.asset_name for sell in sell_trades if sell.completed.year == year])
-    sell_pairs_in_year = set([FILTER_ASSET_NAME]) if FILTER_ASSET_NAME else sell_pairs_in_year
+    # Sorted so the per-pair logs (and ties in the tables) come out in the same order on every run
+    sell_pairs_in_year = sorted({sell.asset_name for sell in sell_trades if sell.completed.year == year})
+    sell_pairs_in_year = [FILTER_ASSET_NAME] if FILTER_ASSET_NAME else sell_pairs_in_year
 
     total_gain_loss = 0
     gain_loss_year = 0
