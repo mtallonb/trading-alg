@@ -12,6 +12,7 @@ from utils.basic import (
     get_fix_pair_name,
     get_paginated_response_from_kraken,
     is_eur_pair,
+    is_xstock_pair,
     my_round,
     print_table,
     read_realised_gains,
@@ -40,6 +41,11 @@ ASSET_CONVERSIONS = [
     # WAVES delisted and converted to BTC (refids LABGJBC-TH6PA-CGKUYI, LA72OX5-EHUGC-B3OXJE)
     {'ASSET': 'WAVESEUR', 'DATETIME': '2024-10-11 09:39:58', 'TYPE': 'S', 'VOL': 84.9999999900},
     {'ASSET': 'XXBTZEUR', 'DATETIME': '2024-10-14 08:30:59', 'TYPE': 'B', 'VOL': 0.0013214450},
+]
+# Trades only in the Kraken ledger (not in TradesHistory, so not in the CSV): they move cash and positions
+MANUAL_TRADES = [
+    # EUR -> USD -> GOOGLx conversion (refid TSSVWVV-TQSBX-DRQRZW): 96.68 EUR for 0.3 GOOGLx
+    {'ASSET': 'GOOGLxUSD', 'DATETIME': '2026-04-30 10:34:16', 'TYPE': 'B', 'PRICE': 96.68 / 0.3, 'AMOUNT': 96.68, 'FEE': 0.0, 'VOL': 0.3},  # noqa # fmt: skip
 ]
 
 
@@ -89,17 +95,30 @@ def get_usd_positions(df_fx_trades: pd.DataFrame, df_fx_prices: pd.DataFrame, da
     df_usd_trades['FEE'] = 0.0  # Already taken from VOL, and the FEE column of the positions is in EUR
     df_usd_trades['ASSET'] = USD_ASSET
 
-    df_usd_prices = df_fx_prices[['DATE']].copy()
-    df_usd_prices['PRICE'] = 1 / pd.to_numeric(df_fx_prices.PRICE)
-    dates = pd.date_range(start=df_usd_prices.DATE.min(), end=date_to, freq='d').date
-    df_usd_prices = df_usd_prices.set_index('DATE').reindex(dates).ffill().rename_axis('DATE').reset_index()
-
     return get_asset_positions(
         asset_name=USD_ASSET,
         df_trades=df_usd_trades,
-        df_prices=df_usd_prices,
+        df_prices=get_eur_prices(df_fx_prices=df_fx_prices, date_to=date_to),
         date_to=date_to,
     )
+
+
+def get_eur_prices(
+    df_fx_prices: pd.DataFrame,
+    date_to: date,
+    df_usd_prices: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Daily EUR price of df_usd_prices (of 1 USD when None): USD price / EURUSD.
+
+    Days without a candle (in either file) keep the last known value.
+    """
+    dates = pd.date_range(start=df_fx_prices.DATE.min(), end=date_to, freq='d').date
+    fx_rate = pd.to_numeric(df_fx_prices.set_index('DATE').PRICE).reindex(dates).ffill()
+    usd_price = 1.0
+    if df_usd_prices is not None:
+        usd_price = pd.to_numeric(df_usd_prices.set_index('DATE').PRICE).reindex(dates).ffill()
+
+    return pd.DataFrame({'DATE': dates, 'PRICE': (usd_price / fx_rate).values})
 
 
 def get_asset_positions(
@@ -213,13 +232,15 @@ def read_trades(filename: str) -> pd.DataFrame:
     is_kept = df_trades.ASSET.map(lambda name: is_eur_pair(pair_name=name) or name == FX_PAIR)
     if not is_kept.all():
         print(f'Trades of pairs not quoted in EUR left out: {sorted(df_trades[~is_kept].ASSET.unique())}')
-    df_trades = df_trades[is_kept].reset_index(drop=True)
+    df_trades = df_trades[is_kept]
+    df_trades = pd.concat([df_trades, pd.DataFrame(MANUAL_TRADES)], ignore_index=True)
 
     # Operation types D|W|B|S stands for Deposit, Withdrawal, Buy, Sell
     df_trades['TYPE'] = df_trades['TYPE'].replace('buy', 'B')
     df_trades['TYPE'] = df_trades['TYPE'].replace('sell', 'S')
     df_trades.DATETIME = pd.to_datetime(df_trades.DATETIME)
     df_trades['DATE'] = df_trades['DATETIME'].dt.date
+    df_trades = df_trades.sort_values(by=['DATETIME'], kind='stable', ignore_index=True)
 
     # Watch out for this trade
     # XXLMXXBT,2018-02-01 17:33:11,buy,limit,0.00004885,0.014990794,0.000038976,306.8739771
@@ -316,15 +337,26 @@ def build_positions(
     # Update prices of USDCEUR
     update_asset_prices(asset_name='USDCEUR', kapi=kapi, date_to=date_to)
     df_list = [df_deposits, df_wd, get_cash_positions(df_trades=df_trades)]
+    df_fx_prices = None
+    if not df_fx_trades.empty or any(is_xstock_pair(pair_name=name) for name in asset_names):
+        df_fx_prices = update_asset_prices(asset_name=FX_PAIR, kapi=kapi, date_to=date_to)
     if not df_fx_trades.empty:
         df_list.append(get_fx_cash_positions(df_fx_trades=df_fx_trades))
-        df_fx_prices = update_asset_prices(asset_name=FX_PAIR, kapi=kapi, date_to=date_to)
         df_list.append(get_usd_positions(df_fx_trades=df_fx_trades, df_fx_prices=df_fx_prices, date_to=date_to))
     df_trades = add_conversions(df_trades=df_trades)
 
     for asset_name in asset_names:
-        fix_asset_name = get_fix_pair_name(pair_name=asset_name, fix_x_pair_names=FIX_X_PAIR_NAMES)
-        df_prices = update_asset_prices(asset_name=fix_asset_name, kapi=kapi, date_to=date_to)
+        if is_xstock_pair(pair_name=asset_name):
+            # Priced in USD (get_fix_pair_name would give e.g. GOOGLxUSDEUR): valued at USD price / EURUSD
+            fix_asset_name = asset_name
+            df_prices = get_eur_prices(
+                df_fx_prices=df_fx_prices,
+                date_to=date_to,
+                df_usd_prices=update_asset_prices(asset_name=asset_name, kapi=kapi, date_to=date_to),
+            )
+        else:
+            fix_asset_name = get_fix_pair_name(pair_name=asset_name, fix_x_pair_names=FIX_X_PAIR_NAMES)
+            df_prices = update_asset_prices(asset_name=fix_asset_name, kapi=kapi, date_to=date_to)
 
         df_trades_asset = df_trades[df_trades.ASSET == asset_name]
         df_asset_pos = get_asset_positions(

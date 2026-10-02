@@ -1,10 +1,17 @@
 from datetime import date
 
 import pandas as pd
+import pytest
 
 import balances
 
 from fake_kraken import FakeKraken
+
+@pytest.fixture(autouse=True)
+def no_manual_trades(monkeypatch):
+    # The real ledger-only trades (GOOGLx conversion) would be added to every trades CSV read in the tests
+    monkeypatch.setattr(balances, 'MANUAL_TRADES', [])
+
 
 LAST_FLOW_TIME = 1_780_000_000.1234  # Kraken ledger times are unix floats with 4 decimals
 
@@ -136,3 +143,24 @@ def test_current_balance_column_only_when_given(capsys):
         out = capsys.readouterr().out
         assert ('CURRENT BALANCE' in out) == (current_balance is not None)
         assert current_balance is None or '123' in out
+
+
+def test_manual_trade_moves_the_cash_and_the_xstock_is_valued_in_eur(tmp_path, monkeypatch):
+    # Ledger-only EUR -> USD -> GOOGLx conversion: not in TradesHistory, so the cash kept the EUR
+    manual_trade = {'ASSET': 'GOOGLxUSD', 'DATETIME': '2026-09-01 12:00:00', 'TYPE': 'B', 'PRICE': 322.0, 'AMOUNT': 96.6, 'FEE': 0.0, 'VOL': 0.3}  # noqa # fmt: skip
+    monkeypatch.setattr(balances, 'MANUAL_TRADES', [manual_trade])
+
+    df_trades = read_fx_trades(tmp_path=tmp_path)
+
+    assert list(df_trades.ASSET) == ['ADAEUR', 'GOOGLxUSD', 'EURUSD']  # in time order
+    df_cash = balances.get_cash_positions(df_trades=df_trades[df_trades.ASSET != balances.FX_PAIR])
+    assert round(df_cash.SHARES.sum(), 2) == -500 - 1 - 96.6
+
+    # USD price / EURUSD; no EURUSD candle on 09-02 and no candles at all on 09-03: last known values
+    df_prices = balances.get_eur_prices(
+        df_fx_prices=pd.DataFrame({'DATE': [date(2026, 9, 1)], 'PRICE': ['1.25']}),
+        date_to=date(2026, 9, 3),
+        df_usd_prices=pd.DataFrame({'DATE': [date(2026, 9, 1), date(2026, 9, 2)], 'PRICE': ['400', '410']}),
+    )
+    assert list(df_prices.DATE) == [date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)]
+    assert list(df_prices.PRICE) == [320.0, 328.0, 328.0]
