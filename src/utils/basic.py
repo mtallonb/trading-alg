@@ -9,8 +9,9 @@ import time
 from _csv import writer
 from codecs import iterdecode
 from csv import DictReader
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from itertools import pairwise
 
 import numpy as np
 import pandas as pd
@@ -37,7 +38,8 @@ XSTOCKS_SUFFIXES = '.TEUR'
 
 HEADER_PRICES = ["TIMESTAMP", "O", "H", "L", "C", "VOL", "TRADES"]
 HEADER_PRICES_KRAKEN = ["TIMESTAMP", "O", "H", "L", "C", "VWAP", "VOL", "TRADES"]
-HEADER_POSITIONS = ['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
+TRADES_CSV_HEADER = ['pair', 'time(UTC)', 'type', 'ordertype', 'price', 'cost', 'fee', 'vol']
+HEADER_POSITIONS =['DATE', 'ASSET', 'SHARES', 'PRICE', 'AMOUNT', 'FEE']
 RENAME_ASSET_MAPPING = {
     'XBTEUR': 'XXBTZEUR',
     'XRPEUR': 'XXRPZEUR',
@@ -45,10 +47,22 @@ RENAME_ASSET_MAPPING = {
     'XLMEUR': 'XXLMZEUR',
     'ETHEUR': 'XETHZEUR',
     'LTCEUR': 'XLTCZEUR',
+    'EURUSD': 'ZEURZUSD',  # USD per EUR: divide a USD amount by it to get EUR
 }
 
 OHLCV_DIR = './data/OHLCV_prices/'
+FX_PAIR = 'EURUSD'  # Currency exchange (USD per EUR), not an investment: base EUR, quoted in USD
+EXCLUDE_ASSET_PRICES_UPDATE = ['EOSEUR', 'XMREUR', 'MATICEUR', 'WAVESEUR']
 PRICES_DIR = './data/prices_with_volume/'
+REALISED_GAINS_FILE = './data/realised_gains_by_year.csv'
+OHLC_MAX_CANDLES = 720  # Kraken OHLC returns at most the 720 most recent candles, whatever `since` is
+OHLC_DAILY_SECONDS = 86400
+KRAKEN_RATE_LIMIT_RETRIES = 5
+KRAKEN_RATE_LIMIT_WAIT = 6  # Seconds: history calls cost 2 points and the counter decays 0.33 points/s at worst
+
+
+class KrakenError(Exception):
+    """Kraken answered with an error (after the rate limit retries)."""
 
 
 class BCOLORS:
@@ -96,6 +110,16 @@ def is_staked(name: str):
 
 def is_auto_staked(name: str):
     return name.endswith(AUTOSTAKING_SUFFIXES)
+
+
+def is_eur_pair(pair_name: str) -> bool:
+    """Kraken trade pair quoted in EUR (price/cost in EUR). False for e.g. EURUSD or xStocks in USD (AAPLxUSD)."""
+    return pair_name.endswith('EUR')
+
+
+def is_xstock_pair(pair_name: str) -> bool:
+    """Tokenized stock pair (xStocks, e.g. GOOGLxUSD): Kraken public endpoints need asset_class=tokenized_asset."""
+    return pair_name.endswith('xUSD')
 
 
 def remove_staking_suffix(name: str):
@@ -155,6 +179,10 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
             df = df.drop_duplicates(subset=['DATE'])
         else:
             df.DATE = pd.to_datetime(df.DATE).dt.date
+    elif not Path(f'{OHLCV_DIR}{asset_name}_1440.csv').exists():
+        # New pair (e.g. EURUSD): no local prices yet, update_asset_prices downloads them from Kraken
+        print(f"No local prices for: {asset_name}")
+        df = pd.DataFrame(columns=['DATE', 'PRICE', 'VOL'])
     else:
         print(f"Prices for: {asset_name} taken from OHLC prices")
         df = pd.read_csv(f'{OHLCV_DIR}{asset_name}_1440.csv', names=HEADER_PRICES)[['TIMESTAMP', 'C', 'VOL']]
@@ -163,22 +191,28 @@ def read_prices_from_local_file(asset_name: str) -> pd.DataFrame:
         df.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
     df_prices = df[['DATE', 'PRICE', 'VOL']]
-    df['VOL_EUR'] = df.VOL * df.PRICE
+    # VOL is in the pair's base currency: already EUR when EUR is the base (EURUSD, priced in USD per EUR)
+    is_eur_base = asset_name.startswith('EUR') and not is_eur_pair(pair_name=asset_name)
+    df['VOL_EUR'] = df.VOL if is_eur_base else df.VOL * df.PRICE
     df_volumes = df[['DATE', 'VOL_EUR']]
     return df_prices, df_volumes
 
 
-def cancel_orders(kapi, order_type, orders):
+def cancel_orders(kapi, order_type, orders) -> list:
+    """Cancel on Kraken the orders of order_type. Returns the ones Kraken actually cancelled."""
+    cancelled_orders = []
     for order in orders:
-        if order.order_type == order_type:
-            cancel_order(kapi, order)
+        if order.order_type == order_type and cancel_order(kapi=kapi, order=order):
+            cancelled_orders.append(order)
+    return cancelled_orders
 
 
-def cancel_order(kapi, order):
+def cancel_order(kapi, order) -> bool:
+    """Cancel the order on Kraken. Returns True if Kraken cancelled it (no error and count > 0)."""
     req_data = {'txid': order.txid}
     close_order_result = kapi.query_private('CancelOrder', req_data)
     print_query_result('CancelOrder', close_order_result)
-    return
+    return not close_order_result.get('error') and close_order_result['result'].get('count', 0) > 0
 
 
 def get_max_price_since(kapi, pair_name: str, original_name: str, since_datetime: datetime) -> PriceOHLC | None:
@@ -233,6 +267,11 @@ def get_fix_pair_name(pair_name, fix_x_pair_names, currency='EUR'):
 
 
 def load_from_csv(filename, assets_dict, fix_x_pair_names):
+    """Load the trades CSV into its assets and return its last row as the newest trade (None if empty).
+
+    The CSV must be sorted oldest first (summary_trades.py appends new trades in ascending time): each row is
+    inserted on top, which leaves asset.trades newest first, and the last row is taken as the newest trade.
+    """
     csv_file = open(filename, mode='rb')
     with csv_file:
         default_header = ['pair', 'time', 'type', 'ordertype', 'price', 'cost', 'fee', 'vol']
@@ -240,6 +279,7 @@ def load_from_csv(filename, assets_dict, fix_x_pair_names):
         # Skip the header
         next(csv_reader, None)
 
+        trade = None  # Returned as-is when the CSV has no trades
         for asset_csv in csv_reader:
             asset_name = get_fix_pair_name(asset_csv['pair'], fix_x_pair_names)
             asset = assets_dict.get(asset_name)
@@ -280,44 +320,138 @@ def print_query_result(endpoint, result):
     print(f'Succeeded: {endpoint} records: {result["result"]["count"]}')
 
 
-def compute_ranking(df):
+def trend_ratio(dist: pd.Series, dist_abs: pd.Series) -> pd.Series:
+    """dist / dist_abs in [-1, 1], 0 (neutral) when every difference is 0; NaN inputs stay NaN.
+
+    dist_abs == 0 means the value equals every average, but float rounding can leave dist slightly off 0
+    (e.g. 3 * 0.1 - 0.1 - 0.1 - 0.1 = 2.8e-17), so the plain division gave inf (then 0) or 0/0 = NaN (asset
+    dropped) depending on the price.
+    """
+    return (dist / dist_abs).where(dist_abs != 0, 0.0)
+
+
+def compute_ranking(df, sessions: list[int], trend_scale: float):
     """
     df input COLUMNS: [
         'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'S_TRADES', 'X_TRADES',
-        'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10',
+        'AVG_PRICE_<days>' and 'AVG_VOL_<days>' for each days in sessions,
         ]
-    """
+    With P_d = AVG_PRICE_<d>, V_d = AVG_VOL_<d>, s1 < s2 the two shortest sessions (10, 50), s = s1, d over
+    sessions and d(a, b) = (P_a - P_b) / P_b:
 
-    df['MARGIN_P'] = df.MARGIN_A
+        TREND = 1  if the price averages strictly rise from the longest to the shortest session (P_200 < P_50 < P_10)
+                0  if they strictly fall (P_200 > P_50 > P_10)
+                otherwise (mixed):
+                    agreement  = share of the other (shorter a, longer b) pairs with d(a, b) of the same sign as
+                                 d(s1, s2) (equal averages count 1/2; 1 when there are no other pairs)
+                    TREND_PERC = d(s1, s2) * (1 + agreement) / 2
+                    TREND      = 0.5 + 0.25 * tanh(TREND_PERC / trend_scale)     in (0.25, 0.75)
+        VOL   = (1 + sum_{d != s}(V_s - V_d) / sum_{d != s}(|V_s - V_d|)) / 2
+        TREND_VOL = TREND * VOL
+
+    TREND is the trend of the price averages themselves, not of the current price (it only enters the shortest
+    average). Only a perfect order gets 1 or 0. In mixed cases the most recent pair (10 vs 50) decides the side
+    and size (above 0.5 when the 10-day average is above the 50-day one), and the longer averages halve it when
+    none of them agrees. E.g. with trend_scale 0.1: SNX 0.22 / 0.19 / 0.22 (10-day +15.8 % over the 50-day) 0.69,
+    BCH 272 / 208 / 225 (still below the 200-day) 0.60, a pullback 1.0 / 1.3 / 1.2 (10-day -7.7 %) 0.41.
+    VOL is in [0, 1]: 1 when V_s is above every other average, 0 when below all of them, 0.5 when equal; it only
+    weights the sign by the distances, so with 2 sessions it is always 0 or 1. Both need at least 2 sessions.
+
+    MARGIN_A is the asset result in EUR (Asset.margin_amount = sells + current balance - buys). With k the
+    number of assets with MARGIN_A > 0 and r their rank by MARGIN_A (1 = lowest, ties averaged):
+
+        MARGIN_P = 0      if MARGIN_A <= 0
+        MARGIN_P = r / k  if MARGIN_A > 0
+
+    So losing assets all score 0 and winning ones are spread evenly in (0, 1] (lowest 1/k, highest 1). Only the
+    order counts, not the amount: an outlier (e.g. BTC with 4x the next margin) doesn't squash the rest, so no
+    hand-tuned cap is needed (it replaces the old `6 * mean(MARGIN_A)` cap). MARGIN_P is already in [0, 1],
+    so it is not min/max normalized like the other terms.
+
+    Assets without sells (AVG_S == 0) or with a NaN RANKING term are dropped before the cross-asset stats
+    (MARGIN_P rank and min/max normalization), so they don't change the scale of the ranked ones.
+    """
+    if len(sessions) < 2:
+        raise ValueError(f'At least 2 sessions are needed to compute VOL, got {sessions}')
+    price_cols = [f'AVG_PRICE_{days}' for days in sessions]
+    sessions_asc = sorted(sessions)
+    longest_to_shortest_price_cols = [f'AVG_PRICE_{days}' for days in reversed(sessions_asc)]
+    # (shorter, longer) session pairs: the two shortest lead the mixed TREND, the others give the agreement
+    leading_pair = (sessions_asc[0], sessions_asc[1])
+    other_pairs = [
+        (shorter, longer)
+        for i, shorter in enumerate(sessions_asc)
+        for longer in sessions_asc[i + 1 :]
+        if (shorter, longer) != leading_pair
+    ]
+    vol_cols = [f'AVG_VOL_{days}' for days in sessions]
+    shortest_vol_col = f'AVG_VOL_{min(sessions)}'
+    longer_vol_cols = [col for col in vol_cols if col != shortest_vol_col]
+
+    # Assets without sells are not ranked: drop them before any cross-asset stat (mean, min/max)
+    df = df[df.AVG_S != 0.0].copy()
+
     df['P_BUY'] = (df.CURR_PRICE - df.AVG_B) / df.CURR_PRICE
     df['P_SELL'] = (df.CURR_PRICE - df.AVG_S) / df.CURR_PRICE
-    df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S
-    df['BS_P'] = df['BS_P'].replace([np.inf, -np.inf], 0)
-    # Compute TREND
-    df['TREND_DIST'] = 3 * df.CURR_PRICE - df.AVG_PRICE_200 - df.AVG_PRICE_50 - df.AVG_PRICE_10
-    df['TREND_DIST_ABS'] = (df.CURR_PRICE - df.AVG_PRICE_200).abs() + (df.CURR_PRICE - df.AVG_PRICE_50).abs() + (df.CURR_PRICE - df.AVG_PRICE_10).abs()  # fmt: skip # noqa
-    df['TREND'] = df.TREND_DIST / df.TREND_DIST_ABS
-    df['TREND'] = df['TREND'].replace([np.inf, -np.inf], 0)
-    # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
-    # so a slightly negative raw TREND still reflects its relative magnitude.
-    df['TREND'] = (df['TREND'] + 1) / 2
-    # Compute TREND_VOL
-    df['VOL_DIST'] = 2 * df.AVG_VOL_10 - df.AVG_VOL_200 - df.AVG_VOL_50
-    df['VOL_DIST_ABS'] = (df.AVG_VOL_10 - df.AVG_VOL_200).abs() + (df.AVG_VOL_10 - df.AVG_VOL_50).abs()
-    df['VOL'] = df.VOL_DIST / df.VOL_DIST_ABS
-    df['VOL'] = df['VOL'].replace([np.inf, -np.inf], 0)
+    df['BS_P'] = (df.AVG_S - df.AVG_B) / df.AVG_S  # AVG_S != 0 here
+    # Compute TREND (see docstring): mixed value led by the two shortest averages, 1/0 for a perfect order
+    def price_perc(shorter: int, longer: int) -> pd.Series:
+        return (df[f'AVG_PRICE_{shorter}'] - df[f'AVG_PRICE_{longer}']) / df[f'AVG_PRICE_{longer}']
+
+    leading_perc = price_perc(*leading_pair)
+    agreement = pd.Series(0.0 if other_pairs else 1.0, index=df.index)
+    for shorter, longer in other_pairs:
+        other_perc = price_perc(shorter, longer)
+        same_sign = np.sign(other_perc) == np.sign(leading_perc)
+        agreement += np.where(same_sign, 1.0, np.where(other_perc == 0, 0.5, 0.0)) / len(other_pairs)
+    df['TREND_PERC'] = leading_perc * (1 + agreement) / 2
+    df['TREND'] = 0.5 + 0.25 * np.tanh(df.TREND_PERC / trend_scale)
+
+    rising = pd.Series(True, index=df.index)
+    falling = pd.Series(True, index=df.index)
+    for longer_col, shorter_col in pairwise(longest_to_shortest_price_cols):
+        rising &= df[shorter_col] > df[longer_col]
+        falling &= df[shorter_col] < df[longer_col]
+    df.loc[rising, 'TREND'] = 1.0
+    df.loc[falling, 'TREND'] = 0.0
+    df.loc[df[price_cols].isna().any(axis=1), 'TREND'] = np.nan  # missing average: dropped (and printed) below
+    # Compute VOL
+    df['VOL_DIST'] = len(longer_vol_cols) * df[shortest_vol_col]
+    df['VOL_DIST_ABS'] = 0.0
+    for col in longer_vol_cols:
+        df['VOL_DIST'] -= df[col]
+        df['VOL_DIST_ABS'] += (df[shortest_vol_col] - df[col]).abs()
+    df['VOL'] = trend_ratio(dist=df.VOL_DIST, dist_abs=df.VOL_DIST_ABS)
     # Rescale from [-1, 1] to [0, 1] instead of truncating negatives to 0,
     # so a slightly negative raw VOL still reflects its relative magnitude.
     df['VOL'] = (df['VOL'] + 1) / 2
 
     df.loc[df.P_BUY <= -2, 'P_BUY'] = -2.0
     df.loc[df.P_SELL <= -2, 'P_SELL'] = -2.0
-    df.loc[df.MARGIN_P > 6 * df.MARGIN_A.mean(), 'MARGIN_P'] = 6 * df.MARGIN_A.mean()
     df['TREND_VOL'] = df.TREND * df.VOL
 
+    # A NaN in any RANKING term makes RANKING NaN: drop those assets before any cross-asset stat
+    ranking_terms = ['P_BUY', 'P_SELL', 'BS_P', 'S_TRADES', 'MARGIN_A', 'X_TRADES', 'TREND_VOL']
+    idx_nan = df[ranking_terms].isna().any(axis=1)
+    nan_check_cols = ['CURR_PRICE', 'AVG_B', 'MARGIN_A', 'S_TRADES', 'X_TRADES', *price_cols, *vol_cols, 'TREND', 'VOL']
+    for _, row in df[idx_nan].iterrows():
+        nan_cols = [col for col in nan_check_cols if pd.isna(row[col])]
+        print(f'{BCOLORS.WARNING}Asset {row.NAME} dropped from ranking, NaN in: {", ".join(nan_cols)}{BCOLORS.ENDC}')
+    df = df[~idx_nan].copy()
+
+    # Negative margins (losing assets) score 0. Positive ones score their percentile rank among them, already in
+    # (0, 1], so an outlier (e.g. BTC) doesn't squash the rest and no cap is needed
+    df['MARGIN_P'] = df.MARGIN_A.where(df.MARGIN_A > 0).rank(pct=True)
+    df.loc[df.MARGIN_A <= 0, 'MARGIN_P'] = 0.0
+
     # ------NORMALIZATION--------
-    COLS_TO_NORM = ['P_BUY', 'P_SELL', 'BS_P', 'S_TRADES', 'MARGIN_P', 'X_TRADES']
-    df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
+    def normalize(x):
+        # A constant column would be 0/0 = NaN for every asset and drop them all: use 0 instead (NaN kept)
+        x_range = x.max() - x.min()
+        return (x - x.min()) / x_range if x_range != 0 else x - x.min()
+
+    COLS_TO_NORM = ['P_BUY', 'P_SELL', 'BS_P', 'S_TRADES', 'X_TRADES']
+    df[COLS_TO_NORM] = df[COLS_TO_NORM].apply(normalize)
     # ---------------------------
 
     df['RANKING'] = (
@@ -332,18 +466,14 @@ def compute_ranking(df):
         + df['TREND_VOL']
     )
 
-    idx_avg_s_zeros = df['AVG_S'] == 0.0
-    df.loc[idx_avg_s_zeros, 'RANKING'] = np.nan
-    # df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.dropna(subset=["RANKING"], how="all", inplace=True)
     # idx = df['RANKING'] < -10
     # df.loc[idx, 'RANKING'] = -10
-    df['RANKING'] = df['RANKING'] - df['RANKING'].min()
-    df['RANKING'] = (df['RANKING'] / df['RANKING'].max()) * 10
+    # Scaled to [0, 10]; a single asset (or all equal) is 0 instead of 0/0 = NaN
+    df['RANKING'] = normalize(df['RANKING']) * 10
 
     df.sort_values(by=['RANKING'], inplace=True, ignore_index=True, ascending=False)
     ranking_df = df[['RANKING', 'NAME', 'LAST_TRADE', 'IBS', 'BLR', 'MARGIN_P', 'S_TRADES', 'X_TRADES', 'P_BUY', 'P_SELL', 'BS_P', 'TREND', 'VOL', 'TREND_VOL']]  # fmt: skip # noqa
-    details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', 'AVG_PRICE_200', 'AVG_PRICE_50', 'AVG_PRICE_10', 'TREND', 'AVG_VOL_200', 'AVG_VOL_50', 'AVG_VOL_10','VOL']]  # fmt: skip # noqa
+    details_df = df[['RANKING', 'NAME', 'CURR_PRICE', 'AVG_B', 'AVG_S', 'MARGIN_A', *price_cols, 'TREND', *vol_cols, 'VOL']]  # fmt: skip # noqa
 
     return ranking_df, details_df
 
@@ -357,6 +487,7 @@ def read_trades_csv(filename, buy_trades, sell_trades):
 
         next(csv_reader, None)
 
+        trade = None  # Returned as-is when the CSV has no trades
         for asset_csv in csv_reader:
             trade = CSVTrade(
                 asset_csv['pair'],
@@ -376,9 +507,16 @@ def read_trades_csv(filename, buy_trades, sell_trades):
 
 
 def append_trades_to_csv(filename, trades_to_append):
-    # Write latest trades to CSV
+    """Append trades to the trades CSV, writing the header first when the file is missing or empty.
+
+    Readers (read_trades_csv, load_from_csv) skip the first line, so without the header the first trade of an
+    empty file would be lost.
+    """
+    needs_header = not os.path.exists(filename) or os.path.getsize(filename) == 0
     with open(filename, mode='a+', newline='') as csvfile:
         append_writer = writer(csvfile)
+        if needs_header:
+            append_writer.writerow(TRADES_CSV_HEADER)
         for trade in trades_to_append:
             row = [
                 trade.asset_name,
@@ -394,25 +532,88 @@ def append_trades_to_csv(filename, trades_to_append):
         csvfile.close()
 
 
+def read_realised_gains(filename: str) -> dict[int, float]:
+    """Realised gain (G/L sell amount) per year, ascending by year."""
+    df = pd.read_csv(filename).sort_values(by=['YEAR'])
+    return dict(zip(df.YEAR, df.GL_SELL_AMOUNT))
+
+
+def save_realised_gain(filename: str, year: int, amount: float):
+    """Insert or replace the realised gain of year, keeping the other years."""
+    gains = read_realised_gains(filename=filename) if os.path.exists(filename) else {}
+    gains[year] = round(float(amount), 2)
+    df = pd.DataFrame(sorted(gains.items()), columns=['YEAR', 'GL_SELL_AMOUNT'])
+    df.to_csv(filename, index=False)
+
+
 def get_new_prices(
     kapi,
     asset_name: str,
     timestamp_from: datetime.timestamp,
     with_volumes: bool = False,
 ) -> pd.DataFrame:
+    """Daily OHLC candles of the asset since timestamp_from (unix), as a DataFrame with TIMESTAMP, C (and VOL).
+
+    Kraken returns at most the 720 most recent candles (~2 years for daily ones), whatever `since` is, so an older
+    timestamp_from leaves a gap: warns when the first candle starts more than one day after timestamp_from.
+    """
     if asset_name in RENAME_ASSET_MAPPING:
         asset_name = RENAME_ASSET_MAPPING[asset_name]
-    # If timestamp_from is higher than 2 years display a warning
-    prices = kapi.query_public('OHLC', {'pair': asset_name, 'interval': 1440, 'since': timestamp_from})
+    params = {'pair': asset_name, 'interval': 1440, 'since': timestamp_from}
+    if is_xstock_pair(pair_name=asset_name):
+        params['asset_class'] = 'tokenized_asset'  # Without it: 'EQuery:Invalid asset pair'
+    prices = kapi.query_public('OHLC', params)
     if not prices.get('result') or not prices['result'].get(asset_name):
         print(f'ERROR: OHLC for Asset {asset_name} not found')
         return None
     df_prices = pd.DataFrame.from_dict(prices['result'][asset_name])
     df_prices.columns = HEADER_PRICES_KRAKEN
+
+    first_candle_time = int(df_prices.TIMESTAMP.iloc[0])
+    if first_candle_time > timestamp_from + OHLC_DAILY_SECONDS:
+        missing_from = datetime.fromtimestamp(timestamp_from, tz=timezone.utc).date()
+        first_candle = datetime.fromtimestamp(first_candle_time, tz=timezone.utc).date()
+        print(
+            f'{BCOLORS.WARNING}OHLC GAP for {asset_name}: asked since {missing_from} but Kraken starts at '
+            f'{first_candle} (it only returns the {OHLC_MAX_CANDLES} latest daily candles, or the pair is newer): '
+            f'prices from {missing_from} to {first_candle} are missing{BCOLORS.ENDC}',
+        )
     columns_to_get = ['TIMESTAMP', 'C']
     if with_volumes:
         columns_to_get = ['TIMESTAMP', 'C', 'VOL']
     df_prices = df_prices[columns_to_get]
+
+    return df_prices
+
+
+def update_asset_prices(
+    asset_name: str,
+    kapi,
+    date_to: date,
+) -> pd.DataFrame:
+    """Update the file of prices for the asset."""
+
+    latest_date = date_to - timedelta(days=600)
+    df_prices, _ = read_prices_from_local_file(asset_name=asset_name)
+    if asset_name in EXCLUDE_ASSET_PRICES_UPDATE:
+        return df_prices
+
+    if not df_prices.empty:
+        latest_date = df_prices.DATE.iloc[-1]
+
+    # The latest stored day may hold a partial (not yet closed) candle: fetch it again and keep the new close
+    if latest_date <= date_to:
+        new_prices = get_new_prices(
+            kapi=kapi,
+            asset_name=asset_name,
+            timestamp_from=from_date_to_timestamp(day=latest_date),
+            with_volumes=True,
+        )
+        if new_prices is not None:
+            new_prices = timestamp_df_to_date_df(df=new_prices)
+            df_prices = pd.concat([df_prices, new_prices])
+            df_prices = df_prices.drop_duplicates(subset=['DATE'], keep='last')
+            df_prices.to_csv(f'{PRICES_DIR}{asset_name}_DAILY_WITH_VOLUME.csv', index=False)
 
     return df_prices
 
@@ -472,29 +673,58 @@ def get_paginated_response_from_kraken(
     endpoint: str,
     dict_key: str,
     params: dict,
-    pages: int,
-    records_per_page: int,
+    pages: int | None,
     is_private: bool = True,
     timestamp_from=None,
 ) -> list[dict]:
+    """Query up to `pages` pages (all of them if None) and return one dict per page.
+
+    Pages and the records inside each dict keep Kraken's order (TradesHistory: most recent first). timestamp_from
+    is sent as `start` (exclusive): only newer records. The offset `ofs` advances by the records actually received,
+    so it works with any Kraken page size (50 by default). Stops on an empty page or when `count` records are read.
+    Rate limit errors are retried; any other error raises KrakenError instead of returning the pages read so far,
+    since they are only the newest records and saving them (e.g. to the trades CSV) would leave a gap.
+    """
     records = []
     if timestamp_from:
         params['start'] = timestamp_from
 
-    for page in range(pages):
-        params['ofs'] = records_per_page * page
+    offset = 0
+    page = 0
+    while pages is None or page < pages:
+        params['ofs'] = offset
+        response = query_kraken_with_retry(kapi=kapi, endpoint=endpoint, params=params, is_private=is_private)
+        if response.get('error'):
+            raise KrakenError(f'Kraken {endpoint} error {response["error"]} after reading {offset} records')
+
+        result = response['result']
+        results = result.get(dict_key)
+        if not results:
+            return records
+
+        records.append(results)
+        offset += len(results)
+        page += 1
+        if 'count' in result and offset >= int(result['count']):
+            return records
+
+    return records
+
+
+def query_kraken_with_retry(kapi, endpoint: str, params: dict, is_private: bool) -> dict:
+    """Query Kraken, waiting and retrying while it answers with a rate limit error. Returns the last response."""
+    for attempt in range(KRAKEN_RATE_LIMIT_RETRIES + 1):
         if is_private:
             response = kapi.query_private(endpoint, params)
         else:
             response = kapi.query_public(endpoint, params)
 
-        results = response.get('result').get(dict_key)
-        if results:
-            records.append(results)
-        else:
-            return records
-
-    return records
+        is_rate_limit = any('Rate limit' in error for error in response.get('error', []))
+        if not is_rate_limit or attempt == KRAKEN_RATE_LIMIT_RETRIES:
+            return response
+        print(f'{endpoint}: Kraken rate limit, waiting {KRAKEN_RATE_LIMIT_WAIT} s')
+        time.sleep(KRAKEN_RATE_LIMIT_WAIT)
+    return response
 
 
 def smart_round(number: float | int | Decimal | None) -> str:

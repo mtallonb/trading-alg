@@ -211,15 +211,16 @@ class Asset:
             return f'{BCOLORS.WARNING}{my_round(value=self.ranking, decimal_places=1)}{BCOLORS.ENDC}'
 
     def oldest_order(self, type: str | None = None) -> Order | None:
-        if type is None:
-            return self.orders[0] if self.orders else None
+        """Open order (of type, if given) with the earliest creation_datetime, or None.
 
-        for order in self.orders:
-            if order.order_type == type:
-                return order
-        return None
+        Sorted by creation time instead of taking the first one: self.orders keeps the Kraken OpenOrders response
+        order (a dict keyed by txid), which is not documented.
+        """
+        orders = [order for order in self.orders if type is None or order.order_type == type]
+        return min(orders, key=lambda order: order.creation_datetime) if orders else None
 
     def latest_trade(self, type: str | None = None) -> Trade | None:
+        """Newest trade (of type, if given), or None. Relies on self.trades being newest first."""
         if type is None:
             return self.trades[0] if self.trades else None
         for trade in self.trades:
@@ -286,6 +287,29 @@ class Asset:
 
             print(f'{BCOLORS.FAIL}Missing staking info: {self.name}{BCOLORS.ENDC}')
 
+    def add_order(self, order: Order):
+        """Attach an open order and add it to the buy/sell order totals (count, amount, closest price)."""
+        self.orders.append(order)
+        amount = order.price * order.shares
+        if order.order_type == OP_BUY:
+            self.orders_buy_amount += amount
+            self.orders_buy_count += 1
+            self.update_orders_buy_higher_price(price=order.price)
+        else:
+            self.orders_sell_amount += amount
+            self.orders_sell_count += 1
+            self.update_orders_sell_lower_price(price=order.price)
+
+    def remove_orders(self, orders: list[Order]):
+        """Detach orders (e.g. cancelled) and recompute the order totals from the remaining ones."""
+        remaining_orders = [order for order in self.orders if order not in orders]
+        self.orders = []
+        self.orders_buy_count = self.orders_sell_count = 0
+        self.orders_buy_amount = self.orders_sell_amount = 0.0
+        self.orders_buy_higher_price = self.orders_sell_lower_price = 0.0
+        for order in remaining_orders:
+            self.add_order(order=order)
+
     def update_orders_sell_lower_price(self, price):
         if not self.orders_sell_lower_price:
             self.orders_sell_lower_price = price
@@ -301,13 +325,19 @@ class Asset:
             self.orders_buy_higher_price = price
 
     def add_trade(self, trade):
-        if self.trades and self.trades[0].is_partial(trade):
-            self.trades[0].sum_trade(trade)
+        """Append a trade older than every trade in self.trades (newest first), fusing it if partial."""
+        # trades is newest first and this appends an older trade, so the adjacent one is the last
+        if self.trades and self.trades[-1].is_partial(trade):
+            self.trades[-1].sum_trade(trade)
         else:
             self.trades.append(trade)
         self.update_calc(trade)
 
     def insert_trade_on_top(self, trade):
+        """Insert a trade newer than every trade in self.trades (newest first) at trades[0], fusing it if partial.
+
+        To add several trades call it oldest first, so the newest one ends at trades[0].
+        """
         # if trade is the same we fuse instead
         if self.trades and self.trades[0].is_partial(trade):
             self.trades[0].sum_trade(trade)
@@ -338,15 +368,19 @@ class Asset:
 
         staking_data = [
             {
-                "shares": f"{smart_round(self.shares)} | {smart_round(self.staked_shares)}",
-                "balance": f"{smart_round(self.spot_balance)} | {smart_round(self.stacked_balance)}",
-                "total_balance": smart_round(self.balance),
+                "spot_shares": smart_round(number=self.shares),
+                "manual_shares": smart_round(number=self.staked_shares),
+                "spot_balance": smart_round(number=self.spot_balance),
+                "manual_balance": smart_round(number=self.stacked_balance),
+                "total_balance": smart_round(number=self.balance),
             },
         ]
         staking_cols = [
-            ("shares", "SHARES: Spot (incl. autostaked shares) | Manual", "^"),
-            ("balance", "BALANCE: Spot | Manual", "^"),
-            ("total_balance", "Balance (All staked+spot)", "^"),
+            ("spot_shares", "SHARES: Spot\n(incl. autostaked)", "^"),
+            ("manual_shares", "SHARES:\nManual", "^"),
+            ("spot_balance", "BALANCE:\nSpot", "^"),
+            ("manual_balance", "BALANCE:\nManual", "^"),
+            ("total_balance", "Balance\n(All staked+spot)", "^"),
         ]
         print_table(staking_data, staking_cols, title="STAKING INFO")
 
@@ -360,7 +394,7 @@ class Asset:
         else:
             return f'{BCOLORS.WARNING}{smart_round(self.avg_buys)!s} | {perc!s} %{BCOLORS.ENDC}'
 
-    def print_buy_message(self, gain_perc: float, minimum_buy_amount: float):
+    def print_buy_message(self, gain_perc: float, minimum_buy_amount: float, sessions: list[int]):
         from utils.basic import BCOLORS, print_separator, print_table, smart_round
 
         latest_trade = self.trades[0]
@@ -474,12 +508,8 @@ class Asset:
 
         sessions_data = [
             {
-                "sessions_prices": f"{smart_round(self.avg_session_price(days=200))}"
-                f" | {smart_round(self.avg_session_price(days=50))}"
-                f" | {smart_round(self.avg_session_price(days=10))}",
-                "sessions_vol": f"{smart_round(self.avg_session_volume(days=200))}"
-                f" | {smart_round(self.avg_session_volume(days=50))}"
-                f" | {smart_round(self.avg_session_volume(days=10))}",
+                "sessions_prices": " / ".join(str(smart_round(self.avg_session_price(days=days))) for days in sessions),
+                "sessions_vol": " / ".join(str(smart_round(self.avg_session_volume(days=days))) for days in sessions),
             },
         ]
 
@@ -493,7 +523,7 @@ class Asset:
         print_table(buys_data, buys_cols, title="ACCUMULATED BUYS STATUS (RATE)") if self.last_buys_count > 0 else None  # fmt: skip # noqa
         print_table(margin_data, margin_cols, title="MARGIN STATUS")
         print_table(last_trade_data, last_trade_cols, title="LAST TRADE HISTORY")
-        print_table(sessions_data, sessions_cols, title="Sessions (200)(50)(10)")
+        print_table(sessions_data, sessions_cols, title="Sessions " + "".join(f"({days})" for days in sessions))
 
     def print_set_order_message(self, order_type: str, order_percentage: float, minimum_order_amount: float) -> None:
         from utils.basic import BCOLORS, my_round
@@ -558,6 +588,9 @@ class Asset:
                 "last_price": smart_round(number=last_price),
                 "ranking": self.get_ranking_message(),
                 "suggested_buy_price": smart_round(number=suggested_buy_price),
+                "current_buy_price": smart_round(number=self.orders_buy_higher_price)
+                if self.orders_buy_higher_price
+                else "N/A",
             },
         ]
         market_cols = [
@@ -565,7 +598,8 @@ class Asset:
             ("curr_price", "Curr. Price", "^"),
             ("last_price", "Last Trade Price", "^"),
             ("ranking", "Ranking", "^"),
-            ("suggested_buy_price", "Suggested buy price (max after last trade)", "^"),
+            ("suggested_buy_price", "Suggested buy price\n(max after last trade)", "^"),
+            ("current_buy_price", "Current buy price", "^"),
         ]
 
         buys_data = [
@@ -614,7 +648,7 @@ class Asset:
             ("balance", "Balance", "^"),
             ("sell_amount", "Sells Amount", "^"),
             ("buy_amount", "Buys Amount", "^"),
-            ("margin", "Margin (Balance+S-B)", "^"),
+            ("margin", "Margin \n(Balance+S-B)", "^"),
         ]
 
         last_trade_data = [
